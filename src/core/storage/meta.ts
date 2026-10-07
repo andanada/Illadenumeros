@@ -5,6 +5,8 @@ export const META_KEYS = {
   schemaVersion: 'schemaVersion',
   createdAt: 'createdAt',
   lastBackupAt: 'lastBackupAt',
+  /** Registry id of the player owning this database: lets a damaged registry be rebuilt with the same ids. */
+  playerId: 'playerId',
 } as const
 
 export const metaRowSchema = z.object({ key: z.string(), value: z.unknown() })
@@ -14,6 +16,7 @@ export interface Meta {
   schemaVersion?: number
   createdAt?: number
   lastBackupAt?: number
+  playerId?: string
 }
 
 const timestamp = z.number().int().nonnegative()
@@ -21,7 +24,8 @@ const META_VALUE_SCHEMAS = {
   schemaVersion: z.number().int().min(1),
   createdAt: timestamp,
   lastBackupAt: timestamp,
-} as const satisfies Record<keyof Meta, z.ZodType<number>>
+  playerId: z.uuid(),
+} as const satisfies { [K in keyof Meta]-?: z.ZodType<NonNullable<Meta[K]>> }
 
 export const initialMeta = (schemaVersion: number, createdAt: number): MetaRow[] => [
   { key: META_KEYS.schemaVersion, value: schemaVersion },
@@ -38,6 +42,11 @@ export async function readMeta(database: MatesDb): Promise<Meta> {
     const value = META_VALUE_SCHEMAS[key].safeParse(parsedRow.data.value)
     return value.success ? { ...meta, [key]: value.data } : meta
   }, {})
+}
+
+/** Stamps the database with the id of the player that owns it. */
+export async function setPlayerId(database: MatesDb, playerId: string): Promise<void> {
+  await database.meta.put({ key: META_KEYS.playerId, value: z.uuid().parse(playerId) })
 }
 
 /** Remembers when the adult last saved a copy (drives the gentle reminder on the family page). */

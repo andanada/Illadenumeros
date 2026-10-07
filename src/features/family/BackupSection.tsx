@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { exportProgress, serializeBackup } from '../../core/storage/backup'
-import { db } from '../../core/storage/db'
+import { getDb } from '../../core/storage/playerDbs'
 import { backupIsDue, setLastBackupAt } from '../../core/storage/meta'
 import { Button } from '../../ui/Button'
 import { Card, type Message } from './Card'
@@ -8,6 +8,8 @@ import { formatDate } from './familyText'
 import { backupFilename, type SaveFile } from './saveFile'
 
 export interface BackupSectionProps {
+  /** Name of the active player, whose progress is saved. */
+  childName: string | undefined
   now: () => number
   saveFile: SaveFile
   /** undefined while loading; null when no copy was ever saved. */
@@ -30,7 +32,7 @@ function Reminder({ lastBackupAt }: { lastBackupAt: number | null }) {
   )
 }
 
-export function BackupSection({ now, saveFile, lastBackupAt, onSaved, onMessage }: BackupSectionProps) {
+export function BackupSection({ childName, now, saveFile, lastBackupAt, onSaved, onMessage }: BackupSectionProps) {
   const [busy, setBusy] = useState(false)
 
   const save = async () => {
@@ -40,7 +42,7 @@ export function BackupSection({ now, saveFile, lastBackupAt, onSaved, onMessage 
       const blob = new Blob([serializeBackup(await exportProgress(() => at))], { type: 'application/json' })
       const outcome = await saveFile(blob, backupFilename(at))
       if (outcome !== 'cancelled') {
-        await setLastBackupAt(db, at)
+        await setLastBackupAt(getDb(), at)
         onSaved(at)
         onMessage({ kind: 'ok', text: 'Còpia desada. Guarda-la en un lloc segur (Fitxers, correu, ordinador…).' })
       }
@@ -52,7 +54,7 @@ export function BackupSection({ now, saveFile, lastBackupAt, onSaved, onMessage 
   }
 
   return (
-    <Card title="Còpia de seguretat" tilt={-0.6}>
+    <Card title={childName ? `Còpia de seguretat de ${childName}` : 'Còpia de seguretat'} tilt={-0.6}>
       {lastBackupAt !== undefined && backupIsDue(lastBackupAt ?? undefined, now()) && <Reminder lastBackupAt={lastBackupAt} />}
       {lastBackupAt != null && <p className="text-lg text-ink/80">Última còpia: {formatDate(lastBackupAt)}</p>}
       <Button className="w-full" disabled={busy} onClick={() => void save()}>

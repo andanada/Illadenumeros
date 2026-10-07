@@ -3,7 +3,15 @@ import { test as base, expect, type Browser, type BrowserContext, type Locator, 
 /** Shape returned by `context.storageState()`; reused as the `storageState` option. */
 type StorageState = Awaited<ReturnType<BrowserContext['storageState']>>
 
-export const CHILD = { name: 'Laia', character: 'Nyx', color: 'Rosa', theme: 'rosa' } as const
+export interface Child {
+  name: string
+  character: string
+  color: string
+  theme: string
+}
+
+export const CHILD = { name: 'Laia', character: 'Nyx', color: 'Rosa', theme: 'rosa' } as const satisfies Child
+export const SECOND_CHILD = { name: 'Pau', character: 'Blau', color: 'Blau', theme: 'blau' } as const satisfies Child
 
 /** Anything that looks like a score, a grade or a counter of mistakes. The app must never show it to the child. */
 export const SCORE_RE = /\bpunts?\b|puntuaci[óo]|\bnota\b|\d+\s*\/\s*\d+|\d+\s*%|\bencerts?\b|\berrors?\b|\bvides?\b/i
@@ -56,31 +64,95 @@ export const feedbackStatus = (page: Page): Locator => page.locator('main p[role
 
 export const themeOf = (page: Page): Promise<string | undefined> => page.evaluate(() => document.documentElement.dataset.theme)
 
-/** From `/` through the start screen and the 4 onboarding steps, ending on the diagnostic. */
-export async function createProfile(page: Page): Promise<void> {
-  await page.goto('/')
-  await expect(page).toHaveURL(/#\/start$/)
-  await page.getByRole('button', { name: 'Toca per començar' }).click()
+/** The 4 onboarding steps (name, character, colour, welcome), ending on the diagnostic. */
+export async function fillOnboarding(page: Page, child: Child = CHILD): Promise<void> {
   await expect(page).toHaveURL(/#\/onboarding$/)
-
-  await page.getByLabel('Com et dius?').fill(CHILD.name)
+  await page.getByLabel('Com et dius?').fill(child.name)
   await page.getByRole('button', { name: 'Continua' }).click()
 
   const characters = page.getByRole('radiogroup', { name: 'Personatge preferit' })
   await expect(characters).toBeVisible()
-  await characters.getByRole('radio', { name: CHILD.character }).click()
-  await expect(characters.getByRole('radio', { name: CHILD.character })).toHaveAttribute('aria-checked', 'true')
+  await characters.getByRole('radio', { name: child.character }).click()
+  await expect(characters.getByRole('radio', { name: child.character })).toHaveAttribute('aria-checked', 'true')
   await page.getByRole('button', { name: 'Continua' }).click()
 
   const colors = page.getByRole('radiogroup', { name: 'Color preferit' })
   await expect(colors).toBeVisible()
-  await colors.getByRole('radio', { name: CHILD.color }).click()
-  await expect.poll(() => themeOf(page)).toBe(CHILD.theme)
+  await colors.getByRole('radio', { name: child.color }).click()
+  await expect.poll(() => themeOf(page)).toBe(child.theme)
   await page.getByRole('button', { name: 'Continua' }).click()
 
-  await expect(page.getByText(CHILD.name, { exact: false }).first()).toBeVisible()
+  await expect(page.getByText(child.name, { exact: false }).first()).toBeVisible()
   await page.getByRole('button', { name: 'Som-hi!' }).click()
   await expect(page).toHaveURL(/#\/diagnostic$/)
+}
+
+/** From `/` through the start screen and the 4 onboarding steps, ending on the diagnostic. */
+export async function createProfile(page: Page, child: Child = CHILD): Promise<void> {
+  await page.goto('/')
+  await expect(page).toHaveURL(/#\/start$/)
+  await page.getByRole('button', { name: 'Toca per començar' }).click()
+  await fillOnboarding(page, child)
+}
+
+/** Solves the "Només per a adults" multiplication of the open dialog. */
+export async function passAdultCheck(page: Page): Promise<void> {
+  const gate = page.getByRole('dialog', { name: 'Només per a adults' })
+  await expect(gate).toBeVisible()
+  const prompt = (await gate.getByText(/^\d+ × \d+$/).innerText()).trim()
+  const [a, b] = prompt.split(' × ').map(Number)
+  await gate.getByLabel('Resultat').fill(String((a ?? 0) * (b ?? 0)))
+  await gate.getByRole('button', { name: 'Entra' }).click()
+}
+
+/** Petals shown on the map header. */
+export async function petalsOnMap(page: Page): Promise<number> {
+  const label = await page.getByLabel(/^\d+ pètals$/).getAttribute('aria-label')
+  return Number(/^(\d+)/.exec(label ?? '')?.[1] ?? NaN)
+}
+
+/** Player database names on this device, from the registry, by player name. */
+export const playerDbNames = (page: Page): Promise<Record<string, string>> =>
+  page.evaluate(async () => {
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      const req = indexedDB.open('mates-registry')
+      req.onsuccess = () => resolve(req.result)
+      req.onerror = () => reject(req.error)
+    })
+    const rows = await new Promise<{ name: string; dbName: string }[]>((resolve, reject) => {
+      const req = database.transaction('players', 'readonly').objectStore('players').getAll()
+      req.onsuccess = () => resolve(req.result as { name: string; dbName: string }[])
+      req.onerror = () => reject(req.error)
+    })
+    database.close()
+    return Object.fromEntries(rows.map((r) => [r.name, r.dbName]))
+  })
+
+export const PROGRESS_STORES = ['profile', 'skillStates', 'factStates', 'attempts', 'rewards'] as const
+
+/** Every progress row of one player's database, sorted, so two devices or two moments can be compared. */
+export async function dumpProgress(page: Page, playerName: string = CHILD.name): Promise<Record<string, string[]>> {
+  const dbName = (await playerDbNames(page))[playerName]
+  if (!dbName) throw new Error(`No hi ha cap jugador «${playerName}» al registre`)
+  return page.evaluate(
+    async ({ name, stores }) => {
+      const database = await new Promise<IDBDatabase>((resolve, reject) => {
+        const req = indexedDB.open(name)
+        req.onsuccess = () => resolve(req.result)
+        req.onerror = () => reject(req.error)
+      })
+      const read = (store: string) =>
+        new Promise<string[]>((resolve, reject) => {
+          const req = database.transaction(store, 'readonly').objectStore(store).getAll()
+          req.onsuccess = () => resolve((req.result as unknown[]).map((row) => JSON.stringify(row)).sort())
+          req.onerror = () => reject(req.error)
+        })
+      const entries = await Promise.all(stores.map(async (store) => [store, await read(store)] as const))
+      database.close()
+      return Object.fromEntries(entries)
+    },
+    { name: dbName, stores: [...PROGRESS_STORES] },
+  )
 }
 
 export interface DiagnosticRun {

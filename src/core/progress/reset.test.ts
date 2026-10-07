@@ -1,11 +1,15 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { db, emptyRewards, SCHEMA_VERSION } from '../storage/db'
-import { readMeta, setLastBackupAt } from '../storage/meta'
+import { emptyRewards, SCHEMA_VERSION, type MatesDb } from '../storage/db'
+import { activateTestPlayer } from '../../test/playerDb'
+import { readMeta, setLastBackupAt, setPlayerId } from '../storage/meta'
 import { useProgress } from './store'
 
 const recordInput = { skillId: 'A1', correct: true, rtMs: 1000, hintsUsed: 0, cpaStage: 'concret' as const, gameId: 'repte-illa' as const }
 
+let db: MatesDb
+
 beforeEach(async () => {
+  db = activateTestPlayer()
   await Promise.all([db.profile.clear(), db.skillStates.clear(), db.factStates.clear(), db.attempts.clear(), db.rewards.clear(), db.meta.clear()])
   useProgress.setState({ loaded: true, profile: undefined, skillStates: {}, factStates: {}, rewards: emptyRewards(), sessionResults: [], storageError: false })
 })
@@ -17,20 +21,29 @@ async function playABit() {
 }
 
 describe('resetAll', () => {
-  it('clears every progress table and the backup date, but keeps the schema version', async () => {
+  it('clears the progress and the backup date, but keeps who the player is and the schema version', async () => {
     await playABit()
     const before = Date.now()
     await expect(useProgress.getState().resetAll()).resolves.toBe(true)
 
-    expect(await db.profile.count()).toBe(0)
+    // The player stays (name, character, colour) and redoes the diagnostic.
+    expect(await db.profile.get('me')).toMatchObject({ name: 'Júlia', diagnosticDone: false })
     expect(await db.attempts.count()).toBe(0)
     expect(await db.rewards.count()).toBe(0)
     const meta = await readMeta(db)
     expect(meta.schemaVersion).toBe(SCHEMA_VERSION)
     expect(meta.lastBackupAt).toBeUndefined()
     expect(meta.createdAt).toBeGreaterThanOrEqual(before)
-    expect(useProgress.getState().profile).toBeUndefined()
+    expect(useProgress.getState().profile).toMatchObject({ name: 'Júlia', diagnosticDone: false })
     expect(useProgress.getState().rewards.petals).toBe(0)
+  })
+
+  it('keeps the player id stamped in the database', async () => {
+    const id = crypto.randomUUID()
+    await setPlayerId(db, id)
+    await playABit()
+    await useProgress.getState().resetAll()
+    expect((await readMeta(db)).playerId).toBe(id)
   })
 
   it('is all-or-nothing: if a write fails, the saved progress stays on disk', async () => {

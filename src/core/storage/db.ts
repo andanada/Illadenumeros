@@ -32,11 +32,12 @@ export type Rewards = z.infer<typeof rewardsSchema>
 
 export const emptyRewards = (): Rewards => ({ id: 'me', petals: 0, stickers: [], daysPlayed: [], missionsDone: [] })
 
+/** The original single-player database; it stays the database of the first (adopted) player. */
 export const DB_NAME = 'mates-magiques'
 
 /*
  * ─── Schema versions ───────────────────────────────────────────────────────────
- * The child's progress lives only in this database, so a schema change must NEVER lose rows.
+ * Each child's progress lives only in their own database (see playerDbs.ts), so a schema change must NEVER lose rows.
  *
  * How to add the next migration (e.g. v3):
  *   1. Add `SCHEMA_V3 = { ...only the tables/indexes that change... }` below. Never edit an
@@ -91,11 +92,6 @@ export class MatesDb extends Dexie {
     })
   }
 }
-
-export const db = new MatesDb()
-
-// If another tab upgrades the database, release it instead of blocking that tab.
-db.on('versionchange', () => db.close())
 
 /** Ask the browser not to evict the child's progress (iOS/Safari can clear unused site data). */
 export async function requestPersistentStorage(): Promise<boolean> {

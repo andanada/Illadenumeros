@@ -11,11 +11,11 @@ const TILTS = [-6, 4, -2, 5, -5] as const
 
 export default function StartPage() {
   const navigate = useNavigate()
-  const profile = useProgress((s) => s.profile)
+  const known = useProgress((s) => s.profile !== undefined || s.players.length > 0)
 
   const start = () => {
     unlockAudio()
-    navigate(profile ? '/' : '/onboarding')
+    navigate(known ? '/' : '/onboarding')
   }
 
   return (

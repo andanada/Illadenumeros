@@ -11,6 +11,8 @@ interface Pending {
 }
 
 export interface RestoreSectionProps {
+  /** Name of the active player, who receives the copy. */
+  childName: string | undefined
   hasLocalProgress: boolean
   onMessage: (message: Message | undefined) => void
 }
@@ -64,7 +66,7 @@ function Preview({ pending, hasLocalProgress, busy, onApply, onCancel }: {
   )
 }
 
-export function RestoreSection({ hasLocalProgress, onMessage }: RestoreSectionProps) {
+export function RestoreSection({ childName, hasLocalProgress, onMessage }: RestoreSectionProps) {
   const inputId = useId()
   const [pending, setPending] = useState<Pending>()
   const [busy, setBusy] = useState(false)
@@ -98,7 +100,7 @@ export function RestoreSection({ hasLocalProgress, onMessage }: RestoreSectionPr
   }
 
   return (
-    <Card title="Recuperar una còpia" tilt={0.5}>
+    <Card title={childName ? `Recuperar una còpia per a ${childName}` : 'Recuperar una còpia'} tilt={0.5}>
       <p className="text-lg text-ink/80">Tria un fitxer desat abans. Abans d’aplicar-lo veuràs què conté.</p>
       <label
         htmlFor={inputId}

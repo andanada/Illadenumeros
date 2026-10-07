@@ -6,14 +6,18 @@ import { createRng } from '../rng'
 import type { Placement } from '../engine/diagnostic'
 import { isUnlocked } from '../engine/graph'
 import { selectNext } from '../engine/sessionSelector'
-import { db, emptyRewards } from '../storage/db'
+import { emptyRewards, type MatesDb } from '../storage/db'
+import { activateTestPlayer } from '../../test/playerDb'
 import { applyAnswer } from './applyAnswer'
 import { useProgress } from './store'
 
 const skill = (id: string): SkillNode => MATES_SKILLS.find((s) => s.id === id) as SkillNode
 const placement = (entries: Record<string, Placement>): Record<string, Placement> => entries
 
+let db: MatesDb
+
 beforeEach(async () => {
+  db = activateTestPlayer()
   await Promise.all([db.profile.clear(), db.skillStates.clear(), db.factStates.clear(), db.attempts.clear(), db.rewards.clear()])
   useProgress.setState({ loaded: true, profile: undefined, skillStates: {}, factStates: {}, rewards: emptyRewards(), sessionResults: [], storageError: false })
 })

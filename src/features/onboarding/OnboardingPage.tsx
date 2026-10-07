@@ -27,7 +27,8 @@ function Dots({ step }: { step: number }) {
 
 export default function OnboardingPage() {
   const navigate = useNavigate()
-  const saveProfile = useProgress((s) => s.saveProfile)
+  const createPlayer = useProgress((s) => s.createPlayer)
+  const hasPlayers = useProgress((s) => s.players.length > 0)
   const [step, setStep] = useState(0)
   const [name, setName] = useState('')
   const [error, setError] = useState<string>()
@@ -49,7 +50,8 @@ export default function OnboardingPage() {
     if (!check.ok || !character) return
     setSaving(true)
     try {
-      await saveProfile({ name: check.name, character, color })
+      // Every onboarding creates a new player, with an empty progress of their own.
+      await createPlayer({ name: check.name, character, color })
       navigate('/diagnostic', { replace: true })
     } catch {
       setError('Ui, no s’ha pogut desar. Torna-ho a provar!')
@@ -71,7 +73,7 @@ export default function OnboardingPage() {
   const canContinue = step !== 1 || character !== undefined
 
   return (
-    <Screen back={step === 0 ? '/start' : () => setStep(step - 1)} right={<Dots step={step} />}>
+    <Screen back={step === 0 ? (hasPlayers ? '/qui-juga' : '/start') : () => setStep(step - 1)} right={<Dots step={step} />}>
       <div className="flex flex-1 flex-col items-center justify-center gap-8 px-4 pb-10 text-center">
         {step === 0 && (
           <NameStep

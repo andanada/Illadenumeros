@@ -12,7 +12,8 @@ import {
   type BackupFile,
   type ProgressData,
 } from './backupSchema'
-import { db, profileSchema, rewardsSchema } from './db'
+import { profileSchema, rewardsSchema } from './db'
+import { getDb } from './playerDbs'
 
 export type { BackupFile } from './backupSchema'
 export type { ImportStrategy } from './backupMerge'
@@ -42,8 +43,9 @@ const valid = <T,>(rows: readonly unknown[], parse: (row: unknown) => { success:
     return parsed.success && parsed.data !== undefined ? [parsed.data] : []
   })
 
-/** Everything currently stored on this device; damaged rows are left out. */
+/** Everything the ACTIVE player has on this device; damaged rows are left out. */
 async function readLocal(): Promise<ProgressData> {
+  const db = getDb()
   const [profile, skills, facts, attempts, rewards] = await Promise.all([
     db.profile.get('me'),
     db.skillStates.toArray(),
@@ -62,7 +64,7 @@ async function readLocal(): Promise<ProgressData> {
   }
 }
 
-/** Snapshot of the whole progress as a validated backup file. */
+/** Snapshot of the active player's whole progress as a validated backup file (same format as before). */
 export async function exportProgress(now: () => number = Date.now): Promise<BackupFile> {
   const local = await readLocal()
   return backupFileSchema.parse({ app: BACKUP_APP_ID, formatVersion: BACKUP_FORMAT_VERSION, exportedAt: now(), ...local })
@@ -99,8 +101,9 @@ export async function readBackup(source: string | Blob): Promise<ReadResult> {
   }
 }
 
-/** Writes the merged data in ONE transaction: if any write fails, nothing changes. */
+/** Writes the merged data into the ACTIVE player's database in ONE transaction: if any write fails, nothing changes. */
 async function writeAll(data: ProgressData): Promise<void> {
+  const db = getDb()
   await db.transaction('rw', [db.profile, db.skillStates, db.factStates, db.attempts, db.rewards], async () => {
     await Promise.all([db.profile.clear(), db.skillStates.clear(), db.factStates.clear(), db.attempts.clear(), db.rewards.clear()])
     if (data.profile) await db.profile.put(data.profile)
@@ -112,7 +115,7 @@ async function writeAll(data: ProgressData): Promise<void> {
 }
 
 /**
- * Restores a backup. Without `strategy`, it only proceeds when this device has no progress
+ * Restores a backup into the ACTIVE player (the registry entry follows the restored profile). Without `strategy`, it only proceeds when this device has no progress
  * ('replace'); otherwise the caller must choose, so newer local data is never lost silently.
  * Never throws: every failure comes back as `{ ok: false, error }` in Catalan.
  */

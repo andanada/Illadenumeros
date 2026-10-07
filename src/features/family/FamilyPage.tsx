@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useProgress } from '../../core/progress/store'
-import { db, SCHEMA_VERSION } from '../../core/storage/db'
+import { SCHEMA_VERSION } from '../../core/storage/db'
+import { getDb } from '../../core/storage/playerDbs'
 import { readMeta } from '../../core/storage/meta'
 import { Screen } from '../../ui/Screen'
 import { APP_VERSION } from './appVersion'
 import { BackupSection } from './BackupSection'
 import { Card, MessageBar, type Message } from './Card'
+import { PlayersSection } from './PlayersSection'
 import { ResetSection } from './ResetSection'
 import { RestoreSection } from './RestoreSection'
 import { createSaveFile, type SaveFile } from './saveFile'
@@ -47,22 +49,25 @@ export default function FamilyPage({ saveFile, now = Date.now }: FamilyPageProps
   const [lastBackupAt, setLastBackupAt] = useState<number | null>()
   const save = useMemo(() => saveFile ?? createSaveFile(), [saveFile])
 
+  const activePlayerId = useProgress((s) => s.activePlayerId)
+
   useEffect(() => {
     let active = true
-    readMeta(db)
+    Promise.resolve()
+      .then(() => readMeta(getDb()))
       .then((meta) => active && setLastBackupAt(meta.lastBackupAt ?? null))
       .catch(() => active && setLastBackupAt(null))
     return () => {
       active = false
     }
-  }, [])
+  }, [activePlayerId])
 
   return (
     <Screen title="Per a la família" back="/map">
       <div className="mx-auto flex w-full max-w-xl flex-col gap-6 px-4 pb-16">
         <Card title="On es guarda el progrés" tilt={0.4}>
           <p className="text-lg leading-snug text-ink">
-            El progrés{profile ? ` de ${profile.name}` : ''} es guarda només en aquest dispositiu, dins del navegador. No s’envia enlloc ni hi ha cap compte al núvol.
+            El progrés de cada jugador es guarda només en aquest dispositiu, dins del navegador, separat del dels altres. No s’envia enlloc ni hi ha cap compte al núvol.
             Si s’esborren les dades del navegador o es canvia de dispositiu, només es pot recuperar amb una còpia.
           </p>
           <ProgressSummary />
@@ -70,9 +75,17 @@ export default function FamilyPage({ saveFile, now = Date.now }: FamilyPageProps
 
         <MessageBar message={message} />
 
-        <BackupSection now={now} saveFile={save} lastBackupAt={lastBackupAt} onSaved={setLastBackupAt} onMessage={setMessage} />
-        <RestoreSection hasLocalProgress={hasLocalProgress} onMessage={setMessage} />
-        {profile && <ResetSection childName={profile.name} onDone={() => navigate('/start', { replace: true })} onMessage={setMessage} />}
+        <PlayersSection
+          onDeleted={(wasActive, remaining) => {
+            if (remaining === 0) navigate('/start', { replace: true })
+            else if (wasActive) navigate('/qui-juga', { replace: true })
+            else setMessage({ kind: 'ok', text: 'Jugador esborrat d’aquest dispositiu.' })
+          }}
+        />
+
+        <BackupSection childName={profile?.name} now={now} saveFile={save} lastBackupAt={lastBackupAt} onSaved={setLastBackupAt} onMessage={setMessage} />
+        <RestoreSection childName={profile?.name} hasLocalProgress={hasLocalProgress} onMessage={setMessage} />
+        {profile && <ResetSection childName={profile.name} onDone={() => navigate('/', { replace: true })} onMessage={setMessage} />}
 
         <p className="text-center text-base text-ink/60">
           Versió de l’app {APP_VERSION} · dades v{SCHEMA_VERSION}

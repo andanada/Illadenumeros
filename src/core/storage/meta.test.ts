@@ -1,10 +1,14 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { db } from './db'
+import type { MatesDb } from './db'
+import { activateTestPlayer } from '../../test/playerDb'
 import { BACKUP_REMINDER_DAYS, backupIsDue, readMeta, setLastBackupAt } from './meta'
 
 const DAY = 24 * 60 * 60 * 1000
 
+let db: MatesDb
+
 beforeEach(async () => {
+  db = activateTestPlayer()
   await db.meta.clear()
 })
 

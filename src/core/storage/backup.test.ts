@@ -5,7 +5,8 @@ import type { Attempt } from '../progress/applyAnswer'
 import { useProgress } from '../progress/store'
 import { exportProgress, importProgress, readBackup, serializeBackup } from './backup'
 import { BACKUP_APP_ID, BACKUP_FORMAT_VERSION } from './backupSchema'
-import { db, emptyRewards, type Profile, type Rewards } from './db'
+import { emptyRewards, type MatesDb, type Profile, type Rewards } from './db'
+import { activateTestPlayer } from '../../test/playerDb'
 
 const PROFILE: Profile = { id: 'me', name: 'Laia', character: 'nyx', color: 'rosa', diagnosticDone: true, createdAt: 1_690_000_000_000 }
 const REWARDS: Rewards = { id: 'me', petals: 120, stickers: ['s1'], daysPlayed: ['2026-09-01', '2026-09-03'], missionsDone: ['2026-09-01'] }
@@ -47,7 +48,10 @@ const snapshot = async () => ({
 
 const manyAttempts = (n: number): Attempt[] => Array.from({ length: n }, (_, i) => attempt(`a${i}`, i % 2 ? 'A1' : 'A4', 10_000 + i))
 
+let db: MatesDb
+
 beforeEach(async () => {
+  db = activateTestPlayer()
   await clearAll()
   useProgress.setState({ loaded: true, profile: undefined, skillStates: {}, factStates: {}, rewards: emptyRewards(), sessionResults: [], storageError: false })
 })

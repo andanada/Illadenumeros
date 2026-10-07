@@ -1,38 +1,12 @@
 import type { Page } from '@playwright/test'
-import { CHILD, createProfile, expect, seededTest as test } from './helpers'
-
-const STORES = ['profile', 'skillStates', 'factStates', 'attempts', 'rewards'] as const
-
-/** Every progress row in IndexedDB, sorted, so two devices can be compared. */
-const dumpProgress = (page: Page): Promise<Record<string, string[]>> =>
-  page.evaluate(async (stores) => {
-    const database = await new Promise<IDBDatabase>((resolve, reject) => {
-      const req = indexedDB.open('mates-magiques')
-      req.onsuccess = () => resolve(req.result)
-      req.onerror = () => reject(req.error)
-    })
-    const read = (name: string) =>
-      new Promise<string[]>((resolve, reject) => {
-        const req = database.transaction(name, 'readonly').objectStore(name).getAll()
-        req.onsuccess = () => resolve((req.result as unknown[]).map((row) => JSON.stringify(row)).sort())
-        req.onerror = () => reject(req.error)
-      })
-    const entries = await Promise.all(stores.map(async (name) => [name, await read(name)] as const))
-    database.close()
-    return Object.fromEntries(entries)
-  }, [...STORES])
+import { CHILD, createProfile, dumpProgress, expect, passAdultCheck, PROGRESS_STORES, seededTest as test } from './helpers'
 
 /** Lock icon on the map -> solve the multiplication -> family page. */
 async function passAdultGate(page: Page): Promise<void> {
   await page.goto('/#/map')
   await expect(page.getByText(`Hola, ${CHILD.name}!`)).toBeVisible()
   await page.getByRole('button', { name: 'Per a la família (només adults)' }).click()
-  const gate = page.getByRole('dialog', { name: 'Només per a adults' })
-  await expect(gate).toBeVisible()
-  const prompt = (await gate.getByText(/^\d+ × \d+$/).innerText()).trim()
-  const [a, b] = prompt.split(' × ').map(Number)
-  await gate.getByLabel('Resultat').fill(String((a ?? 0) * (b ?? 0)))
-  await gate.getByRole('button', { name: 'Entra' }).click()
+  await passAdultCheck(page)
   await expect(page).toHaveURL(/#\/familia$/)
   await expect(page.getByRole('heading', { level: 1, name: 'Per a la família' })).toBeVisible()
 }
@@ -103,11 +77,13 @@ test.describe('Per a la família', () => {
     await nameInput.fill(CHILD.name)
     await expect(confirm).toBeEnabled()
     await confirm.click()
-    await expect(page).toHaveURL(/#\/start$/)
+    // The player stays (name, character, colour) and starts again from the diagnostic.
+    await expect(page).toHaveURL(/#\/diagnostic$/)
     const after = await dumpProgress(page)
-    expect(STORES.map((s) => after[s]?.length)).toEqual([0, 0, 0, 0, 0])
+    expect(PROGRESS_STORES.map((s) => after[s]?.length)).toEqual([1, 0, 0, 0, 0])
+    expect(after.profile?.[0]).toContain('"diagnosticDone":false')
 
     await page.goto('/')
-    await expect(page).toHaveURL(/#\/start$/)
+    await expect(page).toHaveURL(/#\/diagnostic$/)
   })
 })

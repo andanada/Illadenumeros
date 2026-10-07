@@ -3,6 +3,7 @@ import { HashRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { initSpeech } from '../core/audio/speech'
 import { useProgress } from '../core/progress/store'
 import { requestPersistentStorage } from '../core/storage/db'
+import { onPlayersChanged } from '../core/storage/playersChannel'
 import { ErrorBoundary } from './ErrorBoundary'
 import { PageLoader } from './PageLoader'
 import { RequireProfile } from './RequireProfile'
@@ -18,10 +19,13 @@ const MissionPage = lazy(() => import('../features/daily-mission/MissionPage'))
 const AlbumPage = lazy(() => import('../features/stickers/AlbumPage'))
 const GamePage = lazy(() => import('../features/play/GamePage'))
 const FamilyPage = lazy(() => import('../features/family/FamilyPage'))
+const PlayerPickerPage = lazy(() => import('../features/players/PlayerPickerPage'))
 
 function Home() {
   const profile = useProgress((s) => s.profile)
-  return <Navigate to={resolveHome(profile)} replace />
+  const activePlayerId = useProgress((s) => s.activePlayerId)
+  const playerCount = useProgress((s) => s.players.length)
+  return <Navigate to={resolveHome({ playerCount, activePlayerId, profile })} replace />
 }
 
 export default function App() {
@@ -30,12 +34,15 @@ export default function App() {
 
   useEffect(() => {
     initSpeech()
-    void useProgress.getState().load()
+    void useProgress.getState().init()
     void requestPersistentStorage()
+    return onPlayersChanged(() => void useProgress.getState().syncPlayers())
   }, [])
 
+  // The active player's colour; the picker (nobody active) uses the default theme.
   useEffect(() => {
     if (color) document.documentElement.dataset.theme = color
+    else delete document.documentElement.dataset.theme
   }, [color])
 
   if (!loaded) return <PageLoader />
@@ -48,6 +55,7 @@ export default function App() {
             <Route path="/" element={<Home />} />
             <Route path="/start" element={<StartPage />} />
             <Route path="/onboarding" element={<OnboardingPage />} />
+            <Route path="/qui-juga" element={<PlayerPickerPage />} />
             <Route
               path="/diagnostic"
               element={

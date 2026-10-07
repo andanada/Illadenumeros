@@ -1,8 +1,13 @@
-/** White die-cut sticker card used by every block of the family page. */
+import { useId } from 'react'
+
+/** White die-cut sticker card used by every block of the family page (a region named by its title). */
 export function Card({ title, tilt = 0, children, ...rest }: { title: string; tilt?: number; children: React.ReactNode } & React.HTMLAttributes<HTMLElement>) {
+  const titleId = useId()
   return (
-    <section className="sticker flex flex-col gap-4 rounded-[1.6rem] bg-white p-5" style={{ rotate: `${tilt}deg` }} {...rest}>
-      <h2 className="text-2xl font-bold tracking-tight text-brand-dark">{title}</h2>
+    <section aria-labelledby={titleId} className="sticker flex flex-col gap-4 rounded-[1.6rem] bg-white p-5" style={{ rotate: `${tilt}deg` }} {...rest}>
+      <h2 id={titleId} className="text-2xl font-bold tracking-tight text-brand-dark">
+        {title}
+      </h2>
       {children}
     </section>
   )

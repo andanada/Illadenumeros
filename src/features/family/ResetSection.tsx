@@ -28,7 +28,7 @@ export function ResetSection({ childName, onDone, onMessage }: ResetSectionProps
   }
 
   return (
-    <Card title="Començar de zero" tilt={-0.4}>
+    <Card title={`Començar de zero amb ${childName}`} tilt={-0.4}>
       {!open ? (
         <Button variant="soft" className="w-full text-punk" onClick={() => setOpen(true)}>
           Esborra tot el progrés
@@ -36,7 +36,7 @@ export function ResetSection({ childName, onDone, onMessage }: ResetSectionProps
       ) : (
         <div className="flex flex-col gap-3">
           <p className="text-lg font-semibold text-punk">
-            S’esborraran el perfil, les habilitats, els pètals i les pegatines d’aquest dispositiu. No es pot desfer: desa abans una còpia si en vols conservar el progrés.
+            S’esborraran les habilitats, els pètals i les pegatines de {childName} d’aquest dispositiu (el nom i el personatge es queden i tornarà a fer la prova inicial). Els altres jugadors no es toquen. No es pot desfer: desa abans una còpia si en vols conservar el progrés.
           </p>
           <label htmlFor={inputId} className="text-lg font-semibold text-ink">
             Escriu «{childName}» per confirmar

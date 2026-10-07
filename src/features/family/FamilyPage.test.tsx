@@ -5,7 +5,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { newSkillState } from '../../core/engine/mastery'
 import { useProgress } from '../../core/progress/store'
 import { exportProgress, serializeBackup } from '../../core/storage/backup'
-import { db, emptyRewards } from '../../core/storage/db'
+import { emptyRewards, type MatesDb } from '../../core/storage/db'
+import { activateTestPlayer } from '../../test/playerDb'
 import { readMeta, setLastBackupAt } from '../../core/storage/meta'
 import FamilyPage from './FamilyPage'
 import type { SaveFile } from './saveFile'
@@ -26,13 +27,17 @@ function renderPage(saveFile: SaveFile = vi.fn(async () => 'downloaded' as const
       <Routes>
         <Route path="/familia" element={<FamilyPage saveFile={saveFile} now={() => NOW} />} />
         <Route path="/start" element={<p>Pantalla d’inici</p>} />
+        <Route path="/" element={<p>Inici del jugador</p>} />
       </Routes>
     </MemoryRouter>,
   )
   return saveFile
 }
 
+let db: MatesDb
+
 beforeEach(async () => {
+  db = activateTestPlayer()
   await Promise.all([db.profile.clear(), db.skillStates.clear(), db.factStates.clear(), db.attempts.clear(), db.rewards.clear(), db.meta.clear()])
   useProgress.setState({ loaded: true, profile: undefined, skillStates: {}, factStates: {}, rewards: emptyRewards(), sessionResults: [], storageError: false })
   await seedDevice()
@@ -104,7 +109,7 @@ describe('FamilyPage', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('no és una còpia de Mates Màgiques')
   })
 
-  it('erasing needs the child’s name typed before the final button works', async () => {
+  it('erasing needs the child’s name typed; the player stays and starts again from the diagnostic', async () => {
     renderPage()
     await userEvent.click(screen.getByRole('button', { name: 'Esborra tot el progrés' }))
     const confirm = screen.getByRole('button', { name: 'Sí, esborra-ho tot' })
@@ -114,7 +119,8 @@ describe('FamilyPage', () => {
     await userEvent.type(screen.getByLabelText('Escriu «Laia» per confirmar'), 'a')
     expect(confirm).toBeEnabled()
     await userEvent.click(confirm)
-    expect(await screen.findByText('Pantalla d’inici')).toBeInTheDocument()
-    expect(await db.profile.count()).toBe(0)
+    expect(await screen.findByText('Inici del jugador')).toBeInTheDocument()
+    expect(await db.skillStates.count()).toBe(0)
+    expect(await db.profile.get('me')).toMatchObject({ name: 'Laia', diagnosticDone: false })
   })
 })

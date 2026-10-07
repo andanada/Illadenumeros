@@ -17,6 +17,7 @@ export default function MapPage() {
   const profile = useProgress((s) => s.profile)
   const states = useProgress((s) => s.skillStates)
   const rewards = useProgress((s) => s.rewards)
+  const clearActivePlayer = useProgress((s) => s.clearActivePlayer)
   const [open, setOpen] = useState<SkillNode>()
   /** Seed of the adult check while the lock dialog is open. */
   const [gateSeed, setGateSeed] = useState<string>()
@@ -52,6 +53,22 @@ export default function MapPage() {
           <Mascot character={profile.character} mood="salut" size={110} />
           <p className="sticker mb-6 rounded-[1.6rem] rounded-bl-md bg-white px-5 py-3 text-2xl font-bold text-brand-dark">Hola, {profile.name}!</p>
         </div>
+        <button
+          type="button"
+          aria-label={`Canvia de jugador/a (ara juga ${profile.name})`}
+          onClick={() => {
+            // Leave the map first: once nobody is active, the protected routes would redirect.
+            navigate('/qui-juga')
+            void clearActivePlayer()
+          }}
+          className="sticker -mt-3 flex min-h-14 items-center gap-2 self-start rounded-full bg-white py-1 pl-1 pr-5 text-lg font-bold text-brand-dark"
+        >
+          <span className="grid size-12 place-items-center overflow-hidden rounded-full bg-brand-soft">
+            <Mascot character={profile.character} mood="pensa" size={44} />
+          </span>
+          <span className="max-w-40 truncate">{profile.name}</span>
+          <span className="text-base font-semibold text-ink/60">· Canvia</span>
+        </button>
 
         <Button big tilt={-1.5} variant={missionDone ? 'ok' : 'primary'} className="min-h-24 w-full text-4xl" onClick={() => navigate('/mission')}>
           {missionDone ? '✓ ' : ''}Missió d’avui
