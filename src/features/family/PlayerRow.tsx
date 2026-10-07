@@ -8,6 +8,8 @@ import { sameName } from './familyText'
 export interface PlayerRowProps {
   player: PlayerSummary
   active: boolean
+  /** Logged into the family account: deleting also removes it from the account. */
+  cloud?: boolean
   onRename: (name: string) => Promise<boolean>
   onDelete: () => Promise<boolean>
 }
@@ -57,7 +59,7 @@ function RenameForm({ player, onRename, onClose }: { player: PlayerSummary; onRe
   )
 }
 
-function DeleteConfirm({ player, onDelete, onClose }: { player: PlayerSummary; onDelete: PlayerRowProps['onDelete']; onClose: () => void }) {
+function DeleteConfirm({ player, cloud, onDelete, onClose }: { player: PlayerSummary; cloud: boolean; onDelete: PlayerRowProps['onDelete']; onClose: () => void }) {
   const inputId = useId()
   const [typed, setTyped] = useState('')
   const [busy, setBusy] = useState(false)
@@ -73,7 +75,9 @@ function DeleteConfirm({ player, onDelete, onClose }: { player: PlayerSummary; o
   return (
     <div className="flex flex-col gap-3">
       <p className="text-lg font-semibold text-punk">
-        S’esborrarà {player.name} i tot el seu progrés (habilitats, pètals i pegatines), només d’aquest dispositiu. Els altres jugadors no es toquen. No es pot desfer.
+        {cloud
+          ? `S’esborrarà ${player.name} i tot el seu progrés (habilitats, pètals i pegatines) d’aquest dispositiu i del compte de la família. Els altres dispositius el deixaran de sincronitzar. Els altres jugadors no es toquen. No es pot desfer.`
+          : `S’esborrarà ${player.name} i tot el seu progrés (habilitats, pètals i pegatines), només d’aquest dispositiu. Els altres jugadors no es toquen. No es pot desfer.`}
       </p>
       <label htmlFor={inputId} className="text-lg font-semibold text-ink">
         Escriu «{player.name}» per confirmar
@@ -101,7 +105,7 @@ function DeleteConfirm({ player, onDelete, onClose }: { player: PlayerSummary; o
 }
 
 /** One player of the family page: name and character, with rename and a double-confirmed delete. */
-export function PlayerRow({ player, active, onRename, onDelete }: PlayerRowProps) {
+export function PlayerRow({ player, active, cloud = false, onRename, onDelete }: PlayerRowProps) {
   const [mode, setMode] = useState<Mode>('view')
   const close = () => setMode('view')
   return (
@@ -124,7 +128,7 @@ export function PlayerRow({ player, active, onRename, onDelete }: PlayerRowProps
         </div>
       )}
       {mode === 'rename' && <RenameForm player={player} onRename={onRename} onClose={close} />}
-      {mode === 'delete' && <DeleteConfirm player={player} onDelete={onDelete} onClose={close} />}
+      {mode === 'delete' && <DeleteConfirm player={player} cloud={cloud} onDelete={onDelete} onClose={close} />}
     </li>
   )
 }

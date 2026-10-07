@@ -6,6 +6,7 @@ import { todayKey, useProgress } from '../../core/progress/store'
 import { Button } from '../../ui/Button'
 import { Mascot } from '../../ui/mascot/Mascot'
 import { MuteToggle, Screen } from '../../ui/Screen'
+import { SyncStatusDot } from '../account/SyncStatusDot'
 import { AdultGate } from '../family/AdultGate'
 import { RegionSection } from './RegionSection'
 import { StopSheet } from './StopSheet'
@@ -105,14 +106,20 @@ export default function MapPage() {
         </ul>
 
         <div className="flex justify-center pt-4">
-          <button
-            type="button"
-            aria-label="Per a la família (només adults)"
-            onClick={() => setGateSeed(crypto.randomUUID())}
-            className="sticker grid size-12 place-items-center rounded-full bg-white/80 text-xl opacity-70"
-          >
-            <span aria-hidden="true">🔒</span>
-          </button>
+          <span className="relative">
+            <button
+              type="button"
+              aria-label="Per a la família (només adults)"
+              onClick={() => setGateSeed(crypto.randomUUID())}
+              className="sticker grid size-12 place-items-center rounded-full bg-white/80 text-xl opacity-70"
+            >
+              <span aria-hidden="true">🔒</span>
+            </button>
+            {/* Adults only: account sync state (decorative, nothing for the child to read). */}
+            <span className="pointer-events-none absolute -right-1 -top-1 flex">
+              <SyncStatusDot />
+            </span>
+          </span>
         </div>
       </div>
 

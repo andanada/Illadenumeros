@@ -6,6 +6,7 @@ import { deletePlayerDb, getDb, openPlayerDb, playerDbName, setActivePlayerDb } 
 import { playerSummarySchema, readLastPlayerId, removePlayer, savePlayer, writeLastPlayerId, type PlayerSummary } from '../storage/registry'
 import { emptyPlayerData, readPlayerData, summaryMatchesProfile, summaryWithProfile } from './playerData'
 import type { GetState, ProgressStore, SetState } from './storeTypes'
+import { emitProgressChanged } from '../sync/progressEvents'
 import { serialised } from './writeQueue'
 
 const newId = (): string => crypto.randomUUID()
@@ -114,6 +115,7 @@ export function createPlayerActions(set: SetState, get: GetState): PlayerActions
         await savePlayer(summary)
         await writeLastPlayerId(id)
         notifyPlayersChanged()
+        emitProgressChanged()
       } catch {
         set({ storageError: true })
       }
@@ -138,6 +140,7 @@ export function createPlayerActions(set: SetState, get: GetState): PlayerActions
         const row = profileSchema.safeParse(await database.profile.get('me'))
         if (row.success) await database.profile.put({ ...row.data, name, character, color })
         notifyPlayersChanged()
+        emitProgressChanged()
       } catch {
         set({ storageError: true })
       }

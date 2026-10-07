@@ -9,8 +9,14 @@ import { VitePWA } from 'vite-plugin-pwa'
  * and from any sub-path (e.g. /mates/). HashRouter never touches the path, and the manifest,
  * service worker and precache entries are all resolved relative to where they are served.
  */
+/** Family account API (server/). Same origin in production (nginx); in dev/preview Vite forwards it. */
+const API_TARGET = process.env.MATES_API_URL ?? 'http://127.0.0.1:3100'
+const apiProxy = { '/api': { target: API_TARGET, changeOrigin: false } }
+
 export default defineConfig({
   base: './',
+  server: { proxy: apiProxy },
+  preview: { proxy: apiProxy },
   plugins: [
     react(),
     tailwindcss(),
@@ -42,6 +48,8 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,woff2,png,svg,webmanifest}'],
         // Every route is a hash route, so index.html is the only navigation target.
         navigateFallback: 'index.html',
+        // The API is never served from the service worker: no navigation fallback, no runtime caching.
+        navigateFallbackDenylist: [/^\/api\//],
         cleanupOutdatedCaches: true,
         // Safe with registerType 'prompt': a new worker still waits for the user's "Actualitzar";
         // claiming only lets the very first install control the page without a reload.
@@ -57,7 +65,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: ['src/core/**', 'src/ambits/**'],
-      exclude: ['**/*.test.*', 'src/**/index.ts'],
+      exclude: ['**/*.test.*', '**/*.testutil.ts', 'src/**/index.ts'],
       thresholds: { lines: 80, functions: 80, branches: 80, statements: 80 },
     },
   },

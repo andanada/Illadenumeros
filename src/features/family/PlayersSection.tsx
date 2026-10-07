@@ -1,4 +1,5 @@
 import { useProgress } from '../../core/progress/store'
+import { useAccount } from '../../core/sync/accountStore'
 import { Card } from './Card'
 import { PlayerRow } from './PlayerRow'
 
@@ -12,6 +13,7 @@ export function PlayersSection({ onDeleted }: PlayersSectionProps) {
   const players = useProgress((s) => s.players)
   const activePlayerId = useProgress((s) => s.activePlayerId)
   const activeName = useProgress((s) => s.profile?.name)
+  const cloud = useAccount((s) => s.status === 'loggedIn' || s.status === 'offline')
 
   return (
     <Card title="Jugadors" tilt={-0.3}>
@@ -21,10 +23,13 @@ export function PlayersSection({ onDeleted }: PlayersSectionProps) {
             key={player.id}
             player={player}
             active={player.id === activePlayerId}
+            cloud={cloud}
             onRename={(name) => useProgress.getState().renamePlayer(player.id, { name })}
             onDelete={async () => {
               const wasActive = player.id === useProgress.getState().activePlayerId
               const ok = await useProgress.getState().deletePlayer(player.id)
+              // Logged in: also delete it from the family account (best effort; remembered if offline).
+              if (ok) void useAccount.getState().forgetPlayer(player.id)
               if (ok) onDeleted(wasActive, useProgress.getState().players.length)
               return ok
             }}

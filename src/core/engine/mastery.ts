@@ -28,6 +28,8 @@ export const skillStateSchema = z.object({
   sessions: z.array(z.string()),
   recent: z.array(z.boolean()),
   consecutiveErrors: z.number().int().min(0),
+  /** Last local change (ms). Optional: rows written before cloud sync have none (backfilled on first sync). */
+  updatedAt: z.number().int().min(0).optional(),
 })
 export type SkillState = z.infer<typeof skillStateSchema>
 
@@ -37,6 +39,8 @@ export interface SkillAnswer {
   fluentRatio: number
   sessionId: string
   hasFacts: boolean
+  /** Time of the answer; stamped as `updatedAt` (drives last-write-wins when syncing devices). */
+  now?: number
 }
 
 export function newSkillState(skillId: string): SkillState {
@@ -91,6 +95,7 @@ export function updateSkill(state: SkillState, answer: SkillAnswer): SkillState 
     recent,
     consecutiveErrors,
     cpaStage,
+    ...(answer.now !== undefined ? { updatedAt: answer.now } : {}),
     status:
       state.status === 'dominada' && mastery >= KEEP_MASTERED_ABOVE
         ? 'dominada'

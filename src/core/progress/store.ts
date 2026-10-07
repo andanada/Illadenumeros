@@ -5,6 +5,8 @@ import { newSkillState } from '../engine/mastery'
 import { emptyRewards, profileSchema, SCHEMA_VERSION, type Rewards } from '../storage/db'
 import { initialMeta, META_KEYS, readMeta } from '../storage/meta'
 import { getDb, NoActivePlayerError } from '../storage/playerDbs'
+import { emitProgressChanged } from '../sync/progressEvents'
+import { readSyncState, resetSnapshots, writeSyncState } from '../sync/syncState'
 import { applyAnswer } from './applyAnswer'
 import { createPlayerActions } from './playerActions'
 import { emptyPlayerData } from './playerData'
@@ -25,9 +27,11 @@ const forActivePlayer = <T,>(get: GetState, task: () => Promise<T>, onStale: () 
   serialisedFor(get().activePlayerId, () => get().activePlayerId, task, onStale)
 
 /** Runs a disk write; on failure the progress stays in memory and the adult is warned. */
-async function persist(set: SetState, write: () => Promise<unknown>): Promise<boolean> {
+async function persist(set: SetState, write: () => Promise<unknown>, notify = true): Promise<boolean> {
   try {
     await write()
+    // Lets the cloud sync (if the family is logged in) send it a few seconds later.
+    if (notify) emitProgressChanged()
     return true
   } catch {
     set({ storageError: true })
@@ -52,6 +56,7 @@ function progressActions(set: SetState, get: GetState) {
     forActivePlayer(
       get,
       async () => {
+        const placedAt = Date.now()
         const placed = Object.entries(placement).map(([skillId, p]) => ({
           ...(get().skillStates[skillId] ?? newSkillState(skillId)),
           mastery: p.mastery,
@@ -59,6 +64,7 @@ function progressActions(set: SetState, get: GetState) {
           status: p.status,
           // Skills she already knows start at the pictorial stage; new learning starts concrete.
           cpaStage: p.status === 'consolidant' ? ('pictoric' as const) : ('concret' as const),
+          updatedAt: placedAt,
         }))
         const profile = get().profile
         const finished = profile ? { ...profile, diagnosticDone: true } : profile
@@ -159,6 +165,7 @@ function progressActions(set: SetState, get: GetState) {
         const ok = await persist(set, async () => {
           const db = getDb()
           const { playerId } = await readMeta(db)
+          const sync = await readSyncState(db)
           const tables = [db.profile, db.skillStates, db.factStates, db.attempts, db.rewards, db.meta]
           await db.transaction('rw', tables, async () => {
             await Promise.all(tables.map((table) => table.clear()))
@@ -166,8 +173,11 @@ function progressActions(set: SetState, get: GetState) {
             if (kept) await db.profile.put(kept)
             await db.meta.bulkPut(initialMeta(SCHEMA_VERSION, Date.now()))
             if (playerId) await db.meta.put({ key: META_KEYS.playerId, value: playerId })
+            // Cloud sync cursors are not progress. The emptied rewards/settings count as "agreed", so this
+            // reset stays on this device instead of being pushed over (and merged with) the cloud copy.
+            await writeSyncState(db, { ...sync, ...resetSnapshots() })
           })
-        })
+        }, false)
         if (!ok) return false
         set({ ...emptyPlayerData(), profile: kept, sessionResults: [], sessionId: newId() })
         return true

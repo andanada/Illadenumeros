@@ -79,6 +79,7 @@ export function applyAnswer(
         fluentRatio,
         sessionId: input.sessionId,
         hasFacts: input.skill.hasFacts && practiced.length >= MIN_FACTS_FOR_FLUENCY,
+        now: input.now,
       })
 
   const attempt: Attempt = {
