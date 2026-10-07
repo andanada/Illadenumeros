@@ -19,7 +19,7 @@ export default function StartPage() {
   }
 
   return (
-    <div className="notebook flex min-h-full flex-col items-center justify-center gap-8 overflow-hidden px-4 py-10 text-center">
+    <main className="notebook flex min-h-full flex-col items-center justify-center gap-8 overflow-hidden px-4 py-10 text-center">
       <div className="relative z-10 flex flex-col items-center gap-2">
         <motion.h1
           initial={{ scale: 0.7, rotate: -8, opacity: 0 }}
@@ -52,6 +52,6 @@ export default function StartPage() {
         </Button>
         <InstallHint />
       </div>
-    </div>
+    </main>
   )
 }

@@ -4,7 +4,8 @@ import { STICKERS } from '../../features/stickers/catalog'
 import type { Placement } from '../engine/diagnostic'
 import { factStateSchema, type FactState } from '../engine/leitner'
 import { newSkillState, skillStateSchema, type SkillState } from '../engine/mastery'
-import { db, emptyRewards, profileSchema, rewardsSchema, type Profile, type Rewards } from '../storage/db'
+import { db, emptyRewards, profileSchema, rewardsSchema, SCHEMA_VERSION, type Profile, type Rewards } from '../storage/db'
+import { initialMeta } from '../storage/meta'
 import { applyAnswer, type AnswerInput, type AnswerOutcome } from './applyAnswer'
 
 /** Local calendar day (not UTC), so "today's mission" flips at local midnight. */
@@ -30,7 +31,8 @@ interface ProgressStore {
   record: (input: RecordInput) => Promise<AnswerOutcome>
   grantSticker: () => Promise<string | undefined>
   completeMission: () => Promise<void>
-  resetAll: () => Promise<void>
+  /** Erases all progress in one transaction. Resolves false (and changes nothing) if the disk write fails. */
+  resetAll: () => Promise<boolean>
 }
 
 /**
@@ -202,13 +204,18 @@ export const useProgress = create<ProgressStore>((set, get) => ({
 
   resetAll: () =>
     serialised(async () => {
+      const progressTables = [db.profile, db.skillStates, db.factStates, db.attempts, db.rewards, db.meta]
       try {
-        await db.transaction('rw', [db.profile, db.skillStates, db.factStates, db.attempts, db.rewards], async () => {
-          await Promise.all([db.profile.clear(), db.skillStates.clear(), db.factStates.clear(), db.attempts.clear(), db.rewards.clear()])
+        await db.transaction('rw', progressTables, async () => {
+          await Promise.all(progressTables.map((table) => table.clear()))
+          // The schema version is structural, not progress: write it back with a fresh start date.
+          await db.meta.bulkPut(initialMeta(SCHEMA_VERSION, Date.now()))
         })
       } catch {
         set({ storageError: true })
+        return false
       }
       set({ profile: undefined, skillStates: {}, factStates: {}, rewards: emptyRewards(), sessionResults: [], sessionId: newId() })
+      return true
     }),
 }))

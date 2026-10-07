@@ -64,6 +64,14 @@ El motor solo conoce el contrato `AmbitModule` (`src/core/ambit/types.ts`), así
 
 No hay servidor, cuentas, analíticas ni peticiones externas. Lo único que se guarda es el nombre de pila que escribe la niña y su progreso, en el navegador. La tipografía va empaquetada. Las imágenes de personajes y pegatinas son originales; no se incluye ningún material con derechos de terceros.
 
+## Despliegue
+
+La app es estática: `npm run build` genera `dist/`, que se sirve con nginx detrás de HTTPS, en la raíz de un dominio o en un subcamino (`base: './'` + `HashRouter`). Guía completa (caché, compresión, cabeceras de seguridad, HTTPS y actualizaciones) en [`docs/DEPLOY.md`](docs/DEPLOY.md), con plantillas en `docs/nginx-mates.conf` y `docs/nginx-mates-security.conf`.
+
+- `npm run icons`: regenera `public/icon.svg` y los PNG de `public/icons/` (app, maskable, iOS y favicon) con `scripts/generate-icons.mjs`.
+- `npm run e2e:pwa`: compila y prueba el service worker, el modo sin conexión, el subcamino y el aviso de actualización.
+- CI en `.github/workflows/ci.yml` (tipos, lint, cobertura, build y E2E); no despliega nada.
+
 ## Estado y siguientes pasos
 
 - Hecho: 1.º a 4.º, 8 juegos, diagnóstico, misión diaria, álbum, PWA, pruebas unitarias y E2E.

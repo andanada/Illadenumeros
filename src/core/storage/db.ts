@@ -3,6 +3,7 @@ import { z } from 'zod'
 import type { FactState } from '../engine/leitner'
 import type { SkillState } from '../engine/mastery'
 import type { Attempt } from '../progress/applyAnswer'
+import { initialMeta, type MetaRow } from './meta'
 
 export const CHARACTER_IDS = ['nyx', 'mixa', 'blau', 'nuvol', 'melo'] as const
 export type CharacterId = (typeof CHARACTER_IDS)[number]
@@ -31,21 +32,62 @@ export type Rewards = z.infer<typeof rewardsSchema>
 
 export const emptyRewards = (): Rewards => ({ id: 'me', petals: 0, stickers: [], daysPlayed: [], missionsDone: [] })
 
-class MatesDb extends Dexie {
+export const DB_NAME = 'mates-magiques'
+
+/*
+ * ─── Schema versions ───────────────────────────────────────────────────────────
+ * The child's progress lives only in this database, so a schema change must NEVER lose rows.
+ *
+ * How to add the next migration (e.g. v3):
+ *   1. Add `SCHEMA_V3 = { ...only the tables/indexes that change... }` below. Never edit an
+ *      older SCHEMA_Vn or remove an older `this.version(n)` call: devices in the wild may
+ *      still be at that version and Dexie replays the chain v1 -> v2 -> v3.
+ *   2. Bump `SCHEMA_VERSION` and register `this.version(3).stores(SCHEMA_V3).upgrade(...)`.
+ *      The upgrade callback receives a transaction over the OLD rows: map them to the new
+ *      shape with `table.toCollection().modify(...)` (or read + bulkPut), never by clearing.
+ *   3. Store the new number in meta (`META_KEYS.schemaVersion`) inside the upgrade.
+ *   4. Add a test to `migrations.test.ts`: seed a database at the previous version with
+ *      realistic rows, open `MatesDb`, and assert every row is still there.
+ *   5. If the backup file shape changes too, bump `BACKUP_FORMAT_VERSION` and keep
+ *      importing the old format (see backupSchema.ts).
+ */
+
+/** v1: the first published version. */
+export const SCHEMA_V1 = {
+  profile: 'id',
+  skillStates: 'skillId',
+  factStates: 'factKey',
+  attempts: 'id, createdAt, skillId, sessionId',
+  rewards: 'id',
+} as const
+
+/** v2: adds `meta` ({ key, value }) with `schemaVersion`, `createdAt` and `lastBackupAt`. */
+export const SCHEMA_V2 = { meta: 'key' } as const
+
+export const SCHEMA_VERSION = 2
+
+export class MatesDb extends Dexie {
   profile!: Table<Profile, string>
   skillStates!: Table<SkillState, string>
   factStates!: Table<FactState, string>
   attempts!: Table<Attempt, string>
   rewards!: Table<Rewards, string>
+  meta!: Table<MetaRow, string>
 
-  constructor() {
-    super('mates-magiques')
-    this.version(1).stores({
-      profile: 'id',
-      skillStates: 'skillId',
-      factStates: 'factKey',
-      attempts: 'id, createdAt, skillId, sessionId',
-      rewards: 'id',
+  constructor(name: string = DB_NAME) {
+    super(name)
+    this.version(1).stores(SCHEMA_V1)
+    this.version(2)
+      .stores(SCHEMA_V2)
+      .upgrade(async (tx) => {
+        // Keep the real start date when the child already had a profile.
+        const parsed = profileSchema.safeParse(await tx.table('profile').get('me'))
+        const createdAt = parsed.success ? parsed.data.createdAt : Date.now()
+        await tx.table('meta').bulkPut(initialMeta(2, createdAt))
+      })
+    // Only for a brand-new database (no upgrade runs then).
+    this.on('populate', (tx) => {
+      void tx.table('meta').bulkPut(initialMeta(SCHEMA_VERSION, Date.now()))
     })
   }
 }

@@ -17,6 +17,7 @@ const MapPage = lazy(() => import('../features/world-map/MapPage'))
 const MissionPage = lazy(() => import('../features/daily-mission/MissionPage'))
 const AlbumPage = lazy(() => import('../features/stickers/AlbumPage'))
 const GamePage = lazy(() => import('../features/play/GamePage'))
+const FamilyPage = lazy(() => import('../features/family/FamilyPage'))
 
 function Home() {
   const profile = useProgress((s) => s.profile)
@@ -84,6 +85,14 @@ export default function App() {
               element={
                 <RequireProfile>
                   <GamePage />
+                </RequireProfile>
+              }
+            />
+            <Route
+              path="/familia"
+              element={
+                <RequireProfile>
+                  <FamilyPage />
                 </RequireProfile>
               }
             />

@@ -29,7 +29,7 @@ export const SkillStop = memo(function SkillStop({ skill, status, stars, focus, 
   const locked = status === 'locked'
   const label = locked
     ? `${skill.title}: bloquejat, acaba abans els passos anteriors`
-    : `${skill.title}: ${stars} de 3 estrelles`
+    : `${skill.code}: ${skill.title}: ${stars} de 3 estrelles`
   return (
     <div className="flex items-center gap-3">
       <motion.button

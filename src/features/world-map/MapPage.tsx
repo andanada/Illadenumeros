@@ -6,6 +6,7 @@ import { todayKey, useProgress } from '../../core/progress/store'
 import { Button } from '../../ui/Button'
 import { Mascot } from '../../ui/mascot/Mascot'
 import { MuteToggle, Screen } from '../../ui/Screen'
+import { AdultGate } from '../family/AdultGate'
 import { RegionSection } from './RegionSection'
 import { StopSheet } from './StopSheet'
 import { starsFor, REGIONS, GRADE_LABEL, playableRegions } from './stops'
@@ -17,6 +18,8 @@ export default function MapPage() {
   const states = useProgress((s) => s.skillStates)
   const rewards = useProgress((s) => s.rewards)
   const [open, setOpen] = useState<SkillNode>()
+  /** Seed of the adult check while the lock dialog is open. */
+  const [gateSeed, setGateSeed] = useState<string>()
 
   const focusId = useMemo(() => focusSkill(MATES_SKILLS, states), [states])
   const regions = useMemo(() => playableRegions(MATES_SKILLS), [])
@@ -83,7 +86,20 @@ export default function MapPage() {
             </li>
           ))}
         </ul>
+
+        <div className="flex justify-center pt-4">
+          <button
+            type="button"
+            aria-label="Per a la família (només adults)"
+            onClick={() => setGateSeed(crypto.randomUUID())}
+            className="sticker grid size-12 place-items-center rounded-full bg-white/80 text-xl opacity-70"
+          >
+            <span aria-hidden="true">🔒</span>
+          </button>
+        </div>
       </div>
+
+      {gateSeed && <AdultGate seed={gateSeed} onPass={() => navigate('/familia')} onCancel={() => setGateSeed(undefined)} />}
 
       {open && (
         <StopSheet

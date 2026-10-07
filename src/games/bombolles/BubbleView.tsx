@@ -36,7 +36,7 @@ export function BubbleView({ bubble, selected, highlighted, bounceKey, disabled,
           initial={{ scale: 0, rotate: -20 }}
           animate={{ scale: selected ? 1.18 : 1, rotate: 0, y: bounceKey > 0 && !selected ? [0, -14, 0] : 0 }}
           exit={{ scale: 0, opacity: 0, transition: { duration: 0.18 } }}
-          transition={{ type: 'spring', stiffness: 380, damping: 14 }}
+          transition={{ type: 'spring', stiffness: 380, damping: 14, y: { type: 'tween', duration: 0.4, ease: 'easeOut' } }}
           whileTap={{ scale: 0.88 }}
           onClick={() => onTap(bubble)}
           style={{ background: TINTS[bubble.hue % TINTS.length] as string }}
