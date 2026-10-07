@@ -25,10 +25,10 @@ describe('skillStatusOf', () => {
 })
 
 describe('groupByGrade', () => {
-  it('groups the real skills by grade 1..4 in order', () => {
+  it('groups the real skills by grade 1..5 in order', () => {
     const groups = groupByGrade(MATES_SKILLS)
-    expect(groups.map((g) => g.grade)).toEqual([1, 2, 3, 4])
-    expect(groups.map((g) => g.label)).toEqual(['1r', '2n', '3r', '4t'])
-    expect(groups.reduce((n, g) => n + g.skills.length, 0)).toBe(MATES_SKILLS.filter((s) => s.grade <= 4).length)
+    expect(groups.map((g) => g.grade)).toEqual([1, 2, 3, 4, 5])
+    expect(groups.map((g) => g.label)).toEqual(['1r', '2n', '3r', '4t', '5è'])
+    expect(groups.reduce((n, g) => n + g.skills.length, 0)).toBe(MATES_SKILLS.length)
   })
 })

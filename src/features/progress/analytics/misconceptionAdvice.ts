@@ -78,6 +78,66 @@ export const MISCONCEPTION_ADVICE: Record<MisconceptionId, Advice> = {
     explanation: 'En els problemes de dos passos fa només la primera operació i dona aquest resultat.',
     tip: 'Llegiu el problema en veu alta i pregunteu «què ens demanen al final?». Dibuixeu dos quadrets, un per pas, i ompliu-los d’un en un.',
   },
+  'decimal-place-value': {
+    title: 'Barreja dècimes i centèsimes',
+    explanation: 'Llegeix 0,5 com si fos 0,05: encara no té clar quin lloc ocupa cada xifra darrere de la coma.',
+    tip: 'Dibuixeu un quadrat de 100 caselles i pinteu-ne 5 columnes: són 5 dècimes, 0,5. Després pinteu-ne només 5 caselles soltes: són 5 centèsimes, 0,05.',
+  },
+  'decimal-longer-bigger': {
+    title: 'Pensa que més xifres és més gran',
+    explanation: 'Amb els enters passa així, però amb decimals no: 0,5 és més gran que 0,45.',
+    tip: 'Compareu amb diners: 0,50 € contra 0,45 €. Afegiu un zero al final de 0,5 perquè tots dos tinguin dues xifres i comproveu-ho.',
+  },
+  'decimal-misaligned': {
+    title: 'No alinea la coma',
+    explanation: 'Suma o resta els decimals com si fossin enters i la coma queda al lloc que no toca.',
+    tip: 'Escriviu els nombres en columna amb la coma sota la coma i ompliu els buits amb zeros: 2,5 és 2,50. Així cada xifra té la seva parella.',
+  },
+  'partial-product-missing': {
+    title: 'Se li oblida una fila',
+    explanation: 'En multiplicar per un nombre de dues xifres fa només el producte per les unitats, o oblida el zero de les desenes.',
+    tip: 'Dividiu 23 × 14 en 23 × 10 i 23 × 4 i sumeu les dues parts. Marqueu amb un color cada fila de la multiplicació.',
+  },
+  'remainder-as-decimal': {
+    title: 'Escriu el residu darrere la coma',
+    explanation: 'En dividir 7 entre 2 escriu 3,1 en lloc de 3,5: posa el residu com a decimals.',
+    tip: 'Repartiu 7 galetes entre 2 persones i talleu la que sobra per la meitat: cadascú en rep 3 i mitja, 3,5.',
+  },
+  'order-of-operations': {
+    title: 'Fa les operacions d’esquerra a dreta',
+    explanation: 'No respecta la prioritat: els parèntesis i les multiplicacions van abans de les sumes i restes.',
+    tip: 'Encercleu amb un color el que s’ha de fer primer: el parèntesi, després × i :, i al final + i −. Escriviu cada pas en una línia nova.',
+  },
+  'power-as-multiple': {
+    title: 'Confon el quadrat amb el doble',
+    explanation: 'Llegeix 5² com 5 × 2 en lloc de 5 × 5 (o 3³ com 3 × 3).',
+    tip: 'Feu un quadrat de 5 files de 5 fitxes: són 5², 25. Per al cub, apileu tres capes d’un quadrat de 3 per 3.',
+  },
+  'multiple-divisor-swap': {
+    title: 'Confon múltiples i divisors',
+    explanation: 'Dona un divisor quan es demanava un múltiple, o al revés.',
+    tip: 'Els múltiples de 6 són la taula del 6 (6, 12, 18…): creixen. Els divisors de 12 són els que hi caben exactes (1, 2, 3, 4, 6, 12): són petits.',
+  },
+  'fraction-additive': {
+    title: 'Suma en lloc de multiplicar',
+    explanation: 'Per fer una fracció equivalent suma el mateix nombre a dalt i a baix (2/3 → 3/4) en lloc de multiplicar.',
+    tip: 'Talleu una pizza en 3 parts i en pinteu 2; ara talleu cada part per la meitat: són 4 de 6. Multiplicar per 2 a dalt i a baix manté la mateixa quantitat.',
+  },
+  'fraction-one-part-only': {
+    title: 'Canvia només un dels dos nombres',
+    explanation: 'En simplificar divideix només el numerador o només el denominador.',
+    tip: 'Repetiu en veu alta: «el que faig a dalt, ho faig a baix». 6/8 dividit entre 2 a tots dos és 3/4.',
+  },
+  'percent-as-amount': {
+    title: 'Dona el percentatge com a quantitat',
+    explanation: 'Respon 25 quan es demana el 25 % de 80: no passa de «25 per cent» a «una part del total».',
+    tip: 'El 25 % vol dir 25 de cada 100, un quart. Pinteu 25 caselles d’un quadrat de 100 i repartiu 80 en 4 grups iguals.',
+  },
+  'percent-wrong-fraction': {
+    title: 'Confon el percentatge amb una altra fracció',
+    explanation: 'Posa el 25 % com la meitat o el 10 % com un quart: encara no ha enllaçat percentatge i fracció.',
+    tip: 'Memoritzeu tres parelles: 50 % és la meitat, 25 % és un quart i 10 % és la desena part. Proveu-ho amb 40 €.',
+  },
 }
 
 export interface TopMisconception extends Advice {

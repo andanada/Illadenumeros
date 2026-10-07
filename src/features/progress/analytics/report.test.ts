@@ -22,7 +22,7 @@ describe('buildProgressReport', () => {
     expect(report.activity).toHaveLength(28)
     expect(report.recommendations).toEqual([])
     expect(report.misconceptions).toEqual([])
-    expect(report.skillGroups.map((g) => g.label)).toEqual(['1r', '2n', '3r', '4t'])
+    expect(report.skillGroups.map((g) => g.label)).toEqual(['1r', '2n', '3r', '4t', '5è'])
     checkFinite(report)
   })
 

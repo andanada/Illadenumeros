@@ -23,6 +23,7 @@ const FamilyPage = lazy(() => import('../features/family/FamilyPage'))
 const ProgressPage = lazy(() => import('../features/progress/ProgressPage'))
 const PlayerPickerPage = lazy(() => import('../features/players/PlayerPickerPage'))
 const AccountPage = lazy(() => import('../features/account/AccountPage'))
+const PrivacyPage = lazy(() => import('../features/privacy/PrivacyPage'))
 
 function Home() {
   const profile = useProgress((s) => s.profile)
@@ -61,6 +62,7 @@ export default function App() {
             <Route path="/onboarding" element={<OnboardingPage />} />
             <Route path="/qui-juga" element={<PlayerPickerPage />} />
             <Route path="/compte" element={<AccountPage />} />
+            <Route path="/privacitat" element={<PrivacyPage />} />
             <Route
               path="/diagnostic"
               element={

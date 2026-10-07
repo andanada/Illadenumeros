@@ -5,7 +5,7 @@ const STEP_TARGET_MS = 6000
 const TABLE_TARGET_MS = 4000
 const MULTI_STEP_TARGET_MS = 9000
 
-/** Skill graph for 1r (A), 2n (B), 3r (C) and 4t (D). A later phase adds E (5è). */
+/** Skill graph for 1r (A), 2n (B), 3r (C) 4t (D) and 5è (E). */
 export const MATES_SKILLS: SkillNode[] = [
   { id: 'A1', code: 'A1', grade: 1, title: 'Comptar fins a 20', prereqs: [], hasFacts: false, games: ['marc-magic', 'repte-illa'], fluencyTargetMs: STEP_TARGET_MS },
   { id: 'A2', code: 'A2', grade: 1, title: 'Comparar nombres fins a 20', prereqs: ['A1'], hasFacts: false, games: ['repte-illa'], fluencyTargetMs: STEP_TARGET_MS },
@@ -43,6 +43,16 @@ export const MATES_SKILLS: SkillNode[] = [
   { id: 'D7', code: 'D7', grade: 4, title: 'Fraccions d’una col·lecció', prereqs: ['C8'], hasFacts: false, games: ['llaminadures', 'repte-illa'], fluencyTargetMs: STEP_TARGET_MS },
   { id: 'D8', code: 'D8', grade: 4, title: 'Arrodonir i estimar', prereqs: ['D1'], hasFacts: false, games: ['repte-illa'], fluencyTargetMs: STEP_TARGET_MS },
   { id: 'D9', code: 'D9', grade: 4, title: 'El número amagat de × i :', prereqs: ['A10', 'D4'], hasFacts: false, games: ['repte-illa'], fluencyTargetMs: STEP_TARGET_MS },
+  { id: 'E1', code: 'E1', grade: 5, title: 'Dècimes i centèsimes', prereqs: ['D1', 'D7'], hasFacts: false, games: ['repte-illa'], fluencyTargetMs: STEP_TARGET_MS },
+  { id: 'E2', code: 'E2', grade: 5, title: 'Comparar decimals i la recta', prereqs: ['E1'], hasFacts: false, games: ['repte-illa'], fluencyTargetMs: STEP_TARGET_MS },
+  { id: 'E3', code: 'E3', grade: 5, title: 'Sumar i restar decimals', prereqs: ['E2', 'C2'], hasFacts: false, games: ['repte-illa'], fluencyTargetMs: MULTI_STEP_TARGET_MS },
+  { id: 'E4', code: 'E4', grade: 5, title: 'Multiplicar per 2 xifres', prereqs: ['D5'], hasFacts: false, games: ['repte-illa'], fluencyTargetMs: MULTI_STEP_TARGET_MS },
+  { id: 'E5', code: 'E5', grade: 5, title: 'Divisió amb quocient decimal', prereqs: ['D6', 'E1'], hasFacts: false, games: ['repte-illa'], fluencyTargetMs: MULTI_STEP_TARGET_MS },
+  { id: 'E6', code: 'E6', grade: 5, title: 'Prioritat d’operacions i parèntesis', prereqs: ['D5', 'C10'], hasFacts: false, games: ['repte-illa'], fluencyTargetMs: MULTI_STEP_TARGET_MS },
+  { id: 'E7', code: 'E7', grade: 5, title: 'Quadrats i cubs', prereqs: ['E4'], hasFacts: false, games: ['fleca-files', 'repte-illa'], fluencyTargetMs: STEP_TARGET_MS },
+  { id: 'E8', code: 'E8', grade: 5, title: 'Múltiples i divisors', prereqs: ['D4'], hasFacts: false, games: ['repte-illa'], fluencyTargetMs: STEP_TARGET_MS },
+  { id: 'E9', code: 'E9', grade: 5, title: 'Fraccions equivalents i simplificar', prereqs: ['D7', 'E8'], hasFacts: false, games: ['repte-illa'], fluencyTargetMs: STEP_TARGET_MS },
+  { id: 'E10', code: 'E10', grade: 5, title: 'Percentatges, preus i descomptes', prereqs: ['E3', 'E9', 'C9'], hasFacts: false, games: ['botiga-pluja', 'repte-illa'], fluencyTargetMs: MULTI_STEP_TARGET_MS },
 ]
 
 /**

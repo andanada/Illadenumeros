@@ -1,6 +1,16 @@
 import type { ItemGenerator } from '../../../core/ambit/types'
 import { generateAdd2d1d, generateAdd2d2d, generateAddTens, generateFactAddition } from './addition'
 import { generateAddSub3d, generateEstimateRound, generateMissingNumberOps } from './arithmetic'
+import { generateDecimalArithmetic } from './decimalsArithmetic'
+import { generateDecimalCompare } from './decimalsCompare'
+import { generateDecimalReading } from './decimalsReading'
+import { generateDivisionDecimal } from './divisionDecimal'
+import { generateEquivalentFractions } from './equivalentFractions'
+import { generateMultiplesDivisors } from './multiplesDivisors'
+import { generateMult2d2d } from './multiplication2d'
+import { generatePercentages } from './percentages'
+import { generatePowers } from './powers'
+import { generatePriority } from './priority'
 import { generateDivConcept, generateDivisionFact, generateDivRemainder } from './division'
 import { generateFractionOfCollection, generateUnitFraction } from './fractions'
 import { generateMoney } from './money'
@@ -48,4 +58,14 @@ export const MATES_GENERATORS: Record<string, ItemGenerator> = {
   D7: generateFractionOfCollection,
   D8: generateEstimateRound,
   D9: generateMissingNumberOps,
+  E1: generateDecimalReading,
+  E2: generateDecimalCompare,
+  E3: generateDecimalArithmetic,
+  E4: generateMult2d2d,
+  E5: generateDivisionDecimal,
+  E6: generatePriority,
+  E7: generatePowers,
+  E8: generateMultiplesDivisors,
+  E9: generateEquivalentFractions,
+  E10: generatePercentages,
 }

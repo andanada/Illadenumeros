@@ -2,8 +2,10 @@ import type { VisualModel } from '../../core/ambit/types'
 import { ArrayView } from './ArrayView'
 import { BlocksView } from './BlocksView'
 import { CompareView } from './CompareView'
+import { DecimalLineView } from './DecimalLineView'
 import { DotsView } from './DotsView'
 import { FractionView } from './FractionView'
+import { HundredGridView } from './HundredGridView'
 import { MoneyView } from './MoneyView'
 import { NumberLineView } from './NumberLineView'
 import { ShareView } from './ShareView'
@@ -39,6 +41,10 @@ export function VisualModelView({ model, size = 'md', animate = true }: VisualMo
       return <FractionView parts={model.parts} selected={model.selected} collection={model.collection} size={size} animate={animate} />
     case 'money':
       return <MoneyView coins={model.coins} size={size} animate={animate} />
+    case 'hundredGrid':
+      return <HundredGridView filled={model.filled} size={size} />
+    case 'decimalLine':
+      return <DecimalLineView from={model.from} to={model.to} target={model.target} size={size} />
     default: {
       const unreachable: never = model
       void unreachable

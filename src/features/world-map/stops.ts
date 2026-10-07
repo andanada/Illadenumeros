@@ -44,7 +44,7 @@ export const REGIONS: readonly Region[] = [
   { id: 'platja', name: 'Platja de les Desenes', grade: 2, emoji: '🏖️', tint: '#fde68a', playable: true },
   { id: 'castell', name: 'Fleca-Castell de les Taules', grade: 3, emoji: '🏰', tint: '#fbcfe8', playable: true },
   { id: 'muntanya', name: 'Muntanya dels Milers', grade: 4, emoji: '⛰️', tint: '#bfdbfe', playable: true },
-  { id: 'ciutat', name: 'Ciutat dels Decimals', grade: 5, emoji: '🏙️', tint: '#ddd6fe', playable: false },
+  { id: 'ciutat', name: 'Ciutat dels Decimals', grade: 5, emoji: '🏙️', tint: '#ddd6fe', playable: true },
 ]
 
 export const GRADE_LABEL: Record<Region['grade'], string> = { 1: '1r', 2: '2n', 3: '3r', 4: '4t', 5: '5è' }
@@ -59,4 +59,9 @@ export function playableRegions(skills: readonly SkillNode[]): { region: Region;
   return REGIONS.filter((r) => r.playable)
     .map((region) => ({ region, skills: skillsOfRegion(skills, region) }))
     .filter((entry) => entry.skills.length > 0)
+}
+
+/** A region whose stops are all still locked (nothing started, no prerequisite reached): the map shows how to open it. */
+export function isRegionClosed(skills: readonly SkillNode[], states: Readonly<Record<string, SkillState>>): boolean {
+  return skills.length > 0 && skills.every((skill) => stopStatus(skill, states) === 'locked')
 }

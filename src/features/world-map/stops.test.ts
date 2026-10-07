@@ -1,7 +1,7 @@
 import { MATES_SKILLS } from '../../ambits/mates/skills'
 import { newSkillState, type SkillState } from '../../core/engine/mastery'
 import type { SkillNode } from '../../core/ambit/types'
-import { playableRegions, REGIONS, skillsOfRegion, starsFor, stopStatus } from './stops'
+import { isRegionClosed, playableRegions, REGIONS, skillsOfRegion, starsFor, stopStatus } from './stops'
 
 const st = (skillId: string, patch: Partial<SkillState>): SkillState => ({ ...newSkillState(skillId), ...patch })
 const skill = (id: string) => {
@@ -39,9 +39,20 @@ describe('stopStatus', () => {
 const node = (id: string, grade: SkillNode['grade']): SkillNode => ({ id, code: id, grade, title: id, prereqs: [], hasFacts: false, games: ['fleca-files'], fluencyTargetMs: 3000 })
 
 describe('regions', () => {
-  it('makes 1r, 2n, 3r and 4t playable and keeps 5è as "Aviat!"', () => {
-    expect(REGIONS.filter((r) => r.playable).map((r) => r.grade)).toEqual([1, 2, 3, 4])
-    expect(REGIONS.find((r) => r.grade === 5)?.playable).toBe(false)
+  it('makes 1r, 2n, 3r, 4t and 5è (Ciutat dels Decimals) playable', () => {
+    expect(REGIONS.filter((r) => r.playable).map((r) => r.grade)).toEqual([1, 2, 3, 4, 5])
+    expect(REGIONS.find((r) => r.grade === 5)?.name).toBe('Ciutat dels Decimals')
+  })
+  it('keeps the Ciutat dels Decimals closed until 4t is mastered, then opens its first stops', () => {
+    const city = skillsOfRegion(MATES_SKILLS, { grade: 5 })
+    expect(isRegionClosed(city, {})).toBe(true)
+    const done = { D1: st('D1', { mastery: 0.8, status: 'consolidant' }), D7: st('D7', { mastery: 0.7, status: 'consolidant' }) }
+    expect(isRegionClosed(city, done)).toBe(false)
+    expect(stopStatus(skill('E1'), done)).toBe('new')
+    expect(stopStatus(skill('E2'), done)).toBe('locked')
+  })
+  it('never calls an empty region closed', () => {
+    expect(isRegionClosed([], {})).toBe(false)
   })
   it('groups skills by grade, in order', () => {
     const skills = [node('C1', 3), node('A1', 1), node('C2', 3), node('D1', 4)]

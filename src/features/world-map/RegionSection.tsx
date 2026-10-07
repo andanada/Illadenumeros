@@ -3,7 +3,7 @@ import type { SkillNode } from '../../core/ambit/types'
 import type { SkillState } from '../../core/engine/mastery'
 import { RegionLandscape } from './RegionLandscape'
 import { SkillStop } from './SkillStop'
-import { GRADE_LABEL, starsFor, stopStatus, type Region } from './stops'
+import { GRADE_LABEL, isRegionClosed, REGIONS, starsFor, stopStatus, type Region } from './stops'
 
 const STEP = 112
 const TOP = 124
@@ -34,6 +34,8 @@ export interface RegionSectionProps {
 /** A playable region: wobbly tinted island, a landmark sticker, and a dashed path of stops. */
 export const RegionSection = memo(function RegionSection({ region, skills, states, focusId, onOpen }: RegionSectionProps) {
   const height = TOP + skills.length * STEP + 24
+  const previous = REGIONS.find((r) => r.grade === region.grade - 1)
+  const closed = previous !== undefined && isRegionClosed(skills, states)
   return (
     <section
       aria-labelledby={`r-${region.id}`}
@@ -66,6 +68,7 @@ export const RegionSection = memo(function RegionSection({ region, skills, state
             {region.name}
           </h2>
           <p className="text-base font-semibold text-ink/60">{GRADE_LABEL[region.grade]} de primària</p>
+          {closed && <p className="text-base font-bold text-brand-dark">Domina «{previous.name}» per obrir-la</p>}
         </div>
       </div>
 

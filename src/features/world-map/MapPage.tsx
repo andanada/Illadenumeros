@@ -33,7 +33,10 @@ export default function MapPage() {
       title="L’Illa dels Números"
       right={
         <>
-          <div aria-label={`${rewards.petals} pètals`} className="sticker flex min-h-12 items-center gap-2 whitespace-nowrap rounded-full bg-white px-4 text-xl font-bold text-brand-dark sm:min-h-16 sm:px-5 sm:text-2xl">
+          <div
+            aria-label={`${rewards.petals} pètals`}
+            className="sticker flex min-h-12 items-center gap-2 whitespace-nowrap rounded-full bg-white px-4 text-xl font-bold text-brand-dark sm:min-h-16 sm:px-5 sm:text-2xl"
+          >
             <span aria-hidden="true">🌸</span>
             {rewards.petals}
           </div>
@@ -52,7 +55,9 @@ export default function MapPage() {
       <div className="mx-auto flex w-full max-w-xl flex-col gap-6 px-4 pb-16">
         <div className="flex items-end gap-3">
           <Mascot character={profile.character} mood="salut" size={110} />
-          <p className="sticker mb-6 rounded-[1.6rem] rounded-bl-md bg-white px-5 py-3 text-2xl font-bold text-brand-dark">Hola, {profile.name}!</p>
+          <p className="sticker mb-6 rounded-[1.6rem] rounded-bl-md bg-white px-5 py-3 text-2xl font-bold text-brand-dark">
+            Hola, {profile.name}!
+          </p>
         </div>
         <button
           type="button"
@@ -71,39 +76,40 @@ export default function MapPage() {
           <span className="text-base font-semibold text-ink/60">· Canvia</span>
         </button>
 
-        <Button big tilt={-1.5} variant={missionDone ? 'ok' : 'primary'} className="min-h-24 w-full text-4xl" onClick={() => navigate('/mission')}>
+        <Button
+          big
+          tilt={-1.5}
+          variant={missionDone ? 'ok' : 'primary'}
+          className="min-h-24 w-full text-4xl"
+          onClick={() => navigate('/mission')}
+        >
           {missionDone ? '✓ ' : ''}Missió d’avui
         </Button>
         {missionDone && <p className="-mt-3 text-center text-lg font-semibold text-ok">Ja l’has feta! Pots jugar més.</p>}
 
         {regions.map(({ region, skills }) => (
-          <RegionSection
-            key={region.id}
-            region={region}
-            skills={skills}
-            states={states}
-            focusId={focusId}
-            onOpen={setOpen}
-          />
+          <RegionSection key={region.id} region={region} skills={skills} states={states} focusId={focusId} onOpen={setOpen} />
         ))}
 
-        <ul className="flex flex-col gap-4">
-          {REGIONS.filter((r) => !regions.some((entry) => entry.region.id === r.id)).map((region, i) => (
-            <li
-              key={region.id}
-              className={`sticker flex items-center gap-4 rounded-[1.6rem] bg-white/70 p-4 ${i % 2 === 0 ? 'rotate-1' : '-rotate-1'}`}
-            >
-              <span aria-hidden="true" className="text-4xl grayscale">
-                {region.emoji}
-              </span>
-              <div className="flex-1">
-                <p className="text-xl font-bold leading-tight text-ink/60">{region.name}</p>
-                <p className="text-base font-semibold text-ink/50">{GRADE_LABEL[region.grade]}</p>
-              </div>
-              <span className="rounded-full bg-sol px-4 py-1 text-lg font-bold">Aviat!</span>
-            </li>
-          ))}
-        </ul>
+        {REGIONS.some((r) => !regions.some((entry) => entry.region.id === r.id)) && (
+          <ul className="flex flex-col gap-4">
+            {REGIONS.filter((r) => !regions.some((entry) => entry.region.id === r.id)).map((region, i) => (
+              <li
+                key={region.id}
+                className={`sticker flex items-center gap-4 rounded-[1.6rem] bg-white/70 p-4 ${i % 2 === 0 ? 'rotate-1' : '-rotate-1'}`}
+              >
+                <span aria-hidden="true" className="text-4xl grayscale">
+                  {region.emoji}
+                </span>
+                <div className="flex-1">
+                  <p className="text-xl font-bold leading-tight text-ink/60">{region.name}</p>
+                  <p className="text-base font-semibold text-ink/50">{GRADE_LABEL[region.grade]}</p>
+                </div>
+                <span className="rounded-full bg-sol px-4 py-1 text-lg font-bold">Aviat!</span>
+              </li>
+            ))}
+          </ul>
+        )}
 
         <div className="flex justify-center pt-4">
           <span className="relative">

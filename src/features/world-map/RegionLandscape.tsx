@@ -96,11 +96,39 @@ function Beach() {
   )
 }
 
+/** Ciutat dels Decimals: towers with a decimal point on the clock and a "%" shop sign. */
+function DecimalCity() {
+  return (
+    <>
+      <path d="M0 104 Q40 96 80 102 T160 100 V110 H0 Z" fill="#86efac" {...EDGE} />
+      <g {...EDGE}>
+        <rect x="14" y="54" width="30" height="48" rx="3" fill="#c4b5fd" />
+        <rect x="50" y="30" width="34" height="72" rx="3" fill="#a78bfa" />
+        <rect x="90" y="48" width="28" height="54" rx="3" fill="#ddd6fe" />
+        <rect x="122" y="64" width="26" height="38" rx="3" fill="#f5c99b" />
+      </g>
+      <circle cx="67" cy="46" r="11" fill="#fff" stroke={INK} strokeOpacity="0.5" strokeWidth="2" />
+      <text x="67" y="51" textAnchor="middle" fontSize="14" fontWeight="700" fill={INK}>
+        ,
+      </text>
+      <rect x="95" y="58" width="18" height="12" rx="3" fill="#ffd23f" stroke={INK} strokeOpacity="0.4" strokeWidth="1.5" />
+      <text x="104" y="67" textAnchor="middle" fontSize="9" fontWeight="700" fill={INK}>
+        %
+      </text>
+      {[22, 32, 58, 72, 98, 108, 128, 138].map((x, i) => (
+        <rect key={x} x={x} y={70 + (i % 2) * 14} width="6" height="8" rx="1.5" fill="#fff7cc" />
+      ))}
+      <circle cx="140" cy="22" r="11" fill="#ffd23f" {...EDGE} />
+    </>
+  )
+}
+
 const SCENES: Record<string, () => React.JSX.Element> = {
   bosc: Forest,
   platja: Beach,
   castell: CastleBakery,
   muntanya: MountainMilestones,
+  ciutat: DecimalCity,
 }
 
 /** Decorative hand-drawn landscape for a region (sticker style: flat colours, white die-cut edge). */

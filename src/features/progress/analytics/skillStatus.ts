@@ -3,7 +3,7 @@ import { isUnlocked } from '../../../core/engine/graph'
 import type { SkillState, SkillStatus } from '../../../core/engine/mastery'
 
 export const GRADE_LABELS: Record<number, string> = { 1: '1r', 2: '2n', 3: '3r', 4: '4t', 5: '5è' }
-export const SHOWN_GRADES: readonly Grade[] = [1, 2, 3, 4]
+export const SHOWN_GRADES: readonly Grade[] = [1, 2, 3, 4, 5]
 
 /** Status shown in the heatmap: stored status, or bloquejada when the prerequisites are not reached yet. */
 export function skillStatusOf(skill: SkillNode, states: Readonly<Record<string, SkillState | undefined>>): SkillStatus {

@@ -40,6 +40,30 @@ export const MISCONCEPTIONS = [
   'place-value-zero',
   /** Two-step problem stopped after the first step. */
   'one-step-only',
+  /** Tenths and hundredths mixed up (0,5 read as 0,05). */
+  'decimal-place-value',
+  /** The decimal with more digits taken as the bigger one (0,45 > 0,5). */
+  'decimal-longer-bigger',
+  /** Decimals added or subtracted as whole numbers, ignoring the comma. */
+  'decimal-misaligned',
+  /** Long multiplication: a partial product (tens row) is left out. */
+  'partial-product-missing',
+  /** The remainder written after the comma (7 : 2 = 3,1). */
+  'remainder-as-decimal',
+  /** Operations done left to right, ignoring priority or brackets. */
+  'order-of-operations',
+  /** n² or n³ answered as n × 2 or n × 3. */
+  'power-as-multiple',
+  /** Multiples and divisors confused. */
+  'multiple-divisor-swap',
+  /** Equivalent fraction built by adding the same number to both terms. */
+  'fraction-additive',
+  /** Only the numerator or only the denominator changed. */
+  'fraction-one-part-only',
+  /** 25 % of 80 answered 25. */
+  'percent-as-amount',
+  /** A percentage mapped to the wrong fraction (25 % as ½). */
+  'percent-wrong-fraction',
 ] as const
 export type MisconceptionId = (typeof MISCONCEPTIONS)[number]
 
@@ -59,6 +83,10 @@ export type VisualModel =
   | { kind: 'fraction'; parts: number; selected: number; collection?: number }
   /** Euro coins and notes, values in cents (e.g. 200 = 2 euros, 50 = 50 cents). */
   | { kind: 'money'; coins: number[] }
+  /** Hundred square (10 x 10) with `filled` squares coloured: centèsimes and percentages. */
+  | { kind: 'hundredGrid'; filled: number }
+  /** Decimal number line from `from` to `to` (whole numbers) in tenths; `target` in hundredths. */
+  | { kind: 'decimalLine'; from: number; to: number; target: number }
 
 export interface Choice {
   value: string

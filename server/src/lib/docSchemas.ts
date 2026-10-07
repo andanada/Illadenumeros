@@ -35,6 +35,18 @@ const MISCONCEPTIONS = [
   'euro-cent-mix',
   'place-value-zero',
   'one-step-only',
+  'decimal-place-value',
+  'decimal-longer-bigger',
+  'decimal-misaligned',
+  'partial-product-missing',
+  'remainder-as-decimal',
+  'order-of-operations',
+  'power-as-multiple',
+  'multiple-divisor-swap',
+  'fraction-additive',
+  'fraction-one-part-only',
+  'percent-as-amount',
+  'percent-wrong-fraction',
 ] as const
 
 export const DOC_KINDS = ['skill', 'fact', 'rewards', 'settings'] as const

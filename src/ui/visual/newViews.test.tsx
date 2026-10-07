@@ -8,6 +8,8 @@ const CASES: [string, VisualModel, RegExp][] = [
   ['fraction pizza', { kind: 'fraction', parts: 4, selected: 3 }, /4 parts iguals, amb 3 pintades/],
   ['fraction collection', { kind: 'fraction', parts: 4, selected: 3, collection: 12 }, /en pintem 9/],
   ['money', { kind: 'money', coins: [200, 50, 20] }, /Total: 2,70 €/],
+  ['hundred grid', { kind: 'hundredGrid', filled: 35 }, /100 caselles amb 35 pintades/],
+  ['decimal line', { kind: 'decimalLine', from: 2, to: 3, target: 245 }, /del 2 al 3 tallada en dècimes/],
 ]
 
 describe('new visual views', () => {

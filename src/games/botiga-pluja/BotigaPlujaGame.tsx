@@ -3,7 +3,7 @@ import { GameShell } from '../shared/GameShell'
 import { useGameBase } from '../shared/useGameBase'
 import { BotigaRound } from './BotigaRound'
 
-const BOTIGA_PLUJA_SKILLS = ['C9'] as const
+const BOTIGA_PLUJA_SKILLS = ['C9', 'E10'] as const
 
 /** La Botiga de la Pluja: pay exactly or give change with coins and notes from the purse. */
 export function BotigaPlujaGame(props: GameProps) {

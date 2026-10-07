@@ -1,4 +1,5 @@
 import type { Item } from '../../../core/ambit/types'
+import { expectedAnswer5e } from './expectedAnswer5e.testutil'
 
 /** Test-only: independent recomputation of the right answer from an item's own data. */
 
@@ -84,6 +85,7 @@ function visualAnswer(item: Item): string | undefined {
 }
 
 export function expectedAnswer(item: Item): string | undefined {
+  if (item.skillId.startsWith('E')) return expectedAnswer5e(item)
   if (item.skillId === 'D8') return roundingAnswer(item.text)
   if (item.skillId === 'D9') return missingNumberAnswer(item.text)
   if (item.skillId === 'C10') return checkWorkedSteps(item.hints[2])

@@ -45,4 +45,17 @@ describe('MapPage', () => {
     )
     expect(screen.getByRole('button', { name: 'Per a la família (només adults)' })).toBeInTheDocument()
   })
+
+  it('shows the Ciutat dels Decimals with its 10 stops, closed until 4t is mastered', () => {
+    render(
+      <MemoryRouter>
+        <MapPage />
+      </MemoryRouter>,
+    )
+    expect(screen.getByRole('heading', { name: 'Ciutat dels Decimals' })).toBeInTheDocument()
+    expect(screen.getByText('Domina «Muntanya dels Milers» per obrir-la')).toBeInTheDocument()
+    expect(screen.queryByText('Aviat!')).toBeNull()
+    const city = document.querySelector('[data-region="ciutat"]')
+    expect(city?.querySelectorAll('button').length).toBe(10)
+  })
 })
