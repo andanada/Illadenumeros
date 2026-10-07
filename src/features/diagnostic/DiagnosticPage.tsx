@@ -55,6 +55,9 @@ function Celebration({ character, onGo }: { character: CharacterId; onGo: () => 
   )
 }
 
+/** Milliseconds since a `performance.now()` reading; called from handlers only. */
+const elapsedSince = (start: number): number => performance.now() - start
+
 function useCharacter() {
   return useProgress((s) => s.profile?.character) ?? 'mixa'
 }
@@ -69,13 +72,13 @@ export default function DiagnosticPage() {
   const [tick, setTick] = useState(0)
   const [finished, setFinished] = useState(false)
   const busy = useRef(false)
-  const shownAt = useRef(performance.now())
+  const shownAt = useRef(0)
   const timers = useRef<ReturnType<typeof setTimeout>[]>([])
 
   const anchor = currentAnchor(diag) ?? DIAGNOSTIC_ANCHORS[0]
   const forced = useMemo(() => ({ skillId: anchor }), [anchor])
   const flow = useQuestionFlow({ gameId: 'repte-illa', forced })
-  const { item } = flow
+  const { item, next: nextItem } = flow
 
   useEffect(() => () => timers.current.forEach(clearTimeout), [])
 
@@ -84,9 +87,9 @@ export default function DiagnosticPage() {
   useEffect(() => {
     if (tick === handledTick.current) return
     handledTick.current = tick
-    flow.next()
+    nextItem()
     setPicked(undefined)
-  }, [tick])
+  }, [tick, nextItem])
 
   useEffect(() => {
     shownAt.current = performance.now()
@@ -105,7 +108,7 @@ export default function DiagnosticPage() {
     busy.current = true
     unlockAudio()
     try {
-      const rt = performance.now() - shownAt.current
+      const rt = elapsedSince(shownAt.current)
       setPicked(choice.value)
       const result = await flow.answer(choice, rt)
       const next = recordDiagnostic(diag, diagnosticAnswer({ correct: result.correct, rtMs: rt, fluencyTargetMs: flow.skill.fluencyTargetMs }))

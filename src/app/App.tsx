@@ -4,6 +4,7 @@ import { initSpeech } from '../core/audio/speech'
 import { useProgress } from '../core/progress/store'
 import { requestPersistentStorage } from '../core/storage/db'
 import { onPlayersChanged } from '../core/storage/playersChannel'
+import { restoreSessionAtStart } from '../core/sync/accountStore'
 import { ErrorBoundary } from './ErrorBoundary'
 import { PageLoader } from './PageLoader'
 import { RequireProfile } from './RequireProfile'
@@ -19,7 +20,9 @@ const MissionPage = lazy(() => import('../features/daily-mission/MissionPage'))
 const AlbumPage = lazy(() => import('../features/stickers/AlbumPage'))
 const GamePage = lazy(() => import('../features/play/GamePage'))
 const FamilyPage = lazy(() => import('../features/family/FamilyPage'))
+const ProgressPage = lazy(() => import('../features/progress/ProgressPage'))
 const PlayerPickerPage = lazy(() => import('../features/players/PlayerPickerPage'))
+const AccountPage = lazy(() => import('../features/account/AccountPage'))
 
 function Home() {
   const profile = useProgress((s) => s.profile)
@@ -34,7 +37,8 @@ export default function App() {
 
   useEffect(() => {
     initSpeech()
-    void useProgress.getState().init()
+    // Players first; then (only on devices that logged in before) the family account session and its sync.
+    void useProgress.getState().init().then(restoreSessionAtStart)
     void requestPersistentStorage()
     return onPlayersChanged(() => void useProgress.getState().syncPlayers())
   }, [])
@@ -56,6 +60,7 @@ export default function App() {
             <Route path="/start" element={<StartPage />} />
             <Route path="/onboarding" element={<OnboardingPage />} />
             <Route path="/qui-juga" element={<PlayerPickerPage />} />
+            <Route path="/compte" element={<AccountPage />} />
             <Route
               path="/diagnostic"
               element={
@@ -101,6 +106,14 @@ export default function App() {
               element={
                 <RequireProfile>
                   <FamilyPage />
+                </RequireProfile>
+              }
+            />
+            <Route
+              path="/progres"
+              element={
+                <RequireProfile>
+                  <ProgressPage />
                 </RequireProfile>
               }
             />

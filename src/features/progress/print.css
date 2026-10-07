@@ -1,0 +1,39 @@
+@media print {
+  @page {
+    margin: 12mm;
+  }
+  html,
+  body,
+  #root {
+    height: auto !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+  .notebook {
+    background: #fff !important;
+    overflow: visible !important;
+  }
+  .notebook::before,
+  .no-print,
+  header button,
+  [aria-hidden='true'].pointer-events-none {
+    display: none !important;
+  }
+  main {
+    padding-left: 0 !important;
+  }
+  .progress-section {
+    break-inside: avoid;
+    rotate: 0deg !important;
+    box-shadow: none !important;
+    border: 1px solid #999 !important;
+  }
+  /* Colours must survive in the heatmaps. */
+  .progress-section * {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  .progress-table {
+    display: none !important;
+  }
+}

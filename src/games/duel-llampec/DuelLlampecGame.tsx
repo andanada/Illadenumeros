@@ -22,15 +22,16 @@ export function DuelLlampecGame({ skillIds, maxRounds, onExit, onComplete }: Gam
   const flow = useQuestionFlow({ gameId: 'duel-llampec', skillIds: allowed })
   const character = useProgress((s) => s.profile?.character) ?? 'mixa'
   const petals = useProgress((s) => s.rewards.petals)
-  const rival = useMemo(() => pickRival(character, Date.now()), [character])
+  const [rival] = useState(() => pickRival(character, Date.now()))
 
   const [elapsed, setElapsed] = useState(0)
   const [points, setPoints] = useState(0)
   const [solved, setSolved] = useState<string | undefined>(undefined)
-  const [shaking, setShaking] = useState<string | undefined>(undefined)
+  const [shaking, setShaking] = useState<{ id: string; value: string } | undefined>(undefined)
 
-  const startedAt = useRef(performance.now())
-  const shownAt = useRef(performance.now())
+  // Both clocks start in the mount effects below (impure reads stay out of render).
+  const startedAt = useRef(0)
+  const shownAt = useRef(0)
   const busy = useRef(false)
   const ended = useRef(false)
   const rounds = useRef(0)
@@ -38,9 +39,11 @@ export function DuelLlampecGame({ skillIds, maxRounds, onExit, onComplete }: Gam
   const petalsAtStart = useRef(petals)
   const timeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const flowRef = useRef(flow)
-  flowRef.current = flow
   const completeRef = useRef(onComplete)
-  completeRef.current = onComplete
+  useEffect(() => {
+    flowRef.current = flow
+    completeRef.current = onComplete
+  })
 
   const { item } = flow
 
@@ -60,6 +63,7 @@ export function DuelLlampecGame({ skillIds, maxRounds, onExit, onComplete }: Gam
   }
 
   useEffect(() => {
+    startedAt.current = performance.now()
     const id = setInterval(() => {
       const t = performance.now() - startedAt.current
       setElapsed(t)
@@ -73,8 +77,6 @@ export function DuelLlampecGame({ skillIds, maxRounds, onExit, onComplete }: Gam
 
   useEffect(() => {
     shownAt.current = performance.now()
-    setSolved(undefined)
-    setShaking(undefined)
     speak(item.speech)
   }, [item.id, item.speech])
 
@@ -89,8 +91,10 @@ export function DuelLlampecGame({ skillIds, maxRounds, onExit, onComplete }: Gam
     }, delay)
   }
 
+  const isSolved = solved === item.id
+
   const pick = async (choice: Choice) => {
-    if (busy.current || ended.current || solved !== undefined) return
+    if (busy.current || ended.current || isSolved) return
     busy.current = true
     unlockAudio()
     try {
@@ -104,7 +108,7 @@ export function DuelLlampecGame({ skillIds, maxRounds, onExit, onComplete }: Gam
         advance(NEXT_MS)
       } else {
         sfx.almost()
-        setShaking(choice.value)
+        setShaking({ id: item.id, value: choice.value })
         if (result.itemDone) {
           setSolved(item.id)
           advance(REVEAL_MS)
@@ -117,7 +121,6 @@ export function DuelLlampecGame({ skillIds, maxRounds, onExit, onComplete }: Gam
 
   const childProgress = Math.min(1, points / GOAL_POINTS)
   const remaining = 1 - elapsed / DUEL_DURATION_MS
-  const isSolved = solved === item.id
   const stateOf = (value: string): BubbleState => {
     if (isSolved) return value === item.answer ? 'correct' : 'dimmed'
     return flow.wrongValues.includes(value) ? 'wrong' : 'idle'
@@ -146,7 +149,7 @@ export function DuelLlampecGame({ skillIds, maxRounds, onExit, onComplete }: Gam
                 value={choice.value}
                 index={i}
                 state={state}
-                shaking={shaking === choice.value && state === 'wrong'}
+                shaking={shaking?.id === item.id && shaking.value === choice.value && state === 'wrong'}
                 disabled={isSolved || state === 'wrong'}
                 onPick={() => void pick(choice)}
               />

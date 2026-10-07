@@ -51,6 +51,13 @@ export default function StartPage() {
           Toca per començar
         </Button>
         <InstallHint />
+        <button
+          type="button"
+          onClick={() => navigate('/compte')}
+          className="min-h-12 rounded-full px-5 text-lg font-semibold text-brand-dark/80 underline underline-offset-4"
+        >
+          Ja teniu un compte de la família? Entreu-hi (adults)
+        </button>
       </div>
     </main>
   )

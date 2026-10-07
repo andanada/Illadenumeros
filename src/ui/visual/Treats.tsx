@@ -42,20 +42,3 @@ export function PlateShape({ size = 120, highlight = false }: { size?: number; h
   )
 }
 
-/** Positions of `n` items inside a plate of `size` px, as offsets from its centre. */
-export function platePositions(n: number, size: number): { x: number; y: number }[] {
-  if (n <= 0) return []
-  if (n === 1) return [{ x: 0, y: 0 }]
-  const ring = size * 0.26
-  const inner = n > 7 ? n - 7 : 0
-  const outerCount = n - inner
-  const outer = Array.from({ length: outerCount }, (_, i) => {
-    const a = (i / outerCount) * Math.PI * 2 - Math.PI / 2
-    return { x: Math.cos(a) * ring, y: Math.sin(a) * ring }
-  })
-  const centre = Array.from({ length: inner }, (_, i) => {
-    const a = (i / Math.max(inner, 1)) * Math.PI * 2
-    return { x: Math.cos(a) * ring * 0.4, y: Math.sin(a) * ring * 0.4 }
-  })
-  return [...outer, ...centre]
-}

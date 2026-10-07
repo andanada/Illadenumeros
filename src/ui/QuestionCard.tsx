@@ -36,7 +36,10 @@ export function QuestionCard({ flow, character, onResult, onContinue }: Question
   const busy = useRef(false)
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const continueRef = useRef(onContinue)
-  continueRef.current = onContinue
+  // Kept current after every commit (refs are not written during render).
+  useEffect(() => {
+    continueRef.current = onContinue
+  })
 
   const solvedHere = solvedId === item.id
   const revealed = hintLevel === 3 && !solvedHere

@@ -48,6 +48,52 @@ const REQUEUE_AFTER = 3
 /** Wrong answers after which the solution is shown: with few choices, two wrong ones leave only the right one. */
 const revealAfter = (item: Item): number => (item.choices.length <= 3 ? 2 : 3)
 
+interface Memory {
+  seed: string
+  counter: number
+  queue: { afterN: number; selection: Selection }[]
+  hintsUsed: number
+  shownAt: number
+}
+
+interface Current {
+  selection: Selection
+  item: Item
+}
+
+/** Mutable bookkeeping of the flow (not rendered), created once in a lazy initialiser. */
+const createMemory = (): Memory => ({ seed: `${Date.now()}`, counter: 0, queue: [], hintsUsed: 0, shownAt: performance.now() })
+
+function buildItem(mem: Memory, selection: Selection): Item {
+  const generator = matesAmbit.generators[selection.skillId]
+  if (!generator) throw new Error(`Sense generador per a ${selection.skillId}`)
+  const state = useProgress.getState()
+  mem.counter += 1
+  const rng = createRng(`${mem.seed}:${mem.counter}`)
+  const cpaStage = state.skillStates[selection.skillId]?.cpaStage ?? 'concret'
+  return generator({ rng, cpaStage, ...(selection.factKey !== undefined ? { factKey: selection.factKey } : {}) })
+}
+
+function pickSelection(mem: Memory, forced: FlowOptions['forced'], skillIds: readonly string[] | undefined): Selection {
+  if (forced) return { skillId: forced.skillId, mode: 'consolidacio', ...(forced.factKey ? { factKey: forced.factKey } : {}) }
+  const due = mem.queue.find((q) => q.afterN <= mem.counter)
+  if (due) {
+    mem.queue = mem.queue.filter((q) => q !== due)
+    return due.selection
+  }
+  const state = useProgress.getState()
+  return selectNext({
+    skills: matesAmbit.skills,
+    skillStates: state.skillStates,
+    factStates: state.factStates,
+    factsForSkill: matesAmbit.factsForSkill,
+    recent: state.sessionResults,
+    now: Date.now(),
+    rng: createRng(`sel:${mem.seed}:${mem.counter}`),
+    ...(skillIds ? { restrictTo: skillIds } : {}),
+  })
+}
+
 /**
  * One question at a time, driven by the spaced-repetition selector.
  * Handles the three-step hint ladder: no punishment, the solution is shown after 3 errors.
@@ -55,54 +101,19 @@ const revealAfter = (item: Item): number => (item.choices.length <= 3 ? 2 : 3)
 export function useQuestionFlow(options: FlowOptions): QuestionFlow {
   const { skillIds, forced, gameId } = options
   const record = useProgress((s) => s.record)
-  const seed = useRef(`${Date.now()}`)
-  const counter = useRef(0)
-  const queue = useRef<{ afterN: number; selection: Selection }[]>([])
-  const shownAt = useRef(performance.now())
-
-  const build = useCallback(
-    (selection: Selection): Item => {
-      const generator = matesAmbit.generators[selection.skillId]
-      if (!generator) throw new Error(`Sense generador per a ${selection.skillId}`)
-      const state = useProgress.getState()
-      counter.current += 1
-      const rng = createRng(`${seed.current}:${counter.current}`)
-      const cpaStage = state.skillStates[selection.skillId]?.cpaStage ?? 'concret'
-      return generator({ rng, cpaStage, ...(selection.factKey !== undefined ? { factKey: selection.factKey } : {}) })
-    },
-    [],
-  )
-
-  const pick = useCallback((): Selection => {
-    if (forced) return { skillId: forced.skillId, mode: 'consolidacio', ...(forced.factKey ? { factKey: forced.factKey } : {}) }
-    const due = queue.current.find((q) => q.afterN <= counter.current)
-    if (due) {
-      queue.current = queue.current.filter((q) => q !== due)
-      return due.selection
-    }
-    const state = useProgress.getState()
-    return selectNext({
-      skills: matesAmbit.skills,
-      skillStates: state.skillStates,
-      factStates: state.factStates,
-      factsForSkill: matesAmbit.factsForSkill,
-      recent: state.sessionResults,
-      now: Date.now(),
-      rng: createRng(`sel:${seed.current}:${counter.current}`),
-      ...(skillIds ? { restrictTo: skillIds } : {}),
-    })
-  }, [forced, skillIds])
-
-  const [current, setCurrent] = useState<{ selection: Selection; item: Item }>(() => {
-    const selection = pick()
-    return { selection, item: build(selection) }
+  const [start] = useState<{ mem: Memory; first: Current }>(() => {
+    const mem = createMemory()
+    const selection = pickSelection(mem, forced, skillIds)
+    return { mem, first: { selection, item: buildItem(mem, selection) } }
   })
+  // Bookkeeping lives in a ref, read only inside handlers; the lazy initialiser above built the first item.
+  const memory = useRef(start.mem)
+  const [current, setCurrent] = useState<Current>(start.first)
   const [errors, setErrors] = useState(0)
   const [wrongValues, setWrongValues] = useState<string[]>([])
   const [streak, setStreak] = useState(0)
   const [answered, setAnswered] = useState(0)
   const [correctCount, setCorrectCount] = useState(0)
-  const hintsUsed = useRef(0)
 
   const skill = useMemo(() => {
     const found = matesAmbit.skills.find((s) => s.id === current.item.skillId)
@@ -113,17 +124,17 @@ export function useQuestionFlow(options: FlowOptions): QuestionFlow {
   const answer = useCallback(
     async (choice: Choice, rtMs?: number): Promise<AnswerResult> => {
       const correct = choice.value === current.item.answer
-      const elapsed = rtMs ?? performance.now() - shownAt.current
+      const elapsed = rtMs ?? performance.now() - memory.current.shownAt
       const nextErrors = correct ? errors : errors + 1
       const revealed = !correct && nextErrors >= revealAfter(current.item)
-      hintsUsed.current = Math.max(hintsUsed.current, correct ? hintsUsed.current : Math.min(nextErrors, 3))
+      memory.current.hintsUsed = Math.max(memory.current.hintsUsed, correct ? memory.current.hintsUsed : Math.min(nextErrors, 3))
 
       const input: RecordInput = {
         skillId: current.item.skillId,
         ...(current.item.factKey !== undefined ? { factKey: current.item.factKey } : {}),
         correct,
         rtMs: elapsed,
-        hintsUsed: hintsUsed.current,
+        hintsUsed: memory.current.hintsUsed,
         retry: errors > 0,
         ...(choice.misconception !== undefined ? { misconception: choice.misconception } : {}),
         cpaStage: current.item.cpaStage,
@@ -141,9 +152,9 @@ export function useQuestionFlow(options: FlowOptions): QuestionFlow {
         setWrongValues((v) => [...v, choice.value])
       }
       const itemDone = correct || revealed
-      const alreadyQueued = queue.current.some((q) => q.selection === current.selection)
-      if (itemDone && (hintsUsed.current > 0 || revealed) && !alreadyQueued) {
-        queue.current.push({ afterN: counter.current + REQUEUE_AFTER, selection: current.selection })
+      const alreadyQueued = memory.current.queue.some((q) => q.selection === current.selection)
+      if (itemDone && (memory.current.hintsUsed > 0 || revealed) && !alreadyQueued) {
+        memory.current.queue.push({ afterN: memory.current.counter + REQUEUE_AFTER, selection: current.selection })
       }
       return { correct, itemDone, outcome }
     },
@@ -151,16 +162,16 @@ export function useQuestionFlow(options: FlowOptions): QuestionFlow {
   )
 
   const next = useCallback(() => {
-    const selection = pick()
-    setCurrent({ selection, item: build(selection) })
+    const selection = pickSelection(memory.current, forced, skillIds)
+    setCurrent({ selection, item: buildItem(memory.current, selection) })
     setErrors(0)
     setWrongValues([])
-    hintsUsed.current = 0
-    shownAt.current = performance.now()
-  }, [build, pick])
+    memory.current.hintsUsed = 0
+    memory.current.shownAt = performance.now()
+  }, [forced, skillIds])
 
   const markHint = useCallback(() => {
-    hintsUsed.current = Math.max(hintsUsed.current, 1)
+    memory.current.hintsUsed = Math.max(memory.current.hintsUsed, 1)
   }, [])
 
   const hintLevel = (errors >= revealAfter(current.item) ? 3 : Math.min(errors, 3)) as HintLevel

@@ -11,7 +11,8 @@ import { NextButton } from '../shared/NextButton'
 import { useRoundAnswer } from '../shared/useRoundAnswer'
 import type { RoundProps } from '../shared/useGameBase'
 import { canDeal, dealCaption, dealTo, emptyPlates, fullPlates, isShared, nextPlate, planFromItem, remainingCandies } from './plateLogic'
-import { CandyPool, PlatesBoard, parsePlateId } from './PlatesBoard'
+import { CandyPool, PlatesBoard } from './PlatesBoard'
+import { parsePlateId } from './plateIds'
 
 /** One "Repartim Llaminadures" question, remounted per item (key = item.id). */
 export function LlaminadureRound({ flow, rounds, onNext }: RoundProps) {

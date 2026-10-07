@@ -57,7 +57,7 @@ export function BotigaRound({ flow, rounds, onNext }: RoundProps) {
 
   return (
     <div className="flex flex-1 flex-col">
-      <p className="mx-auto max-w-2xl px-3 text-center text-3xl font-bold leading-tight tracking-tight text-brand-dark sm:text-4xl">
+      <p className="mx-auto max-w-2xl px-3 text-center text-2xl font-bold leading-tight tracking-tight text-brand-dark sm:text-3xl [@media(min-height:901px)]:text-3xl sm:[@media(min-height:901px)]:text-4xl">
         <span aria-hidden="true">☂️ </span>
         {item.text}
       </p>
@@ -67,7 +67,7 @@ export function BotigaRound({ flow, rounds, onNext }: RoundProps) {
         onDragEnd={handleDragEnd}
         onDragCancel={() => setDragging(undefined)}
       >
-        <div className="flex flex-1 flex-col items-center justify-center gap-3 px-2 py-2">
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 px-2 py-1 [@media(min-height:901px)]:gap-3 [@media(min-height:901px)]:py-2">
           {item.visual.kind !== 'none' && <VisualModelView key={item.id} model={item.visual} size="md" />}
           {plan.mode === 'pay' ? (
             <>

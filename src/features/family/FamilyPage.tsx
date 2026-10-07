@@ -4,7 +4,9 @@ import { useProgress } from '../../core/progress/store'
 import { SCHEMA_VERSION } from '../../core/storage/db'
 import { getDb } from '../../core/storage/playerDbs'
 import { readMeta } from '../../core/storage/meta'
+import { useAccount } from '../../core/sync/accountStore'
 import { Screen } from '../../ui/Screen'
+import { AccountSection } from '../account/AccountSection'
 import { APP_VERSION } from './appVersion'
 import { BackupSection } from './BackupSection'
 import { Card, MessageBar, type Message } from './Card'
@@ -40,6 +42,26 @@ function ProgressSummary() {
   )
 }
 
+/** Where the progress lives: only here, or here + the family account. */
+function StorageExplanation() {
+  const cloud = useAccount((s) => s.status === 'loggedIn' || s.status === 'offline')
+  return (
+    <p className="text-lg leading-snug text-ink">
+      {cloud ? (
+        <>
+          El progrés de cada jugador es guarda en aquest dispositiu, separat del dels altres, i com que heu entrat al compte de la família també se’n desa una còpia al servidor de la
+          família, que es comparteix amb els vostres altres dispositius.
+        </>
+      ) : (
+        <>
+          El progrés de cada jugador es guarda només en aquest dispositiu, dins del navegador, separat del dels altres. No s’envia enlloc si no entreu al compte de la família.
+          Si s’esborren les dades del navegador o es canvia de dispositiu, només es pot recuperar amb una còpia.
+        </>
+      )}
+    </p>
+  )
+}
+
 /** Calm, adult-only screen: where the progress lives, backup, restore and a safe reset. */
 export default function FamilyPage({ saveFile, now = Date.now }: FamilyPageProps) {
   const navigate = useNavigate()
@@ -50,6 +72,7 @@ export default function FamilyPage({ saveFile, now = Date.now }: FamilyPageProps
   const save = useMemo(() => saveFile ?? createSaveFile(), [saveFile])
 
   const activePlayerId = useProgress((s) => s.activePlayerId)
+  const cloud = useAccount((s) => s.status === 'loggedIn' || s.status === 'offline')
 
   useEffect(() => {
     let active = true
@@ -66,20 +89,26 @@ export default function FamilyPage({ saveFile, now = Date.now }: FamilyPageProps
     <Screen title="Per a la família" back="/map">
       <div className="mx-auto flex w-full max-w-xl flex-col gap-6 px-4 pb-16">
         <Card title="On es guarda el progrés" tilt={0.4}>
-          <p className="text-lg leading-snug text-ink">
-            El progrés de cada jugador es guarda només en aquest dispositiu, dins del navegador, separat del dels altres. No s’envia enlloc ni hi ha cap compte al núvol.
-            Si s’esborren les dades del navegador o es canvia de dispositiu, només es pot recuperar amb una còpia.
-          </p>
+          <StorageExplanation />
           <ProgressSummary />
+          <button
+            type="button"
+            onClick={() => navigate('/progres')}
+            className="min-h-14 rounded-2xl bg-brand px-5 py-3 text-xl font-bold text-white shadow-md"
+          >
+            Veure el progrés detallat
+          </button>
         </Card>
 
         <MessageBar message={message} />
+
+        <AccountSection />
 
         <PlayersSection
           onDeleted={(wasActive, remaining) => {
             if (remaining === 0) navigate('/start', { replace: true })
             else if (wasActive) navigate('/qui-juga', { replace: true })
-            else setMessage({ kind: 'ok', text: 'Jugador esborrat d’aquest dispositiu.' })
+            else setMessage({ kind: 'ok', text: cloud ? 'Jugador esborrat d’aquest dispositiu i del compte.' : 'Jugador esborrat d’aquest dispositiu.' })
           }}
         />
 

@@ -1,12 +1,8 @@
 import { useDraggable, useDroppable } from '@dnd-kit/core'
 import { motion } from 'motion/react'
-import { Candy, PlateShape, platePositions } from '../../ui/visual/Treats'
-
-export const plateDropId = (index: number): string => `plate-${index}`
-export const parsePlateId = (id: string | number): number | undefined => {
-  const m = /^plate-(\d+)$/.exec(String(id))
-  return m ? Number(m[1]) : undefined
-}
+import { plateLayout } from '../../ui/visual/plateLayout'
+import { Candy, PlateShape } from '../../ui/visual/Treats'
+import { plateDropId } from './plateIds'
 
 const PLATE = 104
 const CANDY = 34
@@ -14,6 +10,7 @@ const PIECE = 72
 
 function Plate({ index, count, active, onTap }: { index: number; count: number; active: boolean; onTap: (index: number) => void }) {
   const { setNodeRef, isOver } = useDroppable({ id: plateDropId(index) })
+  const layout = plateLayout(count, PLATE, CANDY)
   return (
     <button
       ref={setNodeRef}
@@ -24,16 +21,16 @@ function Plate({ index, count, active, onTap }: { index: number; count: number; 
       className="relative shrink-0 rounded-full"
     >
       <PlateShape size={PLATE} highlight={isOver || active} />
-      {platePositions(count, PLATE).map((p, i) => (
+      {layout.positions.map((p, i) => (
         <motion.span
           key={i}
           initial={{ scale: 0.3, y: -12 }}
           animate={{ scale: 1, y: 0 }}
           transition={{ type: 'spring', stiffness: 520, damping: 15 }}
           className="absolute"
-          style={{ left: PLATE / 2 + p.x - CANDY / 2, top: PLATE / 2 + p.y - CANDY / 2 }}
+          style={{ left: PLATE / 2 + p.x - layout.candy / 2, top: PLATE / 2 + p.y - layout.candy / 2 }}
         >
-          <Candy size={CANDY} tone={index} />
+          <Candy size={layout.candy} tone={index} />
         </motion.span>
       ))}
       <span aria-hidden="true" className="sticker absolute -bottom-2 -right-1 grid size-9 place-items-center rounded-full bg-sol text-xl font-bold text-ink">
