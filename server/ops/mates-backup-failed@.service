@@ -1,0 +1,9 @@
+# Triggered by OnFailure= of mates-backup.service (%i = the failed unit name).
+# Install next to it: sudo cp ops/mates-backup-failed@.service /etc/systemd/system/
+# Find alerts with: journalctl -p crit -t mates-backup
+[Unit]
+Description=Report a failed Mates Magiques backup (%i)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/logger -p user.crit -t mates-backup "BACKUP FAILED: %i did not complete; check: journalctl -u %i -n 50"

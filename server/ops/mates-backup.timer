@@ -1,0 +1,13 @@
+# Install: cp mates-backup.{service,timer} /etc/systemd/system/ && systemctl daemon-reload
+#          systemctl enable --now mates-backup.timer
+# Cron alternative (root): 17 3 * * * /opt/mates/server/ops/backup.sh >> /var/log/mates-backup.log 2>&1
+[Unit]
+Description=Nightly Mates Magiques backup
+
+[Timer]
+OnCalendar=*-*-* 03:17:00
+RandomizedDelaySec=10m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

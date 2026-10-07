@@ -1,0 +1,22 @@
+# Install: see server/README.md ("Copias de seguridad"). Verify:
+#   systemctl list-timers mates-backup.timer
+#   sudo systemctl start mates-backup.service && journalctl -u mates-backup -n 20
+[Unit]
+Description=Mates Magiques SQLite backup
+# On failure, write a critical line to the journal/syslog (see mates-backup-failed@.service).
+OnFailure=mates-backup-failed@%n.service
+
+[Service]
+Type=oneshot
+Environment=DB_PATH=/opt/mates/server/data/mates.db
+Environment=BACKUP_DIR=/var/backups/mates
+# '+' runs this step without the sandbox below, so the directory exists before ReadWritePaths is applied.
+ExecStartPre=+/usr/bin/install -d -m 700 /var/backups/mates
+ExecStart=/opt/mates/server/ops/backup.sh
+User=root
+Nice=10
+ProtectSystem=strict
+# Every ReadWritePaths entry must exist when the unit starts, otherwise systemd fails with 226/NAMESPACE.
+# /var/backups always exists on Debian/Ubuntu; the data dir needs write access for the WAL -shm file.
+ReadWritePaths=/var/backups /opt/mates/server/data
+PrivateTmp=true

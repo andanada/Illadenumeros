@@ -1,0 +1,42 @@
+services:
+  mates-api:
+    build: .
+    image: mates-api:latest
+    container_name: mates-api
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # Only the gateway of the fixed network below (where host nginx connections arrive from) may set X-Forwarded-For.
+      TRUST_PROXY: 172.30.100.1
+    # Same uid/gid as the image user; ./data on the host must be owned by it with mode 700 (see README).
+    user: "10001:10001"
+    ports:
+      - "127.0.0.1:3100:3100"
+    volumes:
+      - ./data:/data
+    networks:
+      - mates
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 384m
+    cpus: 1.0
+    pids_limit: 128
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+# Fixed subnet so TRUST_PROXY can name exactly one address instead of the whole 172.16.0.0/12.
+# If 172.30.100.0/24 collides with another network on the host, change both values (and TRUST_PROXY).
+networks:
+  mates:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.100.0/24
+          gateway: 172.30.100.1
