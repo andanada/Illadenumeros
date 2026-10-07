@@ -61,7 +61,7 @@ export default function MapPage() {
         </div>
         <button
           type="button"
-          aria-label={`Canvia de jugador/a (ara juga ${profile.name})`}
+          aria-label={`${profile.name} · Canvia de jugador/a`}
           onClick={() => {
             // Leave the map first: once nobody is active, the protected routes would redirect.
             navigate('/qui-juga')

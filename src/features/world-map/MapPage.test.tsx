@@ -30,7 +30,7 @@ describe('MapPage', () => {
         </Routes>
       </MemoryRouter>,
     )
-    const change = screen.getByRole('button', { name: 'Canvia de jugador/a (ara juga Laia)' })
+    const change = screen.getByRole('button', { name: 'Laia · Canvia de jugador/a' })
     expect(change).toHaveTextContent('Laia')
     await userEvent.click(change)
     expect(clearActivePlayer).toHaveBeenCalledTimes(1)

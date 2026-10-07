@@ -36,7 +36,7 @@ async function playOneQuestion(page: Page): Promise<void> {
 }
 
 const changePlayer = async (page: Page, current: string): Promise<void> => {
-  await page.getByRole('button', { name: `Canvia de jugador/a (ara juga ${current})` }).click()
+  await page.getByRole('button', { name: `${current} · Canvia de jugador/a` }).click()
   await expect(page).toHaveURL(/#\/qui-juga$/)
   await expect(page.getByRole('heading', { level: 1, name: 'Qui juga?' })).toBeVisible()
 }
