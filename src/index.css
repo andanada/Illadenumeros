@@ -1,0 +1,108 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/fredoka';
+
+@theme inline {
+  --font-display: 'Fredoka Variable', 'Nunito', system-ui, sans-serif;
+  --color-brand: var(--brand);
+  --color-brand-dark: var(--brand-dark);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-bg: var(--brand-bg);
+  --color-ink: #2a1b3d;
+  --color-punk: #1d1530;
+  --color-chicle: #ff4fa3;
+  --color-menta: #5eead4;
+  --color-sol: #ffd23f;
+  --color-cel: #6ec1ff;
+  --color-ok: #16a34a;
+  --color-almost: #f59e0b;
+  --animate-pop-in: pop-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  --animate-wiggle: wiggle 0.5s ease-in-out;
+  --animate-float: float 3.2s ease-in-out infinite;
+  --animate-peel: peel 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes pop-in {
+  from { transform: scale(0.6); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+@keyframes wiggle {
+  0%, 100% { transform: rotate(0); }
+  25% { transform: rotate(-5deg); }
+  75% { transform: rotate(5deg); }
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+/* A sticker being stuck down: starts big and tilted, lands slightly rotated. */
+@keyframes peel {
+  from { transform: scale(1.35) rotate(-14deg); opacity: 0; }
+  to { transform: scale(1) rotate(var(--tilt, -2deg)); opacity: 1; }
+}
+
+:root {
+  --brand: #8b5cf6;
+  --brand-dark: #6d28d9;
+  --brand-soft: #ede9fe;
+  --brand-bg: #fbf7ff;
+  --grid-line: rgba(139, 92, 246, 0.14);
+}
+[data-theme='rosa'] { --brand: #ec4899; --brand-dark: #be185d; --brand-soft: #fce7f3; --brand-bg: #fff7fb; --grid-line: rgba(236, 72, 153, 0.15); }
+[data-theme='blau'] { --brand: #3b82f6; --brand-dark: #1d4ed8; --brand-soft: #dbeafe; --brand-bg: #f6faff; --grid-line: rgba(59, 130, 246, 0.15); }
+[data-theme='menta'] { --brand: #14b8a6; --brand-dark: #0f766e; --brand-soft: #ccfbf1; --brand-bg: #f4fffc; --grid-line: rgba(20, 184, 166, 0.16); }
+[data-theme='taronja'] { --brand: #f97316; --brand-dark: #c2410c; --brand-soft: #ffedd5; --brand-bg: #fffaf5; --grid-line: rgba(249, 115, 22, 0.15); }
+[data-theme='negre'] { --brand: #a855f7; --brand-dark: #581c87; --brand-soft: #e9d5ff; --brand-bg: #f8f3ff; --grid-line: rgba(88, 28, 135, 0.14); }
+
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 500;
+  color: var(--color-ink);
+  background: var(--brand-bg);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  overscroll-behavior: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* School notebook: 32px grid + pink margin line. */
+.notebook {
+  background-color: var(--brand-bg);
+  background-image:
+    linear-gradient(to right, var(--grid-line) 1.5px, transparent 1.5px),
+    linear-gradient(to bottom, var(--grid-line) 1.5px, transparent 1.5px);
+  background-size: 32px 32px;
+  position: relative;
+}
+.notebook::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 clamp(36px, 7vw, 76px);
+  width: 3px;
+  background: rgba(255, 79, 163, 0.35);
+  pointer-events: none;
+}
+
+/* Die-cut vinyl sticker: thick white outline, hairline edge, lifted shadow. */
+@utility sticker {
+  border: 5px solid #fff;
+  box-shadow:
+    0 0 0 1.5px rgba(42, 27, 61, 0.14),
+    0 10px 16px -4px rgba(42, 27, 61, 0.28);
+}
+@utility sticker-pressed {
+  box-shadow:
+    0 0 0 1.5px rgba(42, 27, 61, 0.14),
+    0 3px 6px -2px rgba(42, 27, 61, 0.28);
+}
+
+:focus-visible {
+  outline: 4px solid var(--color-chicle);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}
