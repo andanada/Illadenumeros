@@ -13,8 +13,27 @@ import { VitePWA } from 'vite-plugin-pwa'
 const API_TARGET = process.env.MATES_API_URL ?? 'http://127.0.0.1:3100'
 const apiProxy = { '/api': { target: API_TARGET, changeOrigin: false } }
 
+/**
+ * Vendor chunks (Vite 8 / Rolldown: `output.codeSplitting.groups`; `manualChunks` is deprecated there).
+ * Each library gets a long-lived, separately hashed file, so an app-only release keeps them cached.
+ */
+const vendorGroup = (name: string, packages: readonly string[]) => ({
+  name,
+  test: new RegExp(`node_modules[\\/](${packages.join('|')})[\\/]`),
+  priority: 10,
+})
+const codeSplitting = {
+  groups: [
+    vendorGroup('vendor-react', ['react', 'react-dom', 'scheduler', 'react-router', 'react-router-dom']),
+    vendorGroup('vendor-motion', ['motion', 'motion-dom', 'motion-utils', 'framer-motion']),
+    vendorGroup('vendor-zod', ['zod']),
+    vendorGroup('vendor-dexie', ['dexie']),
+  ],
+}
+
 export default defineConfig({
   base: './',
+  build: { rolldownOptions: { output: { codeSplitting } } },
   server: { proxy: apiProxy },
   preview: { proxy: apiProxy },
   plugins: [

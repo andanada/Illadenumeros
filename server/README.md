@@ -206,10 +206,10 @@ Limites conocidos: un atacante con acceso al servidor o a las copias ve el progr
 ## Lista RGPD
 
 - [x] **Minimizacion**: solo email adulto + nombre de pila/personaje/color + progreso. Sin tracking ni terceros.
-- [x] **Base legal / informacion**: informa a las familias (consentimiento del adulto responsable) de que datos se guardan y para que. El texto de privacidad vive en la web (fuera de este servicio).
+- [x] **Base legal / informacion**: informa a las familias (consentimiento del adulto responsable) de que datos se guardan y para que. El texto de privacidad vive en la web: pagina `/privacitat` (`src/features/privacy/`), en catalan y en lenguaje llano.
 - [x] **Acceso y portabilidad**: `GET /api/account/export` y `GET /api/profiles/:id/export` (JSON).
 - [x] **Rectificacion**: `PUT /api/profiles/:id`, y el cliente puede reescribir el progreso.
 - [x] **Supresion**: `DELETE /api/profiles/:id?purge=true` y `DELETE /api/account` (inmediatos, en cascada, incluso con miles de intentos). Con `secure_delete=ON` SQLite sobrescribe con ceros el contenido borrado y tras cada borrado definitivo se hace `wal_checkpoint(TRUNCATE)`, asi que los datos no quedan en el fichero `-wal`. Siguen existiendo en las **copias de seguridad** hasta que estas rotan (maximo ~2 meses). Al borrar la cuenta, las filas de auditoria de la familia quedan desvinculadas (`family_id = NULL`). Borrado suave de perfil: purga definitiva a los 30 dias (mientras tanto aparece en la exportacion de la cuenta con `deletedAt`).
 - [x] **Limitacion de conservacion**: auditoria 90 dias, sesiones caducadas y bloqueos purgados cada hora; copias: 14 diarias + 8 semanales (maximo ~2 meses).
 - [x] **Seguridad**: ver modelo de amenazas. Rotar `IP_HASH_SALT` invalida la correlacion de hashes antiguos (aceptable).
-- [ ] **Pendiente del responsable**: registro de actividades de tratamiento, texto de privacidad y contacto para ejercer derechos; revisar la politica de copias si recibes una peticion de supresion.
+- [ ] **Pendiente del responsable**: fijar el correo de contacto real en `PRIVACY_CONTACT_EMAIL` (`src/features/privacy/contact.ts`; la pagina avisa mientras sea el marcador `contacte@exemple.cat`), registro de actividades de tratamiento; revisar la politica de copias si recibes una peticion de supresion.

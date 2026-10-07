@@ -96,6 +96,9 @@ export function AccountPanel() {
       <a href="/api/account/export" download="mates-magiques-compte.json" className="text-lg font-semibold text-brand-dark underline underline-offset-4">
         Descarrega les dades del compte (JSON)
       </a>
+      <a href="#/privacitat" className="text-base font-semibold text-ink/70 underline underline-offset-4">
+        Com tractem les dades (privacitat)
+      </a>
     </div>
   )
 }

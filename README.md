@@ -2,7 +2,7 @@
 
 App web instalable (PWA) para aprender a **sumar, restar, multiplicar y dividir jugando**, con personajes originales y todo el texto en **catalán**. Pensada para una niña de 4.º de primaria cuyo nivel real de cálculo es el de 1.º: el diagnóstico empieza por "sumar hasta 10" y sube hasta donde llegue.
 
-Los contenidos siguen el currículum oficial de Catalunya (Decret 175/2022, sabers de cicle inicial y mitjà). Hoy cubre de **1.º a 4.º**; 5.º está previsto.
+Los contenidos siguen el currículum oficial de Catalunya (Decret 175/2022, sabers de cicle inicial y mitjà). Hoy cubre de **1.º a 4.º**; 5.º está en curso en otro cambio.
 
 ## Qué hace
 
@@ -12,6 +12,7 @@ Los contenidos siguen el currículum oficial de Catalunya (Decret 175/2022, sabe
 - **Errores sin castigo**: escalera de pistas de tres pasos, nada de vidas ni cruces rojas, y la solución se muestra al final.
 - **Álbum de pegatinas**, pétalos y 5 personajes originales en SVG animado.
 - **Funciona sin conexión y sin cuenta**: el progreso se guarda en el propio dispositivo (IndexedDB).
+- **Cuenta de familia opcional**: varios jugadores por dispositivo y sincronización entre dispositivos con la API de `server/`.
 
 ## Cómo aprende (motor en `src/core/engine`)
 
@@ -44,8 +45,10 @@ npm run dev -- --host  # para abrirla desde una tablet en la misma red
 | `npm run typecheck` | Comprobación de tipos. |
 | `npm run lint` | Linter (Oxlint, prohíbe `console.*`). |
 | `npm run e2e` | Pruebas de extremo a extremo (Playwright: escritorio, iPad y móvil). |
+| `npm run e2e:pwa` | Compila y prueba service worker, sin conexión y aviso de actualización. |
+| `npm run e2e:sync` | Compila `server/` y prueba cuentas + sincronización contra la API real (base de datos temporal). |
 
-La primera vez que se ejecuten las pruebas E2E: `npx playwright install chromium`.
+La primera vez que se ejecuten las pruebas E2E: `npx playwright install chromium`. Como `tsc -b` compila también `server/src`, instala las dependencias de los dos proyectos: `npm install && npm install --prefix server`.
 
 ## Estructura
 
@@ -54,6 +57,7 @@ src/core/       motor independiente de la asignatura (engine, progress, storage,
 src/ambits/     contenidos por ámbito; hoy solo `mates` (habilidades, hechos, generadores)
 src/features/   pantallas: primer uso, diagnóstico, mapa, misión, álbum
 src/games/      los juegos
+server/         API de cuentas y sincronización (Fastify + SQLite)
 src/ui/         sistema de diseño: botón-pegatina, personajes, vistas visuales
 e2e/            pruebas de Playwright
 ```
@@ -62,18 +66,21 @@ El motor solo conoce el contrato `AmbitModule` (`src/core/ambit/types.ts`), así
 
 ## Privacidad
 
-No hay servidor, cuentas, analíticas ni peticiones externas. Lo único que se guarda es el nombre de pila que escribe la niña y su progreso, en el navegador. La tipografía va empaquetada. Las imágenes de personajes y pegatinas son originales; no se incluye ningún material con derechos de terceros.
+Sin cuenta, todo queda en el navegador del dispositivo: el nombre de pila de la niña, su personaje y su progreso. Con una cuenta de familia (opcional) se guardan además el correo, la contraseña con hash argon2id y una copia del progreso en nuestro propio servidor, y la sesión usa una cookie. No hay analíticas, publicidad, terceros ni peticiones externas; la tipografía va empaquetada. La explicación para las familias (en catalán, RGPD) está en la ruta `/#/privacitat`.
+
+**Antes de publicar**: cambiar el correo de contacto en `PRIVACY_CONTACT_EMAIL` (`src/features/privacy/contact.ts`); mientras sea el marcador `contacte@exemple.cat` la página muestra un aviso.
 
 ## Despliegue
 
-La app es estática: `npm run build` genera `dist/`, que se sirve con nginx detrás de HTTPS, en la raíz de un dominio o en un subcamino (`base: './'` + `HashRouter`). Guía completa (caché, compresión, cabeceras de seguridad, HTTPS y actualizaciones) en [`docs/DEPLOY.md`](docs/DEPLOY.md), con plantillas en `docs/nginx-mates.conf` y `docs/nginx-mates-security.conf`.
+La web es estática (la API de cuentas está en `server/`, ver `server/README.md`): `npm run build` genera `dist/`, que se sirve con nginx detrás de HTTPS, en la raíz de un dominio o en un subcamino (`base: './'` + `HashRouter`). Guía completa (caché, compresión, cabeceras de seguridad, HTTPS y actualizaciones) en [`docs/DEPLOY.md`](docs/DEPLOY.md), con plantillas en `docs/nginx-mates.conf` y `docs/nginx-mates-security.conf`.
 
 - `npm run icons`: regenera `public/icon.svg` y los PNG de `public/icons/` (app, maskable, iOS y favicon) con `scripts/generate-icons.mjs`.
 - `npm run e2e:pwa`: compila y prueba el service worker, el modo sin conexión, el subcamino y el aviso de actualización.
-- CI en `.github/workflows/ci.yml` (tipos, lint, cobertura, build y E2E); no despliega nada.
+- CI en `.github/workflows/ci.yml` (raíz y `server/`: tipos, lint, cobertura, build, E2E de escritorio/iPad/móvil, PWA y sync); no despliega nada.
 
 ## Estado y siguientes pasos
 
-- Hecho: 1.º a 4.º, 8 juegos, diagnóstico, misión diaria, álbum, PWA, pruebas unitarias y E2E.
-- Previsto: región de 5.º (decimales, porcentajes, descuentos), sincronización en la nube con panel para la familia, voz catalana pregenerada y subir una versión pública.
+- Hecho: 1.º a 4.º, 8 juegos, diagnóstico, misión diaria, álbum, PWA, varios jugadores, cuentas de familia y sincronización (en producción), panel de progreso para adultos, página de privacidad, pruebas unitarias y E2E.
+- En curso (otro cambio): región de 5.º (decimales, porcentajes, descuentos).
+- Previsto: voz catalana pregenerada.
 - Pendiente de ajustar tras probarla con la niña: ritmo y dificultad.

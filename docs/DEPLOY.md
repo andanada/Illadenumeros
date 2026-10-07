@@ -1,6 +1,6 @@
 # Despliegue de Mates Màgiques
 
-La app es 100 % estática: `npm run build` genera `dist/` y basta con servirlo con nginx detrás de HTTPS. No hay servidor, variables de entorno ni peticiones externas.
+La web es 100 % estática: `npm run build` genera `dist/` y basta con servirlo con nginx detrás de HTTPS. Sin cuenta no hace falta servidor ni variables de entorno, y la web no hace peticiones externas. Las cuentas de familia y la sincronización las da la API de `server/` (Fastify + SQLite, ver `server/README.md`), detrás del mismo nginx en `/api/`.
 
 ## 1. Generar el build
 
@@ -9,7 +9,7 @@ npm ci
 npm run build        # tsc -b + vite build (incluye el service worker)
 ```
 
-`dist/` contiene `index.html`, `assets/` (con hash en el nombre), `icons/`, `icon.svg`, `manifest.webmanifest`, `sw.js` y `workbox-*.js`.
+`dist/` contiene `index.html`, `assets/` (con hash en el nombre; las librerías van en trozos propios `vendor-react`, `vendor-motion`, `vendor-zod` y `vendor-dexie`, definidos en `vite.config.ts` con `build.rolldownOptions.output.codeSplitting`, así que un cambio solo de la app no invalida su caché), `icons/`, `icon.svg`, `manifest.webmanifest`, `sw.js` y `workbox-*.js`.
 
 ### Raíz del dominio o subcamino
 
@@ -106,4 +106,21 @@ npm run e2e:pwa      # build + Playwright (proyecto `pwa`): manifest e iconos, S
 npx vite preview     # sirve dist/ en :4173 para probar a mano
 ```
 
-`npm run e2e` (los 50 tests contra el servidor de desarrollo) no cambia.
+`npm run e2e` (Playwright contra el servidor de desarrollo, en escritorio, iPad y móvil) no cambia.
+
+## 6. Cuentas y sincronización en local
+
+```bash
+npm ci && npm ci --prefix server   # `tsc -b` compila también server/src: hacen falta las dos instalaciones
+npm run e2e:sync                   # compila server/ y ejecuta e2e/sync.spec.ts contra la API real
+```
+
+`e2e:sync` arranca la API con una base de datos temporal nueva y un código de invitación solo de pruebas (`e2e/syncEnv.ts`), más Vite con proxy a `/api`. No toca datos reales. Las pruebas del servidor son `npm test --prefix server` (y `npm run coverage --prefix server`, umbral 85 %).
+
+## 7. Página de privacidad
+
+La web incluye `/#/privacitat` (catalán, para las familias; enlazada desde la pantalla de inicio y desde la sección de la cuenta). **Antes de publicar**, poner un buzón real en la constante `PRIVACY_CONTACT_EMAIL` de `src/features/privacy/contact.ts`. Mientras valga `contacte@exemple.cat` la página muestra un aviso visible para quien publica. Si cambian los plazos de retención del servidor (`SESSION_TTL_DAYS`, `PURGE_AFTER_DAYS`, `AUDIT_RETENTION_DAYS`), actualizar también el texto de `src/features/privacy/PrivacyBlocks.tsx`.
+
+## 8. Integración continua
+
+`.github/workflows/ci.yml` (no despliega nada): el trabajo `verify` instala raíz y `server/`, y ejecuta tipos, lint, cobertura, lint, tipos y cobertura del servidor y el build; el trabajo `e2e` ejecuta `npm run e2e`, `npm run e2e:pwa` y `npm run e2e:sync` con Chromium. La caché de npm usa los dos `package-lock.json`.

@@ -1,5 +1,5 @@
 import { motion } from 'motion/react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { unlockAudio } from '../../core/audio/sfx'
 import { useProgress } from '../../core/progress/store'
 import { CHARACTER_IDS } from '../../core/storage/db'
@@ -59,6 +59,12 @@ export default function StartPage() {
           Ja teniu un compte de la família? Entreu-hi (adults)
         </button>
       </div>
+
+      <footer className="relative z-10">
+        <Link to="/privacitat" className="inline-flex min-h-12 items-center rounded-full px-5 text-base font-semibold text-ink/70 underline underline-offset-4">
+          Privacitat
+        </Link>
+      </footer>
     </main>
   )
 }
