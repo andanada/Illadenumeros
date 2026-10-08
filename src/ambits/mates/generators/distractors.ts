@@ -103,12 +103,24 @@ export function buildTextChoices(answer: string, candidates: readonly { value: s
  * Builds exactly `count` (default 4) distinct choices including the answer:
  * typical-error distractors first, topped up with nearby numbers.
  */
+/** One candidate per value; a specific misconception wins over a generic off-by-one. */
+function preferSpecific(candidates: readonly Candidate[]): Candidate[] {
+  const byValue = new Map<number, Candidate>()
+  for (const candidate of candidates) {
+    const kept = byValue.get(candidate.value)
+    if (kept === undefined || (kept.misconception === 'off-by-one' && candidate.misconception !== 'off-by-one')) {
+      byValue.set(candidate.value, candidate)
+    }
+  }
+  return [...byValue.values()]
+}
+
 export function buildChoices(answer: number, candidates: readonly Candidate[], rng: Rng, options: ChoiceOptions): Choice[] {
   const count = options.count ?? 4
   const inRange = (v: number): boolean => Number.isInteger(v) && v >= options.min && v <= options.max && v !== answer
   const picked = new Map<number, Choice>()
 
-  for (const candidate of rng.shuffle(candidates)) {
+  for (const candidate of rng.shuffle(preferSpecific(candidates))) {
     if (picked.size >= count - 1) break
     if (inRange(candidate.value) && !picked.has(candidate.value)) {
       picked.set(candidate.value, { value: String(candidate.value), misconception: candidate.misconception })

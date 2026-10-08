@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createRng } from '../../../core/rng'
-import { buildTextChoices, columnNoBorrow, columnNoCarry, divisionCandidates, multiplicationCandidates } from './distractors'
+import { buildChoices, buildTextChoices, columnNoBorrow, columnNoCarry, divisionCandidates, multiplicationCandidates } from './distractors'
 
 const valuesOf = (list: { value: number; misconception: string }[], misconception: string): number[] =>
   list.filter((c) => c.misconception === misconception).map((c) => c.value)
@@ -35,5 +35,25 @@ describe('typical-error distractors for 3r and 4t', () => {
     const choices = buildTextChoices('1/4', [{ value: '4/1', misconception: 'denominator-as-count' }, { value: '1/4' }, { value: '3/4' }], createRng('t'))
     expect(choices.map((c) => c.value).sort()).toEqual(['1/4', '3/4', '4/1'])
     expect(choices.find((c) => c.value === '4/1')?.misconception).toBe('denominator-as-count')
+  })
+})
+
+describe('buildChoices with repeated candidate values', () => {
+  it('keeps the specific misconception when it collides with an off-by-one', () => {
+    for (let i = 0; i < 200; i++) {
+      const rng = createRng(`collision:${i}`)
+      const choices = buildChoices(
+        6,
+        [
+          { value: 7, misconception: 'order-of-operations' },
+          { value: 7, misconception: 'off-by-one' },
+          { value: 5, misconception: 'off-by-one' },
+        ],
+        rng,
+        { min: 0, max: 100 },
+      )
+      expect(choices.find((c) => c.value === '7')?.misconception).toBe('order-of-operations')
+      expect(new Set(choices.map((c) => c.value)).size).toBe(choices.length)
+    }
   })
 })
