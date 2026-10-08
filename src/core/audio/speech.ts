@@ -1,7 +1,11 @@
+import { hasClipSync, loadClipManifest, playClip, stopClip } from './clips'
+import { normalizeSpeech } from './normalize'
+
 /**
- * Catalan text-to-speech through the Web Speech API.
- * Pre-generated clips (Azure) can be plugged in later; the text is always shown on screen.
+ * Catalan speech. First choice: a pre-generated Azure clip (`clips.ts`, plays offline once heard);
+ * fallback: the device's Catalan voice through the Web Speech API. The text is always shown on screen.
  */
+const DEVICE_RATE = 0.95
 let catalanVoice: SpeechSynthesisVoice | undefined
 let voicesReady = false
 
@@ -16,6 +20,7 @@ function pickVoice(): void {
 }
 
 export function initSpeech(): void {
+  void loadClipManifest()
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) return
   pickVoice()
   window.speechSynthesis.addEventListener('voiceschanged', pickVoice)
@@ -26,21 +31,37 @@ export function hasCatalanVoice(): boolean {
   return catalanVoice !== undefined
 }
 
-export function speak(text: string, options: { rate?: number } = {}): void {
+function speakWithDevice(text: string, rate: number): void {
   if (typeof window === 'undefined' || !('speechSynthesis' in window) || isMuted()) return
   if (!voicesReady) pickVoice()
   // Without a Catalan voice we stay silent rather than reading Catalan with a foreign accent.
   if (!catalanVoice) return
   window.speechSynthesis.cancel()
-  const utterance = new SpeechSynthesisUtterance(text.replace(/−/g, ' menys ').replace(/×/g, ' per '))
+  const utterance = new SpeechSynthesisUtterance(normalizeSpeech(text))
   utterance.voice = catalanVoice
   utterance.lang = catalanVoice.lang
-  utterance.rate = options.rate ?? 0.95
+  utterance.rate = rate
   utterance.pitch = 1.1
   window.speechSynthesis.speak(utterance)
 }
 
+/**
+ * Reads `text` aloud, cancelling whatever was being said. Clips are recorded at one fixed pace, so `rate` only
+ * applies to the device-voice fallback.
+ */
+export function speak(text: string, options: { rate?: number } = {}): void {
+  if (typeof window === 'undefined' || isMuted()) return
+  stopSpeaking()
+  const rate = options.rate ?? DEVICE_RATE
+  // Manifest already known and no clip for this text: speak synchronously, still inside the user gesture.
+  if (hasClipSync(text) === false) return speakWithDevice(text, rate)
+  void playClip(text).then((result) => {
+    if (result === 'unavailable') speakWithDevice(text, rate)
+  })
+}
+
 export function stopSpeaking(): void {
+  stopClip()
   if (typeof window !== 'undefined' && 'speechSynthesis' in window) window.speechSynthesis.cancel()
 }
 

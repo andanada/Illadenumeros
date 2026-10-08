@@ -16,6 +16,7 @@ const TYPES = {
   '.png': 'image/png',
   '.woff2': 'font/woff2',
   '.json': 'application/json',
+  '.mp3': 'audio/mpeg',
 }
 
 /** @param {{ dir: string, prefix?: string, gzip?: boolean }} options */

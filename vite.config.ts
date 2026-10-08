@@ -64,11 +64,25 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,woff2,png,svg,webmanifest}'],
+        // The voice manifest is tiny and precached; the ~2,000 clips (25 MB) are NOT: see runtimeCaching.
+        globPatterns: ['**/*.{js,css,html,woff2,png,svg,webmanifest}', 'voice/manifest.json'],
         // Every route is a hash route, so index.html is the only navigation target.
         navigateFallback: 'index.html',
         // The API is never served from the service worker: no navigation fallback, no runtime caching.
         navigateFallbackDenylist: [/^\/api\//],
+        // Voice clips are named by content hash (immutable): cached as they are heard, so a clip played once works
+        // offline afterwards. Plain fetch() from Web Audio, so no Range-request plugin is needed.
+        runtimeCaching: [
+          {
+            urlPattern: ({ url }: { url: URL }) => /\/voice\/[0-9a-f]{12}\.mp3$/.test(url.pathname),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'mm-voice-clips',
+              cacheableResponse: { statuses: [200] },
+              expiration: { maxEntries: 4000, purgeOnQuotaError: true },
+            },
+          },
+        ],
         cleanupOutdatedCaches: true,
         // Safe with registerType 'prompt': a new worker still waits for the user's "Actualitzar";
         // claiming only lets the very first install control the page without a reload.
@@ -80,11 +94,11 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
-    include: ['src/**/*.test.{ts,tsx}'],
+    include: ['src/**/*.test.{ts,tsx}', 'scripts/voice/**/*.test.ts'],
     coverage: {
       provider: 'v8',
-      include: ['src/core/**', 'src/ambits/**'],
-      exclude: ['**/*.test.*', '**/*.testutil.ts', 'src/**/index.ts'],
+      include: ['src/core/**', 'src/ambits/**', 'scripts/voice/*.ts'],
+      exclude: ['**/*.test.*', '**/*.testutil.ts', 'src/**/index.ts', 'scripts/voice/phrases.ts'],
       thresholds: { lines: 80, functions: 80, branches: 80, statements: 80 },
     },
   },

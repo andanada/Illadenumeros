@@ -1,19 +1,8 @@
+import { getAudioContext } from './context'
 import { isMuted } from './speech'
 
 /** Sound effects synthesised with the Web Audio API: no audio files, works offline. */
-let context: AudioContext | undefined
-
-function audio(): AudioContext | undefined {
-  if (typeof window === 'undefined' || !('AudioContext' in window)) return undefined
-  context ??= new AudioContext()
-  return context
-}
-
-/** iPad/Safari only allow audio after a user gesture: call this on the first tap. */
-export function unlockAudio(): void {
-  const ctx = audio()
-  if (ctx && ctx.state === 'suspended') void ctx.resume()
-}
+export { unlockAudio } from './context'
 
 interface Note {
   freq: number
@@ -24,7 +13,7 @@ interface Note {
 }
 
 function play(notes: Note[]): void {
-  const ctx = audio()
+  const ctx = getAudioContext()
   if (!ctx || isMuted()) return
   const start = ctx.currentTime + 0.01
   for (const note of notes) {

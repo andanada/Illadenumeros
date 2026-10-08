@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.voice.tsbuildinfo",
+    "types": ["node", "vitest/globals"]
+  },
+  "include": ["scripts/voice/**/*.ts"],
+  "exclude": []
+}

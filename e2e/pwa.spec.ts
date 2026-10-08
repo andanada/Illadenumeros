@@ -88,6 +88,43 @@ test.describe('PWA en producció', () => {
     }
   })
 
+  test('els clips de veu no es precachegen: es guarden en sentir-los i sonen sense xarxa', async ({ page, context }) => {
+    await page.goto('/#/start')
+    await waitForOfflineReady(page)
+
+    const probe = await page.evaluate(async () => {
+      const manifest = (await (await fetch('voice/manifest.json')).json()) as { clips: string[] }
+      const names = await caches.keys()
+      const precached: string[] = []
+      for (const name of names.filter((n) => n.includes('precache'))) {
+        precached.push(...(await (await caches.open(name)).keys()).map((r) => new URL(r.url).pathname))
+      }
+      return { clips: manifest.clips, precached, hasVoiceCache: names.includes('mm-voice-clips') }
+    })
+    expect(probe.clips.length).toBeGreaterThan(20)
+    expect(probe.precached.some((p) => p.endsWith('/voice/manifest.json'))).toBe(true)
+    expect(probe.precached.some((p) => p.endsWith('.mp3'))).toBe(false)
+    expect(probe.hasVoiceCache).toBe(false)
+
+    const [heard, unheard] = probe.clips
+    // "Hearing" a clip = fetching it through the service worker; it must then be cached.
+    const sizeOnline = await page.evaluate(async (key) => (await (await fetch(`voice/${key}.mp3`)).arrayBuffer()).byteLength, heard)
+    expect(sizeOnline).toBeGreaterThan(1000)
+    await expect
+      .poll(() => page.evaluate(async () => (await (await caches.open('mm-voice-clips')).keys()).map((r) => new URL(r.url).pathname)))
+      .toEqual([`/voice/${heard}.mp3`])
+
+    await context.setOffline(true)
+    try {
+      const sizeOffline = await page.evaluate(async (key) => (await (await fetch(`voice/${key}.mp3`)).arrayBuffer()).byteLength, heard)
+      expect(sizeOffline).toBe(sizeOnline)
+      const unheardOffline = await page.evaluate(async (key) => fetch(`voice/${key}.mp3`).then(() => 'ok', () => 'network-error'), unheard)
+      expect(unheardOffline).toBe('network-error')
+    } finally {
+      await context.setOffline(false)
+    }
+  })
+
   test('una nova versió desplegada mostra l’avís d’actualització i l’aplica', async ({ page }) => {
     const dir = mkdtempSync(join(tmpdir(), 'mates-update-'))
     cpSync('dist', dir, { recursive: true })
