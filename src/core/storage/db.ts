@@ -27,10 +27,16 @@ export const rewardsSchema = z.object({
   stickers: z.array(z.string()),
   daysPlayed: z.array(z.string()),
   missionsDone: z.array(z.string()),
+  /** Items of the pet's house the child bought (ids of features/decor/catalog.ts). Absent in older rows: defaults to none. */
+  decorOwned: z.array(z.string()).default([]),
+  /** Bought items currently placed in the house (one per spot). */
+  decorPlaced: z.array(z.string()).default([]),
+  /** Days (YYYY-MM-DD) whose daily challenge was completed. */
+  dailyDone: z.array(z.string()).default([]),
 })
 export type Rewards = z.infer<typeof rewardsSchema>
 
-export const emptyRewards = (): Rewards => ({ id: 'me', petals: 0, stickers: [], daysPlayed: [], missionsDone: [] })
+export const emptyRewards = (): Rewards => ({ id: 'me', petals: 0, stickers: [], daysPlayed: [], missionsDone: [], decorOwned: [], decorPlaced: [], dailyDone: [] })
 
 /** The original single-player database; it stays the database of the first (adopted) player. */
 export const DB_NAME = 'mates-magiques'

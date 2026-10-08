@@ -3,8 +3,8 @@ import { attemptQuarantineId, docQuarantineId, normalizeRewards } from './docs'
 
 describe('normalizeRewards', () => {
   it('sorts and dedupes the lists like the server union (new object)', () => {
-    const input = { id: 'me' as const, petals: 3, stickers: ['sol', 'drac', 'sol'], daysPlayed: ['2026-01-02', '2026-01-01'], missionsDone: [] }
-    expect(normalizeRewards(input)).toEqual({ id: 'me', petals: 3, stickers: ['drac', 'sol'], daysPlayed: ['2026-01-01', '2026-01-02'], missionsDone: [] })
+    const input = { id: 'me' as const, petals: 3, stickers: ['sol', 'drac', 'sol'], daysPlayed: ['2026-01-02', '2026-01-01'], missionsDone: [], decorOwned: ['planta', 'catifa', 'planta'], decorPlaced: ['planta'], dailyDone: ['2026-01-02', '2026-01-01'] }
+    expect(normalizeRewards(input)).toEqual({ id: 'me', petals: 3, stickers: ['drac', 'sol'], daysPlayed: ['2026-01-01', '2026-01-02'], missionsDone: [], decorOwned: ['catifa', 'planta'], decorPlaced: ['planta'], dailyDone: ['2026-01-01', '2026-01-02'] })
     expect(input.stickers).toEqual(['sol', 'drac', 'sol'])
   })
 })

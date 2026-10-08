@@ -24,6 +24,7 @@ export const STICKER_ID_RE = /^[a-z0-9-]{1,32}$/
 export const ATTEMPT_ID_RE = /^[A-Za-z0-9_-]+$/
 export const MAX_STICKERS = 500
 export const MAX_DAYS = 3660
+export const MAX_DECOR = 100
 
 const id = z.string().min(1).max(100)
 const skillId = z.string().max(3).regex(SKILL_ID_RE)
@@ -66,6 +67,9 @@ export const rewardsDataSchema = z.object({
   stickers: z.array(stickerId).max(MAX_STICKERS),
   daysPlayed: z.array(isoDay).max(MAX_DAYS),
   missionsDone: z.array(isoDay).max(MAX_DAYS),
+  decorOwned: z.array(stickerId).max(MAX_DECOR).default([]),
+  decorPlaced: z.array(stickerId).max(MAX_DECOR).default([]),
+  dailyDone: z.array(isoDay).max(MAX_DAYS).default([]),
 })
 
 export const settingsDataSchema = z.record(

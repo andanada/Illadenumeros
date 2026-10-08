@@ -9,6 +9,7 @@ const skillId = fc.constantFrom('A1', 'A4', 'B2', 'C10', 'D9', 'a1', 'A100', '')
 const factKey = fc.constantFrom('add:3+5', 'sub:12-7', 'mul:3x7', 'div:21:3', 'c10:3', 'add:3*5', 'xx')
 const day = fc.constantFrom('2026-01-01', '2026-01-02', '2026-03-15', '2027-12-31', '26-1-1')
 const sticker = fc.constantFrom('sol', 'lluna', 'gat-1', 'drac', 'Bad Id', 'x'.repeat(40))
+const decorItem = fc.constantFrom('catifa', 'llit-nuvol', 'planta', 'Bad Id')
 const count = fc.oneof(fc.nat(50), fc.constant(-1), fc.constant(1.5))
 const unit = fc.oneof(fc.double({ min: 0, max: 1, noNaN: true }), fc.constant(1.5))
 const short = fc.string({ maxLength: 8 })
@@ -44,6 +45,9 @@ const rewardsData = fc.record({
   stickers: fc.uniqueArray(sticker, { maxLength: 4 }),
   daysPlayed: fc.uniqueArray(day, { maxLength: 4 }),
   missionsDone: fc.uniqueArray(day, { maxLength: 4 }),
+  decorOwned: fc.uniqueArray(decorItem, { maxLength: 3 }),
+  decorPlaced: fc.uniqueArray(decorItem, { maxLength: 3 }),
+  dailyDone: fc.uniqueArray(day, { maxLength: 4 }),
 })
 
 const settingsValue = fc.oneof(

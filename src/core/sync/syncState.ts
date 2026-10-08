@@ -76,7 +76,7 @@ export async function writeSyncState(db: MatesDb, patch: Partial<SyncState>): Pr
 /** Snapshots matching an emptied player (Començar de zero): nothing of it counts as a local change. */
 export const resetSnapshots = (): Pick<SyncState, 'syncedRewards' | 'syncedSettings'> => {
   const r = emptyRewards()
-  return { syncedRewards: JSON.stringify({ ...r, stickers: [], daysPlayed: [], missionsDone: [] }), syncedSettings: JSON.stringify({ diagnosticDone: false }) }
+  return { syncedRewards: JSON.stringify({ ...r, stickers: [], daysPlayed: [], missionsDone: [], decorOwned: [], decorPlaced: [], dailyDone: [] }), syncedSettings: JSON.stringify({ diagnosticDone: false }) }
 }
 
 /** Forgets everything agreed with a server (other account, or the account was deleted). */

@@ -11,7 +11,7 @@ import { MASTERY_THRESHOLDS } from '../../core/engine/thresholds'
 export const WARMUP_GAME = 'duel-llampec'
 export const REVIEW_GAME = 'repte-illa'
 export const MISSION_ROUNDS = 6
-export const ALL_GAMES = ['repte-illa', 'duel-llampec', 'tren-sumes', 'pesca-sumes', 'bombolles', 'marc-magic', 'cursa-recta', 'fleca-files', 'llaminadures', 'botiga-pluja', 'numero-amagat', 'pastis-fraccions'] as const
+export const ALL_GAMES = ['repte-illa', 'duel-llampec', 'tren-sumes', 'pesca-sumes', 'bombolles', 'marc-magic', 'cursa-recta', 'fleca-files', 'llaminadures', 'botiga-pluja', 'numero-amagat', 'pastis-fraccions', 'domino-sumes', 'piramide-magica', 'cuina-sumes', 'parelles-cartes', 'bitlles'] as const
 
 export interface MissionStep {
   id: 'calentament' | 'repte' | 'lliure' | 'repas'

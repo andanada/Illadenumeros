@@ -56,6 +56,9 @@ function mergeRewards(local: Rewards | null, incoming: Rewards | null): Rewards 
     stickers: union(local.stickers, incoming.stickers),
     daysPlayed: union(local.daysPlayed, incoming.daysPlayed),
     missionsDone: union(local.missionsDone, incoming.missionsDone),
+    decorOwned: union(local.decorOwned, incoming.decorOwned),
+    decorPlaced: local.decorPlaced.length > 0 ? local.decorPlaced : incoming.decorPlaced,
+    dailyDone: union(local.dailyDone, incoming.dailyDone),
   }
 }
 

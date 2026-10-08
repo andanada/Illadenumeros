@@ -17,7 +17,7 @@ const PROFILE = { id: 'me' as const, name: 'Laia', character: 'nyx' as const, co
 async function seedDevice() {
   await db.profile.put(PROFILE)
   await db.skillStates.bulkPut([{ ...newSkillState('A1'), status: 'dominada', mastery: 0.95 }, newSkillState('A4')])
-  await db.rewards.put({ id: 'me', petals: 42, stickers: [], daysPlayed: ['2026-10-01', '2026-10-02', '2026-10-05'], missionsDone: [] })
+  await db.rewards.put({ id: 'me', petals: 42, stickers: [], daysPlayed: ['2026-10-01', '2026-10-02', '2026-10-05'], missionsDone: [], decorOwned: [], decorPlaced: [], dailyDone: [] })
   await useProgress.getState().load()
 }
 

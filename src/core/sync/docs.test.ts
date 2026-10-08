@@ -21,7 +21,7 @@ import { checkOutgoingAttempt, checkOutgoingDoc } from './schemas'
 
 const skill: SkillState = { ...newSkillState('A4'), attempts: 3, correct: 2, sessions: ['s1'], recent: [true], updatedAt: 500 }
 const fact: FactState = { ...newFactState('add:3+5', 10), attempts: 2, correct: 1, lastSeen: 1_234.6 }
-const rewards: Rewards = { id: 'me', petals: 9, stickers: ['sol'], daysPlayed: ['2026-10-01'], missionsDone: [] }
+const rewards: Rewards = { id: 'me', petals: 9, stickers: ['sol'], daysPlayed: ['2026-10-01'], missionsDone: [], decorOwned: [], decorPlaced: [], dailyDone: [] }
 const profile: Profile = { id: 'me', name: 'Laia', character: 'nyx', color: 'rosa', diagnosticDone: true, createdAt: 77 }
 const attempt: Attempt = {
   id: 'a1b2c3d4-0000-4000-8000-000000000001',

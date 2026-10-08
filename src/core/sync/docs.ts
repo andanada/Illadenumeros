@@ -93,6 +93,9 @@ export const normalizeRewards = (r: Rewards): Rewards => ({
   stickers: [...new Set(r.stickers)].sort(),
   daysPlayed: [...new Set(r.daysPlayed)].sort(),
   missionsDone: [...new Set(r.missionsDone)].sort(),
+  decorOwned: [...new Set(r.decorOwned)].sort(),
+  decorPlaced: [...new Set(r.decorPlaced)].sort(),
+  dailyDone: [...new Set(r.dailyDone)].sort(),
 })
 
 /** Small stable hash (djb2) so a quarantine entry names one exact content without storing it. */

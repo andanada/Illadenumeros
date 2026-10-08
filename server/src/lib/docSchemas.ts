@@ -23,7 +23,18 @@ const GAME_IDS = [
   'botiga-pluja',
   'numero-amagat',
   'pastis-fraccions',
-  'laberint-aventura',
+  'laberint-aventura',
+  'domino-sumes',
+  'piramide-magica',
+  'cuina-sumes',
+  'parelles-cartes',
+  'bitlles',
+  'ritme-taules',
+  'detectiu-errors',
+  'contes-numeros',
+  'escape-room',
+  'jardi-arrays',
+  'constructor-torres',
 ] as const
 const MISCONCEPTIONS = [
   'off-by-one',
@@ -76,6 +87,7 @@ export const ISO_DAY_RE = /^\d{4}-\d{2}-\d{2}$/
 export const STICKER_ID_RE = /^[a-z0-9-]{1,32}$/
 export const MAX_STICKERS = 500
 export const MAX_DAYS = 3660
+export const MAX_DECOR = 100
 
 const skillId = z.string().max(3).regex(SKILL_ID_RE)
 const factKey = z.string().max(32).regex(FACT_KEY_RE)
@@ -116,6 +128,9 @@ export const rewardsDataSchema = z.object({
   stickers: z.array(stickerId).max(MAX_STICKERS),
   daysPlayed: z.array(isoDay).max(MAX_DAYS),
   missionsDone: z.array(isoDay).max(MAX_DAYS),
+  decorOwned: z.array(stickerId).max(MAX_DECOR).default([]),
+  decorPlaced: z.array(stickerId).max(MAX_DECOR).default([]),
+  dailyDone: z.array(isoDay).max(MAX_DAYS).default([]),
 })
 
 /** Free-form small settings (e.g. {diagnosticDone}). Keys and values bounded; whole doc <= 8 KB. */

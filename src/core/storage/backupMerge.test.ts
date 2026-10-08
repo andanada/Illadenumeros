@@ -42,7 +42,7 @@ describe('mergeProgress', () => {
   })
 
   it('rewards from only one side are kept as they are', () => {
-    const rewards = { id: 'me' as const, petals: 4, stickers: [], daysPlayed: [], missionsDone: [] }
+    const rewards = { id: 'me' as const, petals: 4, stickers: [], daysPlayed: [], missionsDone: [], decorOwned: [], decorPlaced: [], dailyDone: [] }
     expect(mergeProgress(empty(), { ...empty(), rewards }, 'keep-newer').rewards).toEqual(rewards)
     expect(mergeProgress({ ...empty(), rewards }, empty(), 'keep-newer').rewards).toEqual(rewards)
   })

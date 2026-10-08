@@ -19,6 +19,17 @@ export const GAME_IDS = [
   'numero-amagat',
   'pastis-fraccions',
   'laberint-aventura',
+  'constructor-torres',
+  'jardi-arrays',
+  'domino-sumes',
+  'piramide-magica',
+  'cuina-sumes',
+  'parelles-cartes',
+  'bitlles',
+  'ritme-taules',
+  'detectiu-errors',
+  'contes-numeros',
+  'escape-room',
 ] as const
 export const gameIdSchema = z.enum(GAME_IDS)
 export type GameId = z.infer<typeof gameIdSchema>

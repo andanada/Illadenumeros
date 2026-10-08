@@ -16,7 +16,7 @@ export interface RoundAnswer {
   done: boolean
   /** Replaces the feedback bubble (e.g. instructions after a game-specific action). */
   setFeedback: (feedback: RoundFeedback | null) => void
-  answer: (choice: Choice) => Promise<void>
+  answer: (choice: Choice, helped?: boolean) => Promise<void>
 }
 
 /** Shared answering step for the interactive games: flow.answer + round tally + kind feedback. */
@@ -27,10 +27,11 @@ export function useRoundAnswer(flow: QuestionFlow, rounds: GameRounds): RoundAns
   const { register } = rounds
 
   const answer = useCallback(
-    async (choice: Choice): Promise<void> => {
+    async (choice: Choice, helped = false): Promise<void> => {
       const errorsBefore = flow.errors
+      if (helped) flow.markHint()
       const result = await flow.answer(choice)
-      register(result, errorsBefore)
+      register(result, helped ? Math.max(errorsBefore, 1) : errorsBefore)
       if (result.correct) {
         sfx.star()
         setFeedback({ tone: 'ok', mood: 'balla', text: `Molt bé! ${item.text.replace('?', item.answer)}` })

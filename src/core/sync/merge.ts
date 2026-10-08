@@ -10,6 +10,8 @@ export interface VersionedDoc<D extends DocData = DocData> {
   readonly updatedAt: number
 }
 
+/** Docs stored before the house and the daily challenge existed lack these lists. */
+const list = (value: readonly string[] | undefined): readonly string[] => value ?? []
 const union = (a: readonly string[], b: readonly string[]): string[] => [...new Set([...a, ...b])].sort()
 
 export function mergeDoc(kind: DocKind, existing: VersionedDoc, incoming: VersionedDoc): VersionedDoc {
@@ -32,6 +34,10 @@ export function mergeDoc(kind: DocKind, existing: VersionedDoc, incoming: Versio
         stickers: union(a.stickers, b.stickers),
         daysPlayed: union(a.daysPlayed, b.daysPlayed),
         missionsDone: union(a.missionsDone, b.missionsDone),
+        decorOwned: union(list(a.decorOwned), list(b.decorOwned)),
+        // Placement can be undone, so it is not a union: the newer version's choice wins.
+        decorPlaced: [...list((winner.data as RewardsData).decorPlaced)],
+        dailyDone: union(list(a.dailyDone), list(b.dailyDone)),
       }
       return { data, updatedAt }
     }

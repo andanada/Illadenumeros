@@ -38,9 +38,25 @@ describe('mergeDoc', () => {
   })
 
   it('rewards: petals max, lists sorted union', () => {
-    const r = (petals: number, stickers: string[], days: string[]): RewardsData => ({ id: 'me', petals, stickers, daysPlayed: days, missionsDone: [] })
+    const r = (petals: number, stickers: string[], days: string[]): RewardsData => ({ id: 'me', petals, stickers, daysPlayed: days, missionsDone: [], decorOwned: [], decorPlaced: [], dailyDone: [] })
     const merged = mergeDoc('rewards', { data: r(5, ['sol'], ['2026-01-02']), updatedAt: 9 }, { data: r(8, ['drac', 'sol'], ['2026-01-01']), updatedAt: 1 })
     expect(merged).toEqual({ data: r(8, ['drac', 'sol'], ['2026-01-01', '2026-01-02']), updatedAt: 9 })
+  })
+
+  it('rewards: bought items and daily days are unions, the placement of the newer copy wins', () => {
+    const r = (owned: string[], placed: string[], daily: string[]): RewardsData => ({ id: 'me', petals: 1, stickers: [], daysPlayed: [], missionsDone: [], decorOwned: owned, decorPlaced: placed, dailyDone: daily })
+    const older = { data: r(['catifa', 'planta'], ['catifa'], ['2026-01-01']), updatedAt: 1 }
+    const newer = { data: r(['llum'], ['llum'], ['2026-01-02']), updatedAt: 5 }
+    expect(mergeDoc('rewards', older, newer).data).toEqual(r(['catifa', 'llum', 'planta'], ['llum'], ['2026-01-01', '2026-01-02']))
+    expect(mergeDoc('rewards', newer, older).data).toEqual(r(['catifa', 'llum', 'planta'], ['llum'], ['2026-01-01', '2026-01-02']))
+  })
+
+  it('rewards: a doc stored before the house existed still merges', () => {
+    const legacy = { data: { id: 'me', petals: 3, stickers: ['sol'], daysPlayed: [], missionsDone: [] }, updatedAt: 1 } as unknown as VersionedDoc
+    const fresh = { data: { id: 'me', petals: 1, stickers: [], daysPlayed: [], missionsDone: [], decorOwned: ['planta'], decorPlaced: ['planta'], dailyDone: [] }, updatedAt: 2 } as VersionedDoc
+    const merged = mergeDoc('rewards', legacy, fresh).data as RewardsData
+    expect(merged.decorOwned).toEqual(['planta'])
+    expect(merged.petals).toBe(3)
   })
 
   it('settings: last write wins', () => {

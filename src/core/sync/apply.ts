@@ -28,10 +28,12 @@ async function applyFact(db: MatesDb, data: FactData, updatedAt: number): Promis
   await db.factStates.put(factFromDoc(merged.data as FactData))
 }
 
-async function applyRewards(db: MatesDb, data: RewardsData, updatedAt: number): Promise<Partial<SyncState>> {
+async function applyRewards(db: MatesDb, data: RewardsData, updatedAt: number, snapshot: string | undefined): Promise<Partial<SyncState>> {
   const local = rewardsSchema.safeParse(await db.rewards.get('me'))
   const mine = normalizeRewards(local.success ? local.data : emptyRewards())
-  const merged = mergeDoc('rewards', { data: mine, updatedAt: 0 }, { data, updatedAt })
+  // A local change not pushed yet (e.g. a re-arranged house) must not lose the placement to the older server copy.
+  const pending = snapshot !== undefined && JSON.stringify(mine) !== snapshot
+  const merged = mergeDoc('rewards', { data: mine, updatedAt: pending ? updatedAt + 1 : 0 }, { data, updatedAt })
   await db.rewards.put(rewardsFromDoc(merged.data as RewardsData))
   // The snapshot is the SERVER version: local extras (played meanwhile) still differ and get pushed.
   return { syncedRewards: JSON.stringify(normalizeRewards(rewardsFromDoc(data))) }
@@ -50,7 +52,7 @@ async function applySettings(db: MatesDb, key: string, data: SettingsData, snaps
 }
 
 /** Counts remote items that failed validation (never written). */
-async function applyItems(db: MatesDb, page: SyncResponse, snapshot: string | undefined): Promise<{ patch: Partial<SyncState>; invalid: number }> {
+async function applyItems(db: MatesDb, page: SyncResponse, snapshot: string | undefined, syncedRewardsSnapshot: string | undefined): Promise<{ patch: Partial<SyncState>; invalid: number }> {
   let patch: Partial<SyncState> = {}
   let invalid = 0
   for (const doc of page.docs) {
@@ -61,7 +63,7 @@ async function applyItems(db: MatesDb, page: SyncResponse, snapshot: string | un
     }
     if (doc.kind === 'skill') await applySkill(db, checked.data as SkillData, doc.updatedAt)
     else if (doc.kind === 'fact') await applyFact(db, checked.data as FactData, doc.updatedAt)
-    else if (doc.kind === 'rewards') patch = { ...patch, ...(await applyRewards(db, checked.data as RewardsData, doc.updatedAt)) }
+    else if (doc.kind === 'rewards') patch = { ...patch, ...(await applyRewards(db, checked.data as RewardsData, doc.updatedAt, patch.syncedRewards ?? syncedRewardsSnapshot)) }
     else patch = { ...patch, ...(await applySettings(db, doc.key, checked.data as SettingsData, patch.syncedSettings ?? snapshot)) }
   }
   const attempts = page.attempts.flatMap((a) => {
@@ -83,8 +85,8 @@ export function applyPage(db: MatesDb, playerId: string, page: SyncResponse, ext
     const tables = [db.skillStates, db.factStates, db.rewards, db.profile, db.attempts, db.meta]
     const invalid = await db.transaction('rw', tables, async () => {
       if (Object.keys(extra).length > 0) await writeSyncState(db, extra)
-      const { syncedSettings } = await readSyncState(db)
-      const { patch, invalid: bad } = await applyItems(db, page, syncedSettings)
+      const { syncedSettings, syncedRewards } = await readSyncState(db)
+      const { patch, invalid: bad } = await applyItems(db, page, syncedSettings, syncedRewards)
       await writeSyncState(db, { ...patch, syncSeq: page.seq })
       return bad
     })
