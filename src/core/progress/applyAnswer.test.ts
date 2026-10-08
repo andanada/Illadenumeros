@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { MATES_SKILLS } from '../../ambits/mates/skills'
 import type { SkillNode } from '../ambit/types'
+import { newFactState, type FactState } from '../engine/leitner'
+import { newSkillState } from '../engine/mastery'
+import { dayKey } from '../engine/retention'
 import { applyAnswer, type AnswerInput } from './applyAnswer'
 
 const A4 = MATES_SKILLS.find((s) => s.id === 'A4') as SkillNode
@@ -58,5 +61,38 @@ describe('applyAnswer', () => {
       mastered ||= out.becameMastered
     }
     expect(mastered).toBe(true)
+  })
+})
+
+describe('applyAnswer: retention-based mastery of core skills', () => {
+  const DAY = 86_400_000
+  const NOW = new Date(2026, 9, 7, 12, 0).getTime()
+  const keys = Array.from({ length: 25 }, (_, i) => `add:${i}+0`)
+  const solid = (box: number, rts: number[]): Record<string, FactState> =>
+    Object.fromEntries(keys.map((k) => [k, { ...newFactState(k, NOW), attempts: 6, correct: 6, box, recentRts: rts, dueAt: NOW + 30 * DAY, lastSeen: NOW - DAY }]))
+  const nearlyMastered = { ...newSkillState('A4'), accuracy: 0.97, fluency: 1, mastery: 0.98, status: 'consolidant' as const, attempts: 60, correct: 58, sessions: ['a', 'b'] }
+  const answer = (cleanDays: string[], facts: Record<string, FactState>, over: Partial<AnswerInput> = {}) =>
+    applyAnswer(input({ factKey: keys[0] as string, now: NOW, cleanDays, ...over }), nearlyMastered, facts, keys, 'x')
+
+  it('records today as a clean day only for answers without help', () => {
+    expect(answer([], {}).cleanDays).toEqual([dayKey(NOW)])
+    expect(answer([], {}, { hintsUsed: 1 }).cleanDays).toEqual([])
+    expect(answer([], {}, { correct: false }).cleanDays).toEqual([])
+  })
+
+  it('becomes mastered only with automatised facts AND three clean days', () => {
+    const facts = solid(5, [1000, 1100, 1200])
+    const threeDays = [dayKey(NOW - 3 * DAY), dayKey(NOW - DAY)]
+    expect(answer(threeDays, facts).becameMastered).toBe(true)
+    expect(answer([dayKey(NOW - DAY)], facts).becameMastered).toBe(false)
+  })
+
+  it('is not mastered while the facts are slow (strict 3 s target, no 1.5x allowance)', () => {
+    const slow = solid(5, [3800, 4000, 4200])
+    expect(answer([dayKey(NOW - 3 * DAY), dayKey(NOW - DAY)], slow).becameMastered).toBe(false)
+  })
+
+  it('is not mastered when the facts are only in box 3', () => {
+    expect(answer([dayKey(NOW - 3 * DAY), dayKey(NOW - DAY)], solid(3, [1000, 1000, 1000])).becameMastered).toBe(false)
   })
 })

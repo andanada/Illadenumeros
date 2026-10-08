@@ -15,10 +15,15 @@ const GAME_IDS = [
   'bombolles',
   'cursa-recta',
   'duel-llampec',
+  'tren-sumes',
+  'pesca-sumes',
   'repte-illa',
   'fleca-files',
   'llaminadures',
   'botiga-pluja',
+  'numero-amagat',
+  'pastis-fraccions',
+  'laberint-aventura',
 ] as const
 const MISCONCEPTIONS = [
   'off-by-one',

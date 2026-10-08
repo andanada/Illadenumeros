@@ -1,9 +1,11 @@
 import type { CpaStage, GameId, MisconceptionId, SkillNode } from '../ambit/types'
 import { isFluent, newFactState, updateFact, type FactState } from '../engine/leitner'
 import { newSkillState, updateSkill, type SkillState } from '../engine/mastery'
+import { addCleanDay, factRetention } from '../engine/retention'
+import { MASTERY_THRESHOLDS, strictTargetFor } from '../engine/thresholds'
 
 /** Lenient fluency target while the child is still building confidence. */
-export const FLUENCY_LENIENCY = 1.5
+export const FLUENCY_LENIENCY = MASTERY_THRESHOLDS.leitner.fluencyLeniency
 /** Fluency only counts towards mastery once enough facts of the skill were practiced. */
 export const MIN_FACTS_FOR_FLUENCY = 3
 
@@ -18,6 +20,8 @@ export interface AnswerInput {
   gameId: GameId
   /** Second or later try on the same item: stored, but it does not move the skill again. */
   retry?: boolean
+  /** Days (YYYY-MM-DD) with a clean correct answer in this skill so far. */
+  cleanDays?: readonly string[]
   sessionId: string
   now: number
 }
@@ -43,6 +47,8 @@ export interface AnswerOutcome {
   attempt: Attempt
   petals: number
   becameMastered: boolean
+  /** Clean days of the skill after this answer. */
+  cleanDays: string[]
 }
 
 /** Pure: computes the new skill/fact state, the attempt record and the petals earned. */
@@ -72,6 +78,12 @@ export function applyAnswer(
   const fluentRatio = practiced.length === 0 ? 0 : practiced.filter((f) => isFluent(f, target)).length / practiced.length
 
   const before = previousSkill ?? newSkillState(input.skill.id)
+  const cleanDays = cleanCorrect && !input.retry ? addCleanDay(input.cleanDays ?? [], input.now) : [...(input.cleanDays ?? [])]
+  // Core-operation skills must also retain their facts (box >= 4, strict response time) over several days.
+  const retention =
+    input.skill.operation !== undefined && input.skill.hasFacts
+      ? { share: factRetention(factsOfSkill, merged, strictTargetFor(input.skill.operation)).share, cleanDays: cleanDays.length }
+      : undefined
   const skillState = input.retry
     ? before
     : updateSkill(before, {
@@ -80,6 +92,7 @@ export function applyAnswer(
         sessionId: input.sessionId,
         hasFacts: input.skill.hasFacts && practiced.length >= MIN_FACTS_FOR_FLUENCY,
         now: input.now,
+        ...(retention ? { retention } : {}),
       })
 
   const attempt: Attempt = {
@@ -105,5 +118,6 @@ export function applyAnswer(
     attempt,
     petals,
     becameMastered: before.status !== 'dominada' && skillState.status === 'dominada',
+    cleanDays,
   }
 }

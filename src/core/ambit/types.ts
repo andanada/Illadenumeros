@@ -10,10 +10,15 @@ export const GAME_IDS = [
   'bombolles',
   'cursa-recta',
   'duel-llampec',
+  'tren-sumes',
+  'pesca-sumes',
   'repte-illa',
   'fleca-files',
   'llaminadures',
   'botiga-pluja',
+  'numero-amagat',
+  'pastis-fraccions',
+  'laberint-aventura',
 ] as const
 export const gameIdSchema = z.enum(GAME_IDS)
 export type GameId = z.infer<typeof gameIdSchema>
@@ -117,6 +122,10 @@ export interface Item {
 export const gradeSchema = z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)])
 export type Grade = z.infer<typeof gradeSchema>
 
+/** Core arithmetic operations whose facts must be retained (strict mastery gate). */
+export const OPERATION_IDS = ['add', 'sub', 'mul', 'div'] as const
+export type OperationId = (typeof OPERATION_IDS)[number]
+
 export interface SkillNode {
   id: string
   code: string
@@ -127,6 +136,8 @@ export interface SkillNode {
   games: GameId[]
   /** Time for an answer to count as fluent (before the 1.5x leniency). */
   fluencyTargetMs: number
+  /** Set on the fact skills of add/sub/mul/div: they use the stricter retention-based mastery. */
+  operation?: OperationId
 }
 
 export interface GenerateContext {
@@ -134,6 +145,8 @@ export interface GenerateContext {
   cpaStage: CpaStage
   /** Preferred fact to ask (spaced repetition), if the skill has facts. */
   factKey?: string
+  /** For commutative facts: which operand goes first ('desc' = the bigger one). Random when absent. */
+  order?: 'asc' | 'desc'
 }
 
 export type ItemGenerator = (ctx: GenerateContext) => Item
@@ -147,4 +160,8 @@ export interface AmbitModule {
   diagnosticAnchors: string[]
   /** All fact keys a skill can produce (for the parent heatmap and selector). */
   factsForSkill: (skillId: string) => string[]
+  /** Other facts of the same family (8+5 -> 13-5, 13-8), practised a few questions later. */
+  factFamily?: (factKey: string) => string[]
+  /** Skill that owns a fact key, if the fact is tracked. */
+  factOwner?: (factKey: string) => string | undefined
 }

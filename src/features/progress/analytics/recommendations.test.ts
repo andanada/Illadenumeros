@@ -88,6 +88,17 @@ describe('buildRecommendations', () => {
     })
   })
 
+  describe('operation order', () => {
+    it('stays quiet until the operation in progress has been practised', () => {
+      expect(ids(input([]))).not.toContain('operation-order')
+    })
+    it('explains that the next operation opens at 90 % of the current one', () => {
+      const facts = { 'add:2+3': fact('add:2+3', { attempts: 4, box: 2 }) }
+      const rec = buildRecommendations(input([], { factStates: facts })).find((r) => r.id === 'operation-order')
+      expect(rec?.text).toContain('Les restes s’obriran quan les sumes estiguin al 90 %.')
+    })
+  })
+
   describe('next region', () => {
     const grade1 = Object.fromEntries(MATES_SKILLS.filter((s) => s.grade === 1).map((s) => [s.id, sk(s.id, { status: 'dominada', mastery: 0.9, attempts: 30 })]))
     it('triggers when 80 % of a grade is mastered and the next one is barely started', () => {

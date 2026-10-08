@@ -1,12 +1,14 @@
 import { z } from 'zod'
 
+import { BOX_INTERVAL_DAYS, MASTERY_THRESHOLDS } from './thresholds'
+
+export { BOX_INTERVAL_DAYS }
+
 const DAY_MS = 24 * 60 * 60 * 1000
-/** Box 0 = same session; then 1, 2, 4, 9, 21 days. */
-export const BOX_INTERVAL_DAYS = [0, 1, 2, 4, 9, 21] as const
 const MAX_BOX = BOX_INTERVAL_DAYS.length - 1
-const RECENT_RT_WINDOW = 5
+const RECENT_RT_WINDOW = MASTERY_THRESHOLDS.leitner.recentRtWindow
 /** After an error the fact comes back within the same session. */
-const RETRY_SOON_MS = 30_000
+const RETRY_SOON_MS = MASTERY_THRESHOLDS.leitner.retrySoonMs
 
 export const factStateSchema = z.object({
   factKey: z.string(),
@@ -31,6 +33,19 @@ export function newFactState(factKey: string, now: number): FactState {
   return { factKey, box: 0, streak: 0, attempts: 0, correct: 0, recentRts: [], lastSeen: 0, dueAt: now }
 }
 
+/** True while the fact only waits for its same-session retry (after an error or a slow box-0 answer). */
+export const isRetryPending = (state: FactState): boolean => state.attempts > 0 && state.dueAt - state.lastSeen === RETRY_SOON_MS
+
+const dueIn = (box: number, now: number): number => {
+  const interval = BOX_INTERVAL_DAYS[box] ?? 0
+  return interval === 0 ? now + RETRY_SOON_MS : now + interval * DAY_MS
+}
+
+/**
+ * A box is earned only by SPACED successes: a fast correct answer promotes the fact when its review is due
+ * (or when it is still in box 0). Repeating it early the same day, or answering right after an error,
+ * never jumps boxes. An early success leaves the schedule untouched.
+ */
 export function updateFact(state: FactState, answer: FactAnswer): FactState {
   const base = { ...state, attempts: state.attempts + 1, lastSeen: answer.now }
 
@@ -38,17 +53,21 @@ export function updateFact(state: FactState, answer: FactAnswer): FactState {
     return { ...base, box: Math.min(1, state.box), streak: 0, dueAt: answer.now + RETRY_SOON_MS }
   }
 
-  const fast = answer.rtMs <= answer.targetMs
-  const box = fast ? Math.min(MAX_BOX, state.box + 1) : state.box
-  const interval = BOX_INTERVAL_DAYS[box] ?? 0
-  return {
+  const common = {
     ...base,
-    box,
     streak: state.streak + 1,
     correct: state.correct + 1,
     recentRts: [...state.recentRts, answer.rtMs].slice(-RECENT_RT_WINDOW),
-    dueAt: interval === 0 ? answer.now + RETRY_SOON_MS : answer.now + interval * DAY_MS,
   }
+  const retryPending = isRetryPending(state)
+  const eligible = state.box === 0 || (!retryPending && answer.now >= state.dueAt)
+  if (!eligible) {
+    // Right after an error the fact is re-anchored one interval ahead; an early repeat keeps its date.
+    return { ...common, box: state.box, dueAt: retryPending ? dueIn(Math.max(1, state.box), answer.now) : state.dueAt }
+  }
+  const fast = answer.rtMs <= answer.targetMs
+  const box = fast ? Math.min(MAX_BOX, state.box + 1) : state.box
+  return { ...common, box, dueAt: dueIn(box, answer.now) }
 }
 
 export function medianRt(state: FactState): number | undefined {

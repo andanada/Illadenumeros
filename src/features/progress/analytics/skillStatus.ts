@@ -1,15 +1,17 @@
 import type { Grade, SkillNode } from '../../../core/ambit/types'
 import { isUnlocked } from '../../../core/engine/graph'
+import { isIntroductionBlocked } from '../../../core/engine/operationOrder'
 import type { SkillState, SkillStatus } from '../../../core/engine/mastery'
 
 export const GRADE_LABELS: Record<number, string> = { 1: '1r', 2: '2n', 3: '3r', 4: '4t', 5: '5è' }
 export const SHOWN_GRADES: readonly Grade[] = [1, 2, 3, 4, 5]
 
 /** Status shown in the heatmap: stored status, or bloquejada when the prerequisites are not reached yet. */
-export function skillStatusOf(skill: SkillNode, states: Readonly<Record<string, SkillState | undefined>>): SkillStatus {
+export function skillStatusOf(skill: SkillNode, states: Readonly<Record<string, SkillState | undefined>>, allSkills: readonly SkillNode[] = [skill]): SkillStatus {
   const own = states[skill.id]
   if (own && own.status !== 'nova' && own.status !== 'bloquejada') return own.status
-  const unlocked = isUnlocked(skill, (id) => states[id]?.mastery ?? 0)
+  const defined = Object.fromEntries(Object.entries(states).filter((e): e is [string, SkillState] => e[1] !== undefined))
+  const unlocked = isUnlocked(skill, (id) => states[id]?.mastery ?? 0) && !isIntroductionBlocked(skill, allSkills, defined)
   return unlocked ? 'nova' : 'bloquejada'
 }
 

@@ -4,6 +4,7 @@ import type { SkillState } from '../../../core/engine/mastery'
 import type { Attempt } from '../../../core/progress/applyAnswer'
 import { aggregateAttempts, type AttemptAggregate, type PeriodStats } from './aggregate'
 import { buildFactGrid, type FactCell } from './factHeat'
+import { buildOperationSummaries, type OperationSummary } from './operations'
 import { topMisconceptions, type TopMisconception } from './misconceptionAdvice'
 import { buildRecommendations, type Recommendation } from './recommendations'
 import { dailyActivity, deriveSessions, sortedValid, type DayActivity } from './sessions'
@@ -41,6 +42,7 @@ export interface ProgressReport {
     accuracyTrend: string
     fluencyTrend: string
   }
+  operations: OperationSummary[]
   skillGroups: SkillGroupView[]
   addGrid: FactCell[][]
   mulGrid: FactCell[][]
@@ -72,9 +74,10 @@ export function buildProgressReport(input: ReportInput, now: number): ProgressRe
       accuracyTrend: trendWord(aggregate.last7.accuracy, aggregate.prev7.accuracy),
       fluencyTrend: trendWord(aggregate.last7.fluency, aggregate.prev7.fluency),
     },
+    operations: buildOperationSummaries(input.skills, input.skillStates, input.factStates),
     skillGroups: groupByGrade(input.skills).map(({ skills, ...group }) => ({
       ...group,
-      cells: skills.map((skill) => ({ skill, state: input.skillStates[skill.id], status: skillStatusOf(skill, input.skillStates) })),
+      cells: skills.map((skill) => ({ skill, state: input.skillStates[skill.id], status: skillStatusOf(skill, input.skillStates, input.skills) })),
     })),
     addGrid: buildFactGrid('add', input.factStates),
     mulGrid: buildFactGrid('mul', input.factStates),

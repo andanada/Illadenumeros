@@ -9,7 +9,8 @@ describe('duelSkills', () => {
     expect(duelSkills(['B1'])).toEqual(['A4'])
   })
   it('allows all when unrestricted', () => {
-    expect(duelSkills(undefined)).toHaveLength(6)
+    expect(duelSkills(undefined)).toHaveLength(12)
+    expect(duelSkills(['C4', 'D3', 'B1'])).toEqual(['C4', 'D3'])
   })
 })
 

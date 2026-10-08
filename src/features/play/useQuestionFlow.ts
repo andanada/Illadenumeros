@@ -1,7 +1,11 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { matesAmbit } from '../../ambits/mates'
 import type { Choice, GameId, Item, SkillNode } from '../../core/ambit/types'
+import { softenedStage } from '../../core/engine/cpa'
+import { isFollowUpStillValid, planFamilyPartners, type QueuedSelection } from '../../core/engine/family'
 import { selectNext, type Selection } from '../../core/engine/sessionSelector'
+import { MASTERY_THRESHOLDS } from '../../core/engine/thresholds'
+import { parseFactKey } from '../../ambits/mates/generators/itemFactory'
 import { useProgress, type RecordInput } from '../../core/progress/store'
 import { createRng } from '../../core/rng'
 import type { AnswerOutcome } from '../../core/progress/applyAnswer'
@@ -51,7 +55,9 @@ const revealAfter = (item: Item): number => (item.choices.length <= 3 ? 2 : 3)
 interface Memory {
   seed: string
   counter: number
-  queue: { afterN: number; selection: Selection }[]
+  queue: QueuedSelection[]
+  /** Questions already asked, most recent last (interleaving and family partners). */
+  history: { skillId: string; factKey?: string }[]
   hintsUsed: number
   shownAt: number
 }
@@ -59,10 +65,12 @@ interface Memory {
 interface Current {
   selection: Selection
   item: Item
+  /** Planned follow-up (family partner, retry): it does not plan more follow-ups itself. */
+  followUp: boolean
 }
 
 /** Mutable bookkeeping of the flow (not rendered), created once in a lazy initialiser. */
-const createMemory = (): Memory => ({ seed: `${Date.now()}`, counter: 0, queue: [], hintsUsed: 0, shownAt: performance.now() })
+const createMemory = (): Memory => ({ seed: `${Date.now()}`, counter: 0, queue: [], history: [], hintsUsed: 0, shownAt: performance.now() })
 
 function buildItem(mem: Memory, selection: Selection): Item {
   const generator = matesAmbit.generators[selection.skillId]
@@ -70,19 +78,35 @@ function buildItem(mem: Memory, selection: Selection): Item {
   const state = useProgress.getState()
   mem.counter += 1
   const rng = createRng(`${mem.seed}:${mem.counter}`)
-  const cpaStage = state.skillStates[selection.skillId]?.cpaStage ?? 'concret'
-  return generator({ rng, cpaStage, ...(selection.factKey !== undefined ? { factKey: selection.factKey } : {}) })
+  // Struggling (under 70 % in the last 10): the same question, one stage more visual.
+  const cpaStage = softenedStage(state.skillStates[selection.skillId]?.cpaStage ?? 'concret', state.sessionResults)
+  return generator({
+    rng,
+    cpaStage,
+    ...(selection.factKey !== undefined ? { factKey: selection.factKey } : {}),
+    ...(selection.order !== undefined ? { order: selection.order } : {}),
+  })
 }
 
-function pickSelection(mem: Memory, forced: FlowOptions['forced'], skillIds: readonly string[] | undefined): Selection {
-  if (forced) return { skillId: forced.skillId, mode: 'consolidacio', ...(forced.factKey ? { factKey: forced.factKey } : {}) }
+/** The duel is the fluency warm-up: it only asks facts already seen on at least two spaced days (box 2+), when there are any. */
+const warmupBox = (gameId: GameId): number | undefined => (gameId === 'duel-llampec' ? MASTERY_THRESHOLDS.mission.warmupMinBox : undefined)
+
+function pickSelection(mem: Memory, options: Pick<FlowOptions, 'gameId' | 'skillIds' | 'forced'>): { selection: Selection; followUp: boolean } {
+  const { forced, skillIds, gameId } = options
+  if (forced) return { selection: { skillId: forced.skillId, mode: 'consolidacio', ...(forced.factKey ? { factKey: forced.factKey } : {}) }, followUp: false }
+  const stateNow = useProgress.getState()
+  const valid = { skills: matesAmbit.skills, factStates: stateNow.factStates, factsForSkill: matesAmbit.factsForSkill }
+  // An unseen partner that no longer fits the "3 new facts at once" limit is dropped.
+  mem.queue = mem.queue.filter((q) => isFollowUpStillValid(q, valid))
   const due = mem.queue.find((q) => q.afterN <= mem.counter)
   if (due) {
     mem.queue = mem.queue.filter((q) => q !== due)
-    return due.selection
+    mem.history.push({ skillId: due.selection.skillId, ...(due.selection.factKey ? { factKey: due.selection.factKey } : {}) })
+    return { selection: due.selection, followUp: true }
   }
   const state = useProgress.getState()
-  return selectNext({
+  const minBox = warmupBox(gameId)
+  const picked = selectNext({
     skills: matesAmbit.skills,
     skillStates: state.skillStates,
     factStates: state.factStates,
@@ -90,8 +114,38 @@ function pickSelection(mem: Memory, forced: FlowOptions['forced'], skillIds: rea
     recent: state.sessionResults,
     now: Date.now(),
     rng: createRng(`sel:${mem.seed}:${mem.counter}`),
+    history: mem.history,
+    ...(minBox !== undefined ? { minBox } : {}),
     ...(skillIds ? { restrictTo: skillIds } : {}),
   })
+  mem.history.push({ skillId: picked.skillId, ...(picked.factKey ? { factKey: picked.factKey } : {}) })
+  return { selection: picked, followUp: false }
+}
+
+/** After a fact is done, its family partners (and its commutative twin in the other order) come back a few questions later. */
+function queueFamily(mem: Memory, item: Item, skillIds: readonly string[] | undefined): void {
+  if (item.factKey === undefined) return
+  const state = useProgress.getState()
+  const fact = parseFactKey(item.factKey)
+  const ops = item.operands
+  const commutative = (fact?.kind === 'add' || fact?.kind === 'mul') && ops !== undefined && ops.a !== ops.b
+  const plan = planFamilyPartners({
+    factKey: item.factKey,
+    familyOf: matesAmbit.factFamily ?? (() => []),
+    ownerOf: matesAmbit.factOwner ?? (() => undefined),
+    skills: matesAmbit.skills,
+    skillStates: state.skillStates,
+    factStates: state.factStates,
+    recent: state.sessionResults,
+    counter: mem.counter,
+    queued: mem.queue,
+    now: Date.now(),
+    history: mem.history,
+    rng: createRng(`fam:${mem.seed}:${mem.counter}`),
+    ...(commutative && ops ? { shownOrder: ops.a <= ops.b ? ('asc' as const) : ('desc' as const) } : {}),
+    ...(skillIds ? { restrictTo: skillIds } : {}),
+  })
+  mem.queue = [...mem.queue, ...plan]
 }
 
 /**
@@ -103,8 +157,8 @@ export function useQuestionFlow(options: FlowOptions): QuestionFlow {
   const record = useProgress((s) => s.record)
   const [start] = useState<{ mem: Memory; first: Current }>(() => {
     const mem = createMemory()
-    const selection = pickSelection(mem, forced, skillIds)
-    return { mem, first: { selection, item: buildItem(mem, selection) } }
+    const { selection, followUp } = pickSelection(mem, options)
+    return { mem, first: { selection, item: buildItem(mem, selection), followUp } }
   })
   // Bookkeeping lives in a ref, read only inside handlers; the lazy initialiser above built the first item.
   const memory = useRef(start.mem)
@@ -156,19 +210,20 @@ export function useQuestionFlow(options: FlowOptions): QuestionFlow {
       if (itemDone && (memory.current.hintsUsed > 0 || revealed) && !alreadyQueued) {
         memory.current.queue.push({ afterN: memory.current.counter + REQUEUE_AFTER, selection: current.selection })
       }
+      if (itemDone && !forced && !current.followUp) queueFamily(memory.current, current.item, skillIds)
       return { correct, itemDone, outcome }
     },
-    [current, errors, gameId, record],
+    [current, errors, gameId, record, forced, skillIds],
   )
 
   const next = useCallback(() => {
-    const selection = pickSelection(memory.current, forced, skillIds)
-    setCurrent({ selection, item: buildItem(memory.current, selection) })
+    const { selection, followUp } = pickSelection(memory.current, { gameId, skillIds, forced })
+    setCurrent({ selection, item: buildItem(memory.current, selection), followUp })
     setErrors(0)
     setWrongValues([])
     memory.current.hintsUsed = 0
     memory.current.shownAt = performance.now()
-  }, [forced, skillIds])
+  }, [forced, skillIds, gameId])
 
   const markHint = useCallback(() => {
     memory.current.hintsUsed = Math.max(memory.current.hintsUsed, 1)

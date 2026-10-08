@@ -61,3 +61,11 @@ export function parseFactKey(key: string): ParsedFact | undefined {
   }
   return undefined
 }
+
+/** Operands of a commutative fact in the requested order, or in a random one (both orders are asked). */
+export function commutativeOperands(fact: ParsedFact, ctx: { rng: Rng; order?: 'asc' | 'desc' }): { a: number; b: number } {
+  const small = Math.min(fact.a, fact.b)
+  const big = Math.max(fact.a, fact.b)
+  const smallFirst = ctx.order !== undefined ? ctx.order === 'asc' : ctx.rng.next() < 0.5
+  return smallFirst ? { a: small, b: big } : { a: big, b: small }
+}

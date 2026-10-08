@@ -55,10 +55,21 @@ describe('ProgressPage', () => {
     await passGate()
     expect(await screen.findByRole('heading', { name: 'Resum' })).toBeInTheDocument()
     expect(screen.getByText(/Encara no hi ha activitat/)).toBeInTheDocument()
-    for (const name of ['Recomanacions', 'Mapa d’habilitats', 'Mapa de fets', 'Temps i constància', 'Evolució', 'Errors més freqüents']) {
+    for (const name of ['Recomanacions', 'Operacions', 'Mapa d’habilitats', 'Mapa de fets', 'Temps i constància', 'Evolució', 'Errors més freqüents']) {
       expect(screen.getByRole('region', { name })).toBeInTheDocument()
     }
     expect(document.body.textContent).not.toMatch(/NaN|Infinity|undefined/)
+  })
+
+  it('shows facts mastered per operation, the strict order and no promised dates', async () => {
+    renderPage()
+    await passGate()
+    const section = await screen.findByRole('region', { name: 'Operacions' })
+    expect(section).toHaveTextContent(/Sumes: 0 de \d+ automatitzades/)
+    expect(section).toHaveTextContent('Les restes s’obriran quan les sumes estiguin al 90 %.')
+    expect(section).toHaveTextContent('Les divisions s’obriran quan les multiplicacions estiguin al 90 %.')
+    expect(section.querySelectorAll('[data-operation]')).toHaveLength(4)
+    expect(section.textContent).not.toMatch(/en \d+ (dies|setmanes|mesos)/)
   })
 
   it('renders the seeded history and prints on demand', async () => {

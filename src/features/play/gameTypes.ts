@@ -21,10 +21,15 @@ export interface GameProps {
 export const GAME_TITLES: Record<string, string> = {
   'repte-illa': 'El Repte de l’Illa',
   'duel-llampec': 'Duel Llampec',
+  'tren-sumes': 'Tren de Sumes',
+  'pesca-sumes': 'Pesca de Sumes',
   bombolles: 'Bombolles Amigues del 10',
   'marc-magic': 'El Marc Màgic',
   'cursa-recta': 'Cursa a la Recta',
   'fleca-files': 'La Fleca de les Files',
   llaminadures: 'Repartim Llaminadures',
   'botiga-pluja': 'La Botiga de la Pluja',
+  'numero-amagat': 'El Número Amagat',
+  'pastis-fraccions': 'Pastís de Fraccions',
+  'laberint-aventura': 'Laberint de l’Aventura',
 }

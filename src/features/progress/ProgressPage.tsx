@@ -8,6 +8,7 @@ import { ActivitySection } from './ActivitySection'
 import { EvolutionSection } from './EvolutionSection'
 import { FactHeatmap } from './FactHeatmap'
 import { MisconceptionsSection } from './MisconceptionsSection'
+import { OperationsSection } from './OperationsSection'
 import { RecommendationsSection } from './RecommendationsSection'
 import { SkillHeatmap } from './SkillHeatmap'
 import { SummarySection } from './SummarySection'
@@ -34,6 +35,7 @@ function Report({ now }: { now?: () => number }) {
       </Button>
       <SummarySection report={report} name={profile.name} character={profile.character} />
       <RecommendationsSection report={report} />
+      <OperationsSection report={report} />
       <SkillHeatmap report={report} />
       <FactHeatmap report={report} />
       <ActivitySection report={report} />

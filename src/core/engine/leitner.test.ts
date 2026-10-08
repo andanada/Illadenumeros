@@ -63,3 +63,65 @@ describe('leitner', () => {
     expect(isFluent({ ...base, box: 4, recentRts: [8000, 9000, 9500] }, TARGET)).toBe(false)
   })
 })
+
+const ok = (state: ReturnType<typeof newFactState>, now: number, rtMs = 1500) => updateFact(state, { correct: true, rtMs, targetMs: TARGET, now })
+
+describe('leitner spacing: a box is only earned by spaced successes', () => {
+  it('a same-day repeat after the first success does not move the box nor the due date', () => {
+    const first = ok(newFactState('add:3+5', NOW), NOW)
+    expect(first.box).toBe(1)
+    let fact = first
+    for (let i = 1; i <= 6; i++) fact = ok(fact, NOW + i * 60_000)
+    expect(fact.box).toBe(1)
+    expect(fact.dueAt).toBe(first.dueAt)
+    expect(fact.correct).toBe(7)
+  })
+
+  it('follows the 1, 2, 4, 9, 21 day schedule: boxes 1..5 on days 0, 1, 3, 7 and 16', () => {
+    const days = [0, 1, 3, 7, 16]
+    let fact = newFactState('add:3+5', NOW)
+    const boxes = days.map((d) => {
+      fact = ok(fact, NOW + d * DAY)
+      return fact.box
+    })
+    expect(boxes).toEqual([1, 2, 3, 4, 5])
+  })
+
+  it('a success before the review is due does not promote', () => {
+    const start = ok(ok(newFactState('add:3+5', NOW), NOW), NOW + DAY)
+    expect(start.box).toBe(2)
+    const early = ok(start, NOW + DAY + 3_600_000)
+    expect(early.box).toBe(2)
+    expect(early.dueAt).toBe(start.dueAt)
+  })
+
+  it('after an error the fact lands in box 1 and an immediate success does not promote it again', () => {
+    const high = { ...newFactState('add:3+5', NOW), box: 4, attempts: 9, dueAt: NOW }
+    const failed = updateFact(high, { correct: false, rtMs: 2000, targetMs: TARGET, now: NOW })
+    expect(failed.box).toBe(1)
+    const retried = ok(failed, NOW + 40_000)
+    expect(retried.box).toBe(1)
+    expect(retried.dueAt).toBe(NOW + 40_000 + DAY)
+    expect(ok(retried, NOW + 40_000 + DAY).box).toBe(2)
+  })
+
+  it('a new fact that failed first can still earn box 1 in the same session', () => {
+    const failed = updateFact(newFactState('add:3+5', NOW), { correct: false, rtMs: 2000, targetMs: TARGET, now: NOW })
+    expect(failed.box).toBe(0)
+    expect(ok(failed, NOW + 40_000).box).toBe(1)
+  })
+
+  it('a slow success when due keeps the box and reschedules it', () => {
+    const start = { ...newFactState('add:3+5', NOW), box: 3, attempts: 4, dueAt: NOW }
+    const slow = ok(start, NOW + 10, 9000)
+    expect(slow.box).toBe(3)
+    expect(slow.dueAt).toBe(NOW + 10 + 4 * DAY)
+  })
+
+  it('legacy states that already sit in a high box keep working', () => {
+    const legacy = { ...newFactState('add:3+5', NOW), box: 5, attempts: 12, correct: 12, streak: 12, dueAt: NOW + 5 * DAY, lastSeen: NOW - DAY }
+    const same = ok(legacy, NOW)
+    expect(same.box).toBe(5)
+    expect(same.dueAt).toBe(legacy.dueAt)
+  })
+})

@@ -81,3 +81,44 @@ describe('mastery hysteresis', () => {
     expect(skill.status).not.toBe('dominada')
   })
 })
+
+describe('retention gate for core-operation skills', () => {
+  const drive = (retention: { share: number; cleanDays: number } | undefined, n = 40) => {
+    let skill = newSkillState('A4')
+    for (let i = 0; i < n; i++) {
+      skill = updateSkill(skill, { correct: true, fluentRatio: 1, sessionId: `s${i % 3}`, hasFacts: true, ...(retention ? { retention } : {}) })
+    }
+    return skill
+  }
+
+  it('without the gate (non-core skills) mastery alone decides', () => {
+    expect(drive(undefined).status).toBe('dominada')
+  })
+
+  it('stays "consolidant" while less than 90 % of the facts are automatised', () => {
+    const skill = drive({ share: 0.8, cleanDays: 5 })
+    expect(skill.mastery).toBeGreaterThan(0.85)
+    expect(skill.status).toBe('consolidant')
+  })
+
+  it('stays "consolidant" with fewer than 3 clean days even if everything else is perfect', () => {
+    expect(drive({ share: 1, cleanDays: 2 }).status).toBe('consolidant')
+  })
+
+  it('becomes "dominada" with 90 % automatised and 3 clean days', () => {
+    expect(drive({ share: 0.9, cleanDays: 3 }).status).toBe('dominada')
+  })
+
+  it('keeps "dominada" through a dip in retention above the keep level, loses it below', () => {
+    const mastered = drive({ share: 0.95, cleanDays: 4 })
+    const dip = updateSkill(mastered, { correct: true, fluentRatio: 1, sessionId: 's0', hasFacts: true, retention: { share: 0.8, cleanDays: 4 } })
+    expect(dip.status).toBe('dominada')
+    const lost = updateSkill(mastered, { correct: true, fluentRatio: 1, sessionId: 's0', hasFacts: true, retention: { share: 0.6, cleanDays: 4 } })
+    expect(lost.status).toBe('consolidant')
+  })
+
+  it('statusFor honours retentionOk=false', () => {
+    expect(statusFor({ mastery: 0.95, attempts: 50, sessions: 3, retentionOk: false })).toBe('consolidant')
+    expect(statusFor({ mastery: 0.95, attempts: 50, sessions: 3, retentionOk: true })).toBe('dominada')
+  })
+})

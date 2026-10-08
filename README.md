@@ -27,6 +27,38 @@ Los contenidos siguen el currículum oficial de Catalunya (Decret 175/2022, sabe
 
 El tiempo de respuesta se mide para la fluidez, pero **la niña nunca lo ve**.
 
+## Cómo se define «dominada» (sumas, restas, tablas y divisiones)
+
+Las habilidades con hechos básicos (`A4 A5 A7 A8` sumas, `A6 A9` restas, `C4 C5 D2 D3` tablas, `C7 D4` divisiones) usan una regla de **retención**, no solo de aciertos. Una habilidad pasa a «dominada» cuando se cumplen **todas**:
+
+1. Dominio suavizado ≥ 0,85, con ≥ 20 intentos en ≥ 2 sesiones (como el resto de habilidades).
+2. **≥ 90 % de sus hechos están «automatizados»**: caja de Leitner ≥ 4 *y* mediana de las últimas respuestas dentro del tiempo estricto (sumas y restas ≤ 3 s, tablas y divisiones ≤ 4 s; sin el margen ×1,5 que solo se usa para subir de caja).
+3. Respuestas correctas **sin ayuda** en **≥ 3 días distintos** (se reconstruyen de los intentos guardados; una respuesta con pista nunca cuenta como limpia).
+
+Una caja solo se gana con éxitos **espaciados**: un acierto rápido sube de caja si el repaso ya tocaba (calendario 0, 1, 2, 4, 9, 21 días); repetirlo el mismo día, o acertar justo tras un fallo, no salta de caja. Un fallo vuelve a la caja 1. Para **mantener** «dominada» basta con el 75 % de hechos automatizados y dominio ≥ 0,65 (histéresis).
+
+Los progresos ya guardados no se tocan ni se migran: al leerlos, una habilidad «dominada» que no cumpla la regla se muestra como «consolidant» (sin escribir en disco) y se corrige sola con la práctica.
+
+**Orden estricto de lo nuevo:** sumas → restas → multiplicaciones → divisiones. Una operación solo introduce hechos nuevos cuando todas las anteriores están dominadas; las anteriores siguen en repaso espaciado y se mezclan (intercalado) con la operación en curso, que recibe ≥ 50 % de las preguntas. Cada hecho trae a su familia (`8+5` → `13−5`, `13−8`; `7×8` → `56÷7`, `56÷8`) unas preguntas después, nunca seguidas. Si el acierto de las últimas 10 baja del 70 %, no entra nada nuevo y las preguntas se vuelven más visuales.
+
+Todos los umbrales viven en un único módulo, [`src/core/engine/thresholds.ts`](src/core/engine/thresholds.ts) (con tests):
+
+| Umbral | Valor |
+|---|---|
+| Caja mínima de un hecho automatizado | 4 (de 0 a 5) |
+| Calendario de cajas | 0, 1, 2, 4, 9, 21 días |
+| Tiempo estricto (sumas/restas · tablas/divisiones) | ≤ 3 s · ≤ 4 s |
+| Margen para subir de caja | × 1,5 |
+| Hechos automatizados para ganar / mantener | 90 % / 75 % |
+| Días con acierto limpio | ≥ 3 |
+| Dominio suavizado para ganar / perder | ≥ 0,85 / < 0,65 |
+| Hechos nuevos a la vez | máx. 3 |
+| Preguntas a la operación en curso | ≥ 50 % |
+| Calentamiento «Duel Llampec» | hechos en caja ≥ 2 |
+| Suavizar (más visual, nada nuevo) | acierto < 70 % en las últimas 10 |
+
+El panel para adultos (sección «Operacions») muestra por operación cuántos hechos están automatizados, en repaso o sin empezar, sin prometer fechas. Las pruebas `src/core/engine/simulation.test.ts` simulan niñas sintéticas de 12 min/día (estable, descuidada y lenta).
+
 ## Puesta en marcha
 
 Requisitos: Node 22 o superior.
@@ -46,6 +78,8 @@ npm run dev -- --host  # para abrirla desde una tablet en la misma red
 | `npm run lint` | Linter (Oxlint, prohíbe `console.*`). |
 | `npm run e2e` | Pruebas de extremo a extremo (Playwright: escritorio, iPad y móvil). |
 | `npm run e2e:pwa` | Compila y prueba service worker, sin conexión y aviso de actualización. |
+| `npm run voice:dry` | Cuenta frases, caracteres y MB de la voz pregenerada sin llamar a Azure (ver `scripts/voice/README.md`). |
+| `npm run voice` | Genera los clips de voz que falten (necesita `.env.speech`, no versionado). |
 | `npm run e2e:sync` | Compila `server/` y prueba cuentas + sincronización contra la API real (base de datos temporal). |
 
 La primera vez que se ejecuten las pruebas E2E: `npx playwright install chromium`. Como `tsc -b` compila también `server/src`, instala las dependencias de los dos proyectos: `npm install && npm install --prefix server`.
@@ -82,5 +116,5 @@ La web es estática (la API de cuentas está en `server/`, ver `server/README.md
 
 - Hecho: 1.º a 4.º, 8 juegos, diagnóstico, misión diaria, álbum, PWA, varios jugadores, cuentas de familia y sincronización (en producción), panel de progreso para adultos, página de privacidad, pruebas unitarias y E2E.
 - En curso (otro cambio): región de 5.º (decimales, porcentajes, descuentos).
-- Previsto: voz catalana pregenerada.
+- Hecho: voz catalana pregenerada (Azure Neural, `ca-ES-JoanaNeural`) en `public/voice/`, con la voz del dispositivo como respaldo; cómo regenerarla en [`scripts/voice/README.md`](scripts/voice/README.md).
 - Pendiente de ajustar tras probarla con la niña: ritmo y dificultad.

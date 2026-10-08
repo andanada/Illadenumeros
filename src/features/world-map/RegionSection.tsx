@@ -1,12 +1,15 @@
 import { memo } from 'react'
 import type { SkillNode } from '../../core/ambit/types'
 import type { SkillState } from '../../core/engine/mastery'
+import { mazeAccess } from './mazeAccess'
 import { RegionLandscape } from './RegionLandscape'
 import { SkillStop } from './SkillStop'
 import { GRADE_LABEL, isRegionClosed, REGIONS, starsFor, stopStatus, type Region } from './stops'
 
 const STEP = 112
 const TOP = 124
+/** Room under the last stop for the region's Laberint gate. */
+const MAZE_ROOM = 84
 
 /** Gentle zig-zag along the left side so labels always fit on the right, even at 360px. */
 const xPercent = (i: number): number => 21 + 8 * Math.sin(i * 1.25)
@@ -29,11 +32,14 @@ export interface RegionSectionProps {
   states: Readonly<Record<string, SkillState>>
   focusId: string
   onOpen: (skill: SkillNode) => void
+  /** Starts the region's Laberint de l'Aventura with the skills it draws its questions from. */
+  onMaze: (skillIds: readonly string[]) => void
 }
 
 /** A playable region: wobbly tinted island, a landmark sticker, and a dashed path of stops. */
-export const RegionSection = memo(function RegionSection({ region, skills, states, focusId, onOpen }: RegionSectionProps) {
-  const height = TOP + skills.length * STEP + 24
+export const RegionSection = memo(function RegionSection({ region, skills, states, focusId, onOpen, onMaze }: RegionSectionProps) {
+  const height = TOP + skills.length * STEP + 24 + MAZE_ROOM
+  const maze = mazeAccess(skills, states)
   const previous = REGIONS.find((r) => r.grade === region.grade - 1)
   const closed = previous !== undefined && isRegionClosed(skills, states)
   return (
@@ -84,6 +90,26 @@ export const RegionSection = memo(function RegionSection({ region, skills, state
           />
         </div>
       ))}
+      <div className="absolute inset-x-4 flex justify-center" style={{ top: TOP + skills.length * STEP - 12 }}>
+        {maze.open ? (
+          <button
+            type="button"
+            data-testid={`maze-${region.id}`}
+            onClick={() => onMaze(maze.skillIds)}
+            className="sticker flex min-h-16 items-center gap-3 rounded-[1.6rem] bg-sol px-6 text-xl font-bold text-ink sm:text-2xl"
+          >
+            <span aria-hidden="true">🧭</span>
+            Laberint de l’Aventura
+          </button>
+        ) : (
+          <p className="sticker flex min-h-16 items-center gap-3 rounded-[1.6rem] bg-white/70 px-5 py-2 text-base font-semibold text-ink/60 sm:text-lg">
+            <span aria-hidden="true" className="grayscale">
+              🧭
+            </span>
+            Laberint de l’Aventura: practica {maze.missing} {maze.missing === 1 ? 'parada més' : 'parades més'} per obrir-lo
+          </p>
+        )}
+      </div>
     </section>
   )
 })

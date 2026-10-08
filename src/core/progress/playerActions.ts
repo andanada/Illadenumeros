@@ -104,6 +104,7 @@ export function createPlayerActions(set: SetState, get: GetState): PlayerActions
         profile,
         skillStates: {},
         factStates: {},
+        cleanDays: {},
         rewards: emptyRewards(),
         sessionId: newId(),
         sessionResults: [],

@@ -2,10 +2,15 @@
 export const GAME_EMOJI: Record<string, string> = {
   'repte-illa': '🏝️',
   'duel-llampec': '⚡',
+  'tren-sumes': '🚂',
+  'pesca-sumes': '🐟',
   bombolles: '🫧',
   'marc-magic': '🖼️',
   'cursa-recta': '🏁',
   'fleca-files': '🧁',
   llaminadures: '🍬',
   'botiga-pluja': '☂️',
+  'numero-amagat': '⚖️',
+  'pastis-fraccions': '🍰',
+  'laberint-aventura': '🧭',
 }

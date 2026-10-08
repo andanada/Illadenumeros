@@ -1,8 +1,25 @@
 import type { SkillNode } from '../ambit/types'
 import type { Rng } from '../rng'
 import { isUnlocked } from './graph'
-import { isDue, type FactState } from './leitner'
+import type { FactState } from './leitner'
 import type { SkillState } from './mastery'
+import { coreOperation, isIntroductionBlocked, isSkillOpen } from './operationOrder'
+import { isAutomatised } from './retention'
+import {
+  accuracyOf,
+  askedInSession,
+  canIntroduce,
+  dueFacts,
+  inFlightFacts,
+  interleave,
+  isSeen,
+  soonestDue,
+  unseenFacts,
+  weakestSeen,
+  type FactChoice,
+  type FactContext,
+} from './selectorFacts'
+import { MASTERY_THRESHOLDS, strictTargetFor } from './thresholds'
 
 export type SelectionMode = 'repas' | 'consolidacio' | 'nou'
 
@@ -10,6 +27,8 @@ export interface Selection {
   skillId: string
   factKey?: string
   mode: SelectionMode
+  /** For commutative facts: which operand goes first ('desc' = the bigger one). */
+  order?: 'asc' | 'desc'
 }
 
 export interface SelectorInput {
@@ -23,106 +42,203 @@ export interface SelectorInput {
   rng: Rng
   /** Skills the current game can show; defaults to all. */
   restrictTo?: readonly string[]
+  /** Questions already asked in this session, most recent last (interleaving, no back-to-back repeats). */
+  history?: readonly { skillId: string; factKey?: string }[]
+  /** Fluency warm-up: only facts already in this Leitner box or above. */
+  minBox?: number
 }
 
-const REVIEW_SHARE = 0.7
-const OCCASIONAL_REVIEW = 0.25
-const MAX_FACTS_IN_FLIGHT = 3
-const ACCURACY_WINDOW = 8
-const LOW_ACCURACY = 0.7
-const HIGH_ACCURACY = 0.9
-
-const accuracyOf = (recent: readonly boolean[]): number => {
-  const window = recent.slice(-ACCURACY_WINDOW)
-  return window.length < 4 ? 0.8 : window.filter(Boolean).length / window.length
-}
+const { session, mission } = MASTERY_THRESHOLDS
+const NEW_FACT_CHANCE_WHEN_BUSY = 0.35
+const CORE_INTRO_FIRST = 0.3
+const WEAKEST_POOL = 5
 
 const isLearning = (s: SkillState | undefined): boolean => s !== undefined && (s.status === 'aprenent' || s.status === 'consolidant')
 
-function availableSkills(input: SelectorInput): SkillNode[] {
+interface Available {
+  skills: SkillNode[]
+  /** No skill was open: the game's own (locked) skills are served anyway, as the child chose them. */
+  forced: boolean
+}
+
+function availableSkills(input: SelectorInput): Available {
   const masteryOf = (id: string): number => input.skillStates[id]?.mastery ?? 0
   const allowed = input.skills.filter((skill) => input.restrictTo === undefined || input.restrictTo.includes(skill.id))
-  const settled = (id: string): boolean => ['consolidant', 'dominada'].includes(input.skillStates[id]?.status ?? '')
-  const open = allowed.filter((skill) => settled(skill.id) || isUnlocked(skill, masteryOf))
+  const open = allowed.filter((skill) => isSkillOpen(skill, input.skills, input.skillStates, (s) => isUnlocked(s, masteryOf)))
   // A game that only knows locked skills must still show something of its own, never an unrelated skill.
-  return open.length > 0 ? open : allowed
+  return open.length > 0 ? { skills: open, forced: false } : { skills: allowed, forced: true }
 }
 
-/** Facts already being learned (seen, not yet in box 3). */
-function inFlight(input: SelectorInput, skillId: string): string[] {
-  return input.factsForSkill(skillId).filter((key) => {
-    const fact = input.factStates[key]
-    return fact !== undefined && fact.attempts > 0 && fact.box < 3
-  })
+const factContext = (input: SelectorInput): FactContext => ({
+  skills: input.skills,
+  factStates: input.factStates,
+  factsForSkill: input.factsForSkill,
+  now: input.now,
+  rng: input.rng,
+  history: input.history ?? [],
+})
+
+/**
+ * The choices minus the previous fact (no back-to-back repeat) and minus facts already asked twice today
+ * (no endless drilling of the same few), unless that leaves nothing.
+ */
+const withoutLast = (choices: readonly FactChoice[], ctx: FactContext): FactChoice[] => {
+  const last = ctx.history[ctx.history.length - 1]?.factKey
+  const fresh = choices.filter((c) => c.factKey !== last && askedInSession(ctx, c.factKey) < session.maxAsksPerSession)
+  if (fresh.length > 0) return fresh
+  const others = choices.filter((c) => c.factKey !== last)
+  return others.length > 0 ? others : [...choices]
 }
 
-/** Picks the fact to ask for a skill, introducing new facts only while fewer than 3 are in flight. */
-function pickFact(input: SelectorInput, skill: SkillNode): string | undefined {
-  if (!skill.hasFacts) return undefined
-  const learning = inFlight(input, skill.id)
-  const unseen = input.factsForSkill(skill.id).filter((key) => (input.factStates[key]?.attempts ?? 0) === 0)
-  if (learning.length < MAX_FACTS_IN_FLIGHT && unseen.length > 0 && (learning.length === 0 || input.rng.next() < 0.35)) {
-    return input.rng.pick(unseen)
+class Picker {
+  readonly ctx: FactContext
+  readonly mayIntroduceNow: boolean
+  private readonly input: SelectorInput
+  private readonly forced: boolean
+
+  constructor(input: SelectorInput, forced: boolean) {
+    this.input = input
+    this.forced = forced
+    this.ctx = factContext(input)
+    this.mayIntroduceNow = canIntroduce(this.ctx, input.recent)
   }
-  if (learning.length > 0) return input.rng.pick(learning)
-  return input.rng.pick(input.factsForSkill(skill.id))
+
+  /** New facts only for operations that are already open (strict add, sub, mul, div). */
+  mayIntroduce(skill: SkillNode): boolean {
+    return this.mayIntroduceNow && !isIntroductionBlocked(skill, this.input.skills, this.input.skillStates)
+  }
+
+  /** Picks the fact to ask for a skill; undefined when it has nothing it may show right now. */
+  fact(skill: SkillNode): string | undefined {
+    const { rng } = this.input
+    const unseen = unseenFacts(this.ctx, skill)
+    const learning = withoutLast(inFlightFacts(this.ctx, [skill]), this.ctx)
+    if (this.mayIntroduce(skill) && unseen.length > 0 && (learning.length === 0 || rng.next() < NEW_FACT_CHANCE_WHEN_BUSY)) return rng.pick(unseen)
+    if (learning.length > 0) return rng.pick(learning).factKey
+    const seen = withoutLast(weakestSeen(this.ctx, [skill]), this.ctx)
+    if (seen.length > 0) return rng.pick(seen.slice(0, WEAKEST_POOL)).factKey
+    return this.forced && unseen.length > 0 ? rng.pick(unseen) : undefined
+  }
+
+  select(skill: SkillNode, mode: SelectionMode): Selection | undefined {
+    if (!skill.hasFacts) return { skillId: skill.id, mode }
+    const factKey = this.fact(skill)
+    if (factKey === undefined) return undefined
+    return { skillId: skill.id, factKey, mode: isSeen(this.input.factStates[factKey]) ? mode : 'nou' }
+  }
 }
 
-function reviewPick(input: SelectorInput, skills: SkillNode[]): Selection | undefined {
-  const due = skills
+/** Fluency warm-up: facts already in the given box or above, slow ones first, operations mixed. */
+function warmupPick(input: SelectorInput, skills: readonly SkillNode[], ctx: FactContext, minBox: number): Selection | undefined {
+  const pool = skills
     .filter((s) => s.hasFacts)
-    .flatMap((s) =>
-      input.factsForSkill(s.id).flatMap((key) => {
-        const fact = input.factStates[key]
-        return fact && fact.attempts > 0 && isDue(fact, input.now) ? [{ skillId: s.id, fact }] : []
-      }),
-    )
-    .sort((x, y) => x.fact.dueAt - y.fact.dueAt)
-  const oldest = due[0]
-  if (oldest) return { skillId: oldest.skillId, factKey: oldest.fact.factKey, mode: 'repas' }
+    .flatMap((s) => input.factsForSkill(s.id).flatMap((k) => ((input.factStates[k]?.box ?? 0) >= minBox && isSeen(input.factStates[k]) ? [{ skillId: s.id, factKey: k, op: s.operation }] : [])))
+  if (pool.length === 0) return undefined
+  const slow = pool.filter((c) => c.op === undefined || !isAutomatised(input.factStates[c.factKey], strictTargetFor(c.op)))
+  const source = slow.length > 0 && input.rng.next() < 0.7 ? slow : pool
+  const chosen = interleave(ctx, input.rng.shuffle(source))
+  return chosen ? { skillId: chosen.skillId, factKey: chosen.factKey, mode: 'repas' } : undefined
+}
+
+/** One question for the operation in progress: its due facts, what is being learned, or a new fact. */
+function corePick(input: SelectorInput, picker: Picker, skills: readonly SkillNode[]): Selection | undefined {
+  const core = coreOperation(input.skills, input.skillStates)
+  const coreSkills = skills.filter((s) => s.hasFacts && s.operation === core)
+  if (core === undefined || coreSkills.length === 0) return undefined
+  const { ctx } = picker
+  const introduce = (): Selection | undefined => {
+    const fresh = coreSkills.filter((s) => picker.mayIntroduce(s) && unseenFacts(ctx, s).length > 0)
+    const skill = fresh.length > 0 ? input.rng.pick(fresh) : undefined
+    return skill ? { skillId: skill.id, factKey: input.rng.pick(unseenFacts(ctx, skill)), mode: 'nou' } : undefined
+  }
+  if (input.rng.next() < CORE_INTRO_FIRST) {
+    const first = introduce()
+    if (first) return first
+  }
+  const due = interleave(ctx, dueFacts(ctx, coreSkills))
+  if (due) return { skillId: due.skillId, factKey: due.factKey, mode: 'repas' }
+  const learning = withoutLast(inFlightFacts(ctx, coreSkills), ctx)
+  if (learning.length > 0 && input.rng.next() >= NEW_FACT_CHANCE_WHEN_BUSY) {
+    const chosen = input.rng.pick(learning)
+    return { skillId: chosen.skillId, factKey: chosen.factKey, mode: 'consolidacio' }
+  }
+  const fresh = introduce()
+  if (fresh) return fresh
+  // Not urgent: only facts that were not drilled enough today already; otherwise let other skills have the turn.
+  const weak = withoutLast(weakestSeen(ctx, coreSkills), ctx).filter((c) => askedInSession(ctx, c.factKey) < session.maxAsksPerSession).slice(0, WEAKEST_POOL)
+  const chosen = weak.length > 0 ? input.rng.pick(weak) : undefined
+  return chosen ? { skillId: chosen.skillId, factKey: chosen.factKey, mode: 'consolidacio' } : undefined
+}
+
+function reviewPick(input: SelectorInput, picker: Picker, skills: SkillNode[]): Selection | undefined {
+  const due = interleave(picker.ctx, dueFacts(picker.ctx, skills))
+  if (due) return { skillId: due.skillId, factKey: due.factKey, mode: 'repas' }
 
   const mastered = skills.filter((s) => input.skillStates[s.id]?.status === 'dominada')
   // Nothing due: revisit mastered content now and then, never most of the time.
-  if (mastered.length === 0 || input.rng.next() >= OCCASIONAL_REVIEW) return undefined
-  const skill = input.rng.pick(mastered)
-  return withFact(input, skill, 'repas')
-}
-
-function withFact(input: SelectorInput, skill: SkillNode, mode: SelectionMode): Selection {
-  const factKey = pickFact(input, skill)
-  return factKey === undefined ? { skillId: skill.id, mode } : { skillId: skill.id, factKey, mode }
+  if (mastered.length === 0 || input.rng.next() >= session.occasionalReview) return undefined
+  return picker.select(input.rng.pick(mastered), 'repas')
 }
 
 export function selectNext(input: SelectorInput): Selection {
-  const skills = availableSkills(input)
+  const { skills, forced } = availableSkills(input)
   const fallback = skills[0] ?? input.skills.find((s) => s.prereqs.length === 0) ?? input.skills[0]
   if (!fallback) throw new Error('No hi ha habilitats')
+  const picker = new Picker(input, forced)
+
+  if (input.minBox !== undefined) {
+    const warm = warmupPick(input, skills, picker.ctx, input.minBox)
+    if (warm) return warm
+  }
+  if (!forced && input.rng.next() < mission.coreWeight) {
+    const core = corePick(input, picker, skills)
+    if (core) return core
+  }
 
   const accuracy = accuracyOf(input.recent)
-  const newShare = accuracy < LOW_ACCURACY ? 0 : accuracy > HIGH_ACCURACY ? 0.2 : 0.1
+  const newShare = accuracy < session.lowAccuracy ? 0 : accuracy > session.highAccuracy ? 0.2 : 0.1
   const learning = skills.filter((s) => isLearning(input.skillStates[s.id]))
   const fresh = skills.filter((s) => input.skillStates[s.id] === undefined)
   const roll = input.rng.next()
 
-  if (roll < REVIEW_SHARE) {
-    const review = reviewPick(input, skills)
+  if (roll < session.reviewShare) {
+    const review = reviewPick(input, picker, skills)
     if (review) return review
   }
-  if (roll >= 1 - newShare && fresh[0]) return withFact(input, fresh[0], 'nou')
+  const firstFresh = fresh[0]
+  if (roll >= 1 - newShare && firstFresh) {
+    const pick = picker.select(firstFresh, 'nou')
+    if (pick) return pick
+  }
   if (learning.length > 0) {
     // When struggling, stay on the easiest learning skill; otherwise vary.
-    const skill = accuracy < LOW_ACCURACY ? (learning[0] as SkillNode) : input.rng.pick(learning)
-    return withFact(input, skill, 'consolidacio')
+    const skill = accuracy < session.lowAccuracy ? (learning[0] as SkillNode) : input.rng.pick(learning)
+    const pick = picker.select(skill, 'consolidacio')
+    if (pick) return pick
   }
-  if (fresh[0]) return withFact(input, fresh[0], 'nou')
-  return reviewPick(input, skills) ?? withFact(input, fallback, 'consolidacio')
+  if (firstFresh) {
+    const pick = picker.select(firstFresh, 'nou')
+    if (pick) return pick
+  }
+  const review = reviewPick(input, picker, skills)
+  if (review) return review
+  const own = picker.select(fallback, 'consolidacio')
+  if (own) return own
+  const pulled = soonestDue(picker.ctx, skills)
+  return pulled ? { skillId: pulled.skillId, factKey: pulled.factKey, mode: 'repas' } : { skillId: fallback.id, mode: 'consolidacio' }
 }
 
-/** Earliest skill (graph order) still being learned, else the first new unlocked one. */
+/**
+ * Skill to work on: the earliest one still being learned (a core-operation skill first),
+ * else the first new unlocked one.
+ */
 export function focusSkill(skills: readonly SkillNode[], skillStates: Readonly<Record<string, SkillState>>): string {
+  const core = coreOperation(skills, skillStates)
+  const coreLearning = skills.find((s) => core !== undefined && s.operation === core && isLearning(skillStates[s.id]))
+  if (coreLearning) return coreLearning.id
   const learning = skills.find((s) => isLearning(skillStates[s.id]))
   if (learning) return learning.id
   const masteryOf = (id: string): number => skillStates[id]?.mastery ?? 0
-  const fresh = skills.find((s) => skillStates[s.id] === undefined && isUnlocked(s, masteryOf))
+  const fresh = skills.find((s) => skillStates[s.id] === undefined && isUnlocked(s, masteryOf) && !isIntroductionBlocked(s, skills, skillStates))
   return (fresh ?? skills[0])?.id ?? ''
 }

@@ -7,6 +7,8 @@ import { GAME_REGISTRY, isGameId } from './gameRegistry'
 import { GameSummaryView } from './GameSummaryView'
 import { GAME_TITLES, type GameSummary } from './gameTypes'
 
+const MAX_URL_ROUNDS = 50
+
 /** Free play: `/play/:gameId?skills=A4,A5`. No round limit; shows a summary if the game ends by itself. */
 export default function GamePage() {
   const { gameId } = useParams()
@@ -20,6 +22,12 @@ export default function GamePage() {
     const raw = params.get('skills')
     const ids = raw ? raw.split(',').map((s) => s.trim()).filter(Boolean) : []
     return ids.length > 0 ? ids : undefined
+  }, [params])
+
+  /** Optional round limit (`?rounds=3`), so a short game can be played to its end screen. */
+  const maxRounds = useMemo(() => {
+    const value = Number(params.get('rounds'))
+    return Number.isInteger(value) && value >= 1 && value <= MAX_URL_ROUNDS ? value : undefined
   }, [params])
 
   const toMap = useCallback(() => navigate('/map'), [navigate])
@@ -41,7 +49,7 @@ export default function GamePage() {
   }
   return (
     <Suspense fallback={<PageLoader />}>
-      <Game key={round} {...(skillIds ? { skillIds } : {})} onExit={toMap} onComplete={setSummary} />
+      <Game key={round} {...(skillIds ? { skillIds } : {})} {...(maxRounds ? { maxRounds } : {})} onExit={toMap} onComplete={setSummary} />
     </Suspense>
   )
 }

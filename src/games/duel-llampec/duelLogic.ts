@@ -1,12 +1,13 @@
 import { CHARACTER_IDS, type CharacterId } from '../../core/storage/db'
 
-export const DUEL_SKILLS = ['A4', 'A5', 'A6', 'A7', 'A8', 'A9'] as const
+/** Every fact skill: additions, subtractions, tables and divisions (the duel is the fluency warm-up of the mission). */
+export const DUEL_SKILLS = ['A4', 'A5', 'A6', 'A7', 'A8', 'A9', 'C4', 'C5', 'C7', 'D2', 'D3', 'D4'] as const
 export const DUEL_DURATION_MS = 75_000
 /** Points the child needs to fill her bar. */
 export const GOAL_POINTS = 18
 const SLOW_POINTS = 0.5
 
-/** Fact skills allowed in the duel: `skillIds` intersected with A4..A9, falling back to A4. */
+/** Fact skills allowed in the duel: `skillIds` intersected with DUEL_SKILLS, falling back to A4. */
 export function duelSkills(skillIds: readonly string[] | undefined): string[] {
   if (!skillIds) return [...DUEL_SKILLS]
   const allowed = DUEL_SKILLS.filter((id) => skillIds.includes(id))

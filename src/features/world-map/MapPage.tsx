@@ -10,6 +10,7 @@ import { SyncStatusDot } from '../account/SyncStatusDot'
 import { AdultGate } from '../family/AdultGate'
 import { RegionSection } from './RegionSection'
 import { StopSheet } from './StopSheet'
+import { mazePath } from './mazeAccess'
 import { starsFor, REGIONS, GRADE_LABEL, playableRegions } from './stops'
 import type { SkillNode } from '../../core/ambit/types'
 
@@ -88,7 +89,7 @@ export default function MapPage() {
         {missionDone && <p className="-mt-3 text-center text-lg font-semibold text-ok">Ja l’has feta! Pots jugar més.</p>}
 
         {regions.map(({ region, skills }) => (
-          <RegionSection key={region.id} region={region} skills={skills} states={states} focusId={focusId} onOpen={setOpen} />
+          <RegionSection key={region.id} region={region} skills={skills} states={states} focusId={focusId} onOpen={setOpen} onMaze={(ids) => navigate(mazePath(ids))} />
         ))}
 
         {REGIONS.some((r) => !regions.some((entry) => entry.region.id === r.id)) && (

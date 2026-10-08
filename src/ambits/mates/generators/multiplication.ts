@@ -2,11 +2,11 @@ import type { GenerateContext, Item } from '../../../core/ambit/types'
 import { factsForSkill } from '../facts'
 import { countOf, deNumber, howMany, THINGS } from './catalan'
 import { buildChoices, multiplicationCandidates, type Candidate } from './distractors'
-import { makeItem, mulKey, parseFactKey } from './itemFactory'
+import { commutativeOperands, makeItem, mulKey, parseFactKey } from './itemFactory'
 
 /** Which tables each fact skill practises (to pick the factor the strategy talks about). */
 const SKILL_TABLES: Record<string, number[]> = {
-  C4: [2, 5, 10],
+  C4: [0, 1, 2, 5, 10],
   C5: [3, 4],
   D2: [6, 9],
   D3: [7, 8],
@@ -17,8 +17,8 @@ function factOperands(skillId: string, ctx: GenerateContext): { a: number; b: nu
   const known = ctx.factKey && facts.includes(ctx.factKey) ? ctx.factKey : undefined
   const fact = parseFactKey(known ?? ctx.rng.pick(facts))
   if (!fact || fact.kind !== 'mul') throw new Error(`Sense fets de multiplicar per a ${skillId}`)
-  // Ask commutative facts in both orders.
-  return ctx.rng.next() < 0.5 ? { a: fact.a, b: fact.b } : { a: fact.b, b: fact.a }
+  // Ask commutative facts in both orders (or the one the session planner asked for).
+  return commutativeOperands(fact, ctx)
 }
 
 /** Splits a fact into the table being practised and the other factor. */
@@ -33,6 +33,8 @@ function tableAndFactor(skillId: string, a: number, b: number): { table: number;
 export function tableStrategy(table: number, n: number): string {
   const double = 2 * n
   switch (table) {
+    case 0:
+      return 'Multiplicar per 0 sempre dóna 0: no hi ha res a comptar.'
     case 1:
       return `Multiplicar per 1 deixa el número igual: ${n}.`
     case 2:
@@ -63,6 +65,8 @@ interface ProductSpec {
   text: string
   speech: string
   strategy: string
+  /** Overrides the array of cupcakes (e.g. nothing to draw for ×0). */
+  visual?: Item['visual']
   worked?: string
   factKey?: string
   candidates?: Candidate[]
@@ -79,7 +83,7 @@ function productItem(spec: ProductSpec, ctx: GenerateContext): Item {
       speech: spec.speech,
       answer: product,
       choices: buildChoices(product, spec.candidates ?? multiplicationCandidates(a, b), ctx.rng, { min: 0, max: Math.max(100, product * 2) }),
-      visual: { kind: 'array', rows: a, cols: b },
+      visual: spec.visual ?? { kind: 'array', rows: a, cols: b },
       hints: [`Mira les files: ${a} ${a === 1 ? 'fila' : 'files'} ${deNumber(b)}. Compta-les ${deNumber(b)} en ${b}.`, spec.strategy, spec.worked ?? `${a} × ${b} = ${product}`],
       cpaStage: ctx.cpaStage,
       operands: { a, b, op: '×' },
@@ -92,8 +96,19 @@ function productItem(spec: ProductSpec, ctx: GenerateContext): Item {
 export function generateTableFact(skillId: string, ctx: GenerateContext): Item {
   const { a, b } = factOperands(skillId, ctx)
   const { table, n } = tableAndFactor(skillId, a, b)
+  const zero = a === 0 || b === 0
+  const strategy = zero ? tableStrategy(0, 0) : n === 1 ? tableStrategy(1, table) : tableStrategy(table, n)
   return productItem(
-    { skillId, a, b, factKey: mulKey(a, b), text: `${a} × ${b} = ?`, speech: `Quant fa ${a} per ${b}?`, strategy: n === 1 ? tableStrategy(1, table) : tableStrategy(table, n) },
+    {
+      skillId,
+      a,
+      b,
+      factKey: mulKey(a, b),
+      text: `${a} × ${b} = ?`,
+      speech: `Quant fa ${a} per ${b}?`,
+      strategy,
+      ...(zero ? { visual: { kind: 'none' } as const } : {}),
+    },
     ctx,
   )
 }

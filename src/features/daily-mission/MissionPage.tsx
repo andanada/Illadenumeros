@@ -25,7 +25,7 @@ export default function MissionPage() {
   const [rewardedToday] = useState(() => useProgress.getState().rewards.missionsDone.includes(todayKey()))
 
   // The plan is frozen when the mission starts so progress made during it does not reshuffle the steps.
-  const [plan] = useState(() => buildMissionPlan(MATES_SKILLS, useProgress.getState().skillStates, Math.floor(Date.now() / DAY_MS)))
+  const [plan] = useState(() => buildMissionPlan(MATES_SKILLS, useProgress.getState().skillStates, Math.floor(Date.now() / DAY_MS), useProgress.getState().factStates))
   const [mode, setMode] = useState<Mode>('intro')
   const [step, setStep] = useState(0)
   const [chosen, setChosen] = useState<string>()

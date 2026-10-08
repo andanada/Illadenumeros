@@ -1,15 +1,17 @@
 import { z } from 'zod'
 import { cpaStageSchema } from '../ambit/types'
 import { nextCpaStage } from './cpa'
+import { retentionPasses, type RetentionGate } from './retention'
+import { MASTERY_THRESHOLDS } from './thresholds'
 
 const ALPHA = 0.3
 const ACCURACY_WEIGHT = 0.6
-const MASTERED_AT = 0.85
-const CONSOLIDATING_AT = 0.6
-const MIN_ATTEMPTS_TO_MASTER = 20
-const MIN_SESSIONS_TO_MASTER = 2
+const MASTERED_AT = MASTERY_THRESHOLDS.skill.masteredAt
+const CONSOLIDATING_AT = MASTERY_THRESHOLDS.skill.consolidatingAt
+const MIN_ATTEMPTS_TO_MASTER = MASTERY_THRESHOLDS.skill.minAttempts
+const MIN_SESSIONS_TO_MASTER = MASTERY_THRESHOLDS.skill.minSessions
 /** A mastered skill keeps its status until mastery drops below this. */
-const KEEP_MASTERED_ABOVE = 0.65
+const KEEP_MASTERED_ABOVE = MASTERY_THRESHOLDS.skill.keepMasteredAbove
 const RECENT_WINDOW = 10
 const MAX_SESSIONS_TRACKED = 10
 
@@ -41,6 +43,8 @@ export interface SkillAnswer {
   hasFacts: boolean
   /** Time of the answer; stamped as `updatedAt` (drives last-write-wins when syncing devices). */
   now?: number
+  /** Core-operation skills only: how well their facts are retained. Absent = no extra gate. */
+  retention?: RetentionGate
 }
 
 export function newSkillState(skillId: string): SkillState {
@@ -59,8 +63,8 @@ export function newSkillState(skillId: string): SkillState {
   }
 }
 
-export function statusFor(input: { mastery: number; attempts: number; sessions: number }): SkillStatus {
-  if (input.mastery >= MASTERED_AT && input.attempts >= MIN_ATTEMPTS_TO_MASTER && input.sessions >= MIN_SESSIONS_TO_MASTER) {
+export function statusFor(input: { mastery: number; attempts: number; sessions: number; retentionOk?: boolean }): SkillStatus {
+  if (input.retentionOk !== false && input.mastery >= MASTERED_AT && input.attempts >= MIN_ATTEMPTS_TO_MASTER && input.sessions >= MIN_SESSIONS_TO_MASTER) {
     return 'dominada'
   }
   return input.mastery >= CONSOLIDATING_AT ? 'consolidant' : 'aprenent'
@@ -97,8 +101,8 @@ export function updateSkill(state: SkillState, answer: SkillAnswer): SkillState 
     cpaStage,
     ...(answer.now !== undefined ? { updatedAt: answer.now } : {}),
     status:
-      state.status === 'dominada' && mastery >= KEEP_MASTERED_ABOVE
+      state.status === 'dominada' && mastery >= KEEP_MASTERED_ABOVE && (answer.retention === undefined || retentionPasses(answer.retention, 'keep'))
         ? 'dominada'
-        : statusFor({ mastery, attempts, sessions: sessions.length }),
+        : statusFor({ mastery, attempts, sessions: sessions.length, retentionOk: answer.retention === undefined || retentionPasses(answer.retention, 'gain') }),
   }
 }

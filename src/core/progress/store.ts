@@ -90,7 +90,7 @@ function progressActions(set: SetState, get: GetState) {
         const state = get()
         const { skillId: _skillId, ...rest } = input
         const outcome = applyAnswer(
-          { ...rest, skill, sessionId: state.sessionId, now: Date.now() },
+          { ...rest, skill, sessionId: state.sessionId, now: Date.now(), cleanDays: state.cleanDays?.[skill.id] ?? [] },
           state.skillStates[skill.id],
           state.factStates,
           matesAmbit.factsForSkill(skill.id),
@@ -106,6 +106,7 @@ function progressActions(set: SetState, get: GetState) {
         set((s) => ({
           skillStates: { ...s.skillStates, [outcome.skillState.skillId]: outcome.skillState },
           factStates: outcome.factState ? { ...s.factStates, [outcome.factState.factKey]: outcome.factState } : s.factStates,
+          cleanDays: { ...(s.cleanDays ?? {}), [skill.id]: outcome.cleanDays },
           rewards,
           sessionResults: input.retry ? s.sessionResults : [...s.sessionResults, input.correct && input.hintsUsed === 0],
         }))
@@ -196,6 +197,7 @@ export const useProgress = create<ProgressStore>((set, get) => ({
   profile: undefined,
   skillStates: {},
   factStates: {},
+  cleanDays: {},
   rewards: emptyRewards(),
   sessionId: newId(),
   sessionResults: [],

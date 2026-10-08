@@ -1,18 +1,19 @@
 import type { GenerateContext, Item } from '../../../core/ambit/types'
 import { factsForSkill } from '../facts'
 import { additionCandidates, buildChoices } from './distractors'
-import { addKey, makeItem, parseFactKey } from './itemFactory'
+import { addKey, commutativeOperands, makeItem, parseFactKey } from './itemFactory'
 
 function factOperands(skillId: string, ctx: GenerateContext): { a: number; b: number } {
   const parsed = ctx.factKey ? parseFactKey(ctx.factKey) : undefined
   const fromKey = parsed?.kind === 'add' && factsForSkill(skillId).includes(ctx.factKey ?? '') ? parsed : undefined
   const fact = fromKey ?? parseFactKey(ctx.rng.pick(factsForSkill(skillId)))
   if (!fact) throw new Error(`Sense fets per a ${skillId}`)
-  // Ask commutative facts in both orders.
-  return ctx.rng.next() < 0.5 ? { a: fact.a, b: fact.b } : { a: fact.b, b: fact.a }
+  // Ask commutative facts in both orders (or the one the session planner asked for).
+  return commutativeOperands(fact, ctx)
 }
 
 function strategyHint(skillId: string, a: number, b: number): string {
+  if (skillId === 'A7' && Math.max(a, b) === 10 && a !== b && Math.min(a, b) < 9) return `10 i ${Math.min(a, b)}: posa el ${Math.min(a, b)} darrere de l’1 i fan 1${Math.min(a, b)}.`
   if (skillId === 'A7') {
     const small = Math.min(a, b)
     return a === b ? `És un doble: ${a} i ${a} més.` : `Pensa en el doble: ${small} + ${small} = ${small * 2}, i un més.`

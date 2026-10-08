@@ -81,7 +81,9 @@ describe('3r and 4t items', () => {
   it.each(['C3', 'C4', 'C5', 'D2', 'D3', 'D5'])('%s is a multiplication with × operands and an array support', (skillId) => {
     forItems(skillId, (item) => {
       expect(item.operands?.op).toBe('×')
-      expect(item.hintVisual.kind).toBe('array')
+      // ×0 has nothing to draw: its support is empty instead of a tray with one false row.
+      const hasZero = item.operands?.a === 0 || item.operands?.b === 0
+      expect(item.hintVisual.kind).toBe(hasZero ? 'none' : 'array')
       if (item.cpaStage === 'abstracte') expect(item.visual.kind).toBe('none')
     }, 60)
   })

@@ -1,4 +1,5 @@
 import { CPA_STAGES, type CpaStage } from '../ambit/types'
+import { MASTERY_THRESHOLDS } from './thresholds'
 
 const WINDOW = 10
 const PROMOTE_AT = 8
@@ -22,4 +23,17 @@ export function nextCpaStage(current: CpaStage, recent: readonly boolean[], cons
     return CPA_STAGES[Math.min(CPA_STAGES.length - 1, index + 1)] ?? current
   }
   return current
+}
+
+const MIN_ANSWERS_TO_SOFTEN = 5
+
+/**
+ * Automatic softening: when accuracy over the last 10 answers is below 70 % the next questions are shown
+ * one stage more visual (abstract -> pictorial -> concrete). The stored stage of the skill is untouched.
+ */
+export function softenedStage(stage: CpaStage, recent: readonly boolean[]): CpaStage {
+  const { softenBelow, softenWindow } = MASTERY_THRESHOLDS.mission
+  const window = recent.slice(-softenWindow)
+  if (window.length < MIN_ANSWERS_TO_SOFTEN || window.filter(Boolean).length / window.length >= softenBelow) return stage
+  return CPA_STAGES[Math.max(0, CPA_STAGES.indexOf(stage) - 1)] ?? stage
 }

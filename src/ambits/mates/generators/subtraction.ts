@@ -14,8 +14,9 @@ function factOperands(skillId: string, ctx: GenerateContext): { a: number; b: nu
 export function generateFactSubtraction(skillId: string, ctx: GenerateContext): Item {
   const { a, b } = factOperands(skillId, ctx)
   const diff = a - b
+  const bridges = skillId === 'A9' && a - 10 < b && a > 10
   const strategy =
-    skillId === 'A9'
+    bridges
       ? `Baixa fins a 10: ${a} − ${a - 10} = 10, i després treu ${b - (a - 10)} més.`
       : `Pensa en la suma: ${b} + ? = ${a}.`
   return makeItem(

@@ -1,6 +1,8 @@
 import type { AmbitModule } from '../../core/ambit/types'
+import { factFamily } from './factFamilies'
 import { factsForSkill } from './facts'
 import { MATES_GENERATORS } from './generators'
+import { factOwner } from './operations'
 import { DIAGNOSTIC_ANCHORS, MATES_SKILLS } from './skills'
 
 export const matesAmbit: AmbitModule = {
@@ -10,4 +12,6 @@ export const matesAmbit: AmbitModule = {
   generators: MATES_GENERATORS,
   diagnosticAnchors: [...DIAGNOSTIC_ANCHORS],
   factsForSkill,
+  factFamily,
+  factOwner,
 }

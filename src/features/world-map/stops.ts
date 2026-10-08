@@ -1,6 +1,8 @@
 import type { SkillNode } from '../../core/ambit/types'
+import { MATES_SKILLS } from '../../ambits/mates/skills'
 import { isUnlocked } from '../../core/engine/graph'
 import type { SkillState } from '../../core/engine/mastery'
+import { isIntroductionBlocked } from '../../core/engine/operationOrder'
 
 export type Stars = 0 | 1 | 2 | 3
 export type StopStatus = 'locked' | 'new' | 'started'
@@ -26,6 +28,8 @@ export function starsFor(state: Pick<SkillState, 'status'> | undefined): Stars {
 export function stopStatus(skill: SkillNode, states: Readonly<Record<string, SkillState>>): StopStatus {
   const own = states[skill.id]
   if (own && own.status !== 'bloquejada') return own.status === 'nova' ? 'new' : 'started'
+  // Strict order of new material: a fact skill of a later operation stays closed until the earlier ones are mastered.
+  if (isIntroductionBlocked(skill, MATES_SKILLS, states)) return 'locked'
   return isUnlocked(skill, (id) => states[id]?.mastery ?? 0) ? 'new' : 'locked'
 }
 

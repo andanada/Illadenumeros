@@ -2,6 +2,7 @@ import type { SkillNode } from '../../../core/ambit/types'
 import { medianRt, type FactState } from '../../../core/engine/leitner'
 import type { SkillState } from '../../../core/engine/mastery'
 import { REGIONS } from '../../world-map/stops'
+import { buildOperationSummaries, operationWaitingNote } from './operations'
 import type { AttemptAggregate } from './aggregate'
 import { levelEquivalent } from './summary'
 import { daysBetween } from './time'
@@ -36,7 +37,7 @@ export interface RecommendationInput {
   daysThisWeek: number
 }
 
-export type RecommendationId = 'low-accuracy' | 'no-play' | 'stuck-skill' | 'slow-facts' | 'next-region' | 'habit'
+export type RecommendationId = 'low-accuracy' | 'no-play' | 'stuck-skill' | 'slow-facts' | 'operation-order' | 'next-region' | 'habit'
 
 export interface Recommendation {
   id: RecommendationId
@@ -129,6 +130,22 @@ const slowFacts: Rule = ({ factStates }) => {
   }
 }
 
+/** Explains the strict order (add, sub, mul, div): the next operation opens when the current one is at 90 %. */
+const operationOrder: Rule = ({ skills, skillStates, factStates }) => {
+  const ops = buildOperationSummaries(skills, skillStates, factStates)
+  const index = ops.findIndex((o) => o.state === 'en-curs')
+  const current = ops[index]
+  const next = ops[index + 1]
+  if (!current || !next || current.automatised + current.inReview === 0) return undefined
+  return {
+    id: 'operation-order',
+    priority: 5,
+    emoji: '🪜',
+    title: 'Un pas després de l’altre',
+    text: `${operationWaitingNote(next, current)} Mentrestant, s’hi treballa amb sessions curtes i es repassa el que ja sap.`,
+  }
+}
+
 const nextRegion: Rule = ({ skills, skillStates }) => {
   const level = levelEquivalent(skills, skillStates)
   const ready = level.perGrade.find((g, i) => {
@@ -158,7 +175,7 @@ const habit: Rule = ({ streak, daysThisWeek }) => {
   }
 }
 
-const RULES: readonly Rule[] = [lowAccuracy, noPlay, stuckSkill, slowFacts, nextRegion, habit]
+const RULES: readonly Rule[] = [lowAccuracy, noPlay, stuckSkill, slowFacts, operationOrder, nextRegion, habit]
 
 /** Active recommendations, most important first, at most 4. */
 export function buildRecommendations(input: RecommendationInput): Recommendation[] {

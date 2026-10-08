@@ -13,6 +13,7 @@ export function resetStoreForTest(): void {
     profile: undefined,
     skillStates: {},
     factStates: {},
+    cleanDays: {},
     rewards: emptyRewards(),
     sessionResults: [],
   })

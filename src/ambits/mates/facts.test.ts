@@ -49,10 +49,11 @@ describe('multiplication and division fact keys', () => {
     expect(parseFactKey('div:21x3')).toBeUndefined()
   })
 
-  it('C4 is the full 2×, 5× and 10× tables (1..10), commutative pairs counted once', () => {
-    const expected = new Set([2, 5, 10].flatMap((a) => range(1, 10).map((b) => mulKey(a, b))))
+  it('C4 is the ×0, ×1, ×2, ×5 and ×10 tables (0..10), commutative pairs counted once', () => {
+    const expected = new Set([0, 1, 2, 5, 10].flatMap((a) => range(0, 10).map((b) => mulKey(a, b))))
     expect(new Set(factsForSkill('C4'))).toEqual(expected)
-    expect(factsForSkill('C4')).toHaveLength(27)
+    expect(factsForSkill('C4')).toHaveLength(expected.size)
+    expect(expected.size).toBe(45)
   })
 
   it('C5, D2 and D3 contain only their own tables and leave out earlier ones', () => {
@@ -65,6 +66,7 @@ describe('multiplication and division fact keys', () => {
       for (const key of factsForSkill(skill)) expect(tableOf(key).some((n) => tables.includes(n)), key).toBe(true)
     }
     expect(factsForSkill('C5')).not.toContain('mul:3x5')
+    expect(factsForSkill('C5')).not.toContain('mul:1x3')
     expect(factsForSkill('C5')).not.toContain('mul:4x10')
     expect(factsForSkill('D2')).toContain('mul:6x7')
     expect(factsForSkill('D2')).toContain('mul:8x9')
@@ -72,13 +74,13 @@ describe('multiplication and division fact keys', () => {
     expect(factsForSkill('D3')).not.toContain('mul:6x7')
   })
 
-  it('together the tables cover every product from 1×1 to 10×10 except ×1 of 1', () => {
+  it('together the tables cover every product from 0×0 to 10×10', () => {
     const all = new Set(['C4', 'C5', 'D2', 'D3'].flatMap(factsForSkill))
-    for (const a of range(2, 10)) for (const b of range(1, 10)) expect(all.has(mulKey(a, b)), mulKey(a, b)).toBe(true)
+    for (const a of range(0, 10)) for (const b of range(0, 10)) expect(all.has(mulKey(a, b)), mulKey(a, b)).toBe(true)
   })
 
-  it('C7 are the exact inverse facts of the 2, 5 and 10 tables', () => {
-    const expected = [2, 5, 10].flatMap((d) => range(1, 10).map((q) => divKey(d * q, d)))
+  it('C7 are the exact inverse facts of the 1, 2, 5 and 10 tables, plus 0 divided by 1..10', () => {
+    const expected = [1, 2, 5, 10].flatMap((d) => range(1, 10).map((q) => divKey(d * q, d))).concat(range(1, 10).map((d) => divKey(0, d)))
     expect(new Set(factsForSkill('C7'))).toEqual(new Set(expected))
   })
 
