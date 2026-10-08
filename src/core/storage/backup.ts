@@ -14,6 +14,7 @@ import {
 } from './backupSchema'
 import { profileSchema, rewardsSchema } from './db'
 import { getDb } from './playerDbs'
+import { emitWorldStored, WORLD_ROW_ID, worldRowSchema } from './worldRow'
 
 export type { BackupFile } from './backupSchema'
 export type { ImportStrategy } from './backupMerge'
@@ -46,21 +47,24 @@ const valid = <T,>(rows: readonly unknown[], parse: (row: unknown) => { success:
 /** Everything the ACTIVE player has on this device; damaged rows are left out. */
 async function readLocal(): Promise<ProgressData> {
   const db = getDb()
-  const [profile, skills, facts, attempts, rewards] = await Promise.all([
+  const [profile, skills, facts, attempts, rewards, world] = await Promise.all([
     db.profile.get('me'),
     db.skillStates.toArray(),
     db.factStates.toArray(),
     db.attempts.toArray(),
     db.rewards.get('me'),
+    db.world.get(WORLD_ROW_ID),
   ])
   const p = profileSchema.safeParse(profile)
   const r = rewardsSchema.safeParse(rewards)
+  const w = worldRowSchema.safeParse(world)
   return {
     profile: p.success ? p.data : null,
     skillStates: valid(skills, (row) => skillStateSchema.safeParse(row)),
     factStates: valid(facts, (row) => factStateSchema.safeParse(row)),
     attempts: valid(attempts, (row) => attemptSchema.safeParse(row)),
     rewards: r.success ? r.data : null,
+    world: w.success ? w.data : null,
   }
 }
 
@@ -104,13 +108,14 @@ export async function readBackup(source: string | Blob): Promise<ReadResult> {
 /** Writes the merged data into the ACTIVE player's database in ONE transaction: if any write fails, nothing changes. */
 async function writeAll(data: ProgressData): Promise<void> {
   const db = getDb()
-  await db.transaction('rw', [db.profile, db.skillStates, db.factStates, db.attempts, db.rewards], async () => {
-    await Promise.all([db.profile.clear(), db.skillStates.clear(), db.factStates.clear(), db.attempts.clear(), db.rewards.clear()])
+  await db.transaction('rw', [db.profile, db.skillStates, db.factStates, db.attempts, db.rewards, db.world], async () => {
+    await Promise.all([db.profile.clear(), db.skillStates.clear(), db.factStates.clear(), db.attempts.clear(), db.rewards.clear(), db.world.clear()])
     if (data.profile) await db.profile.put(data.profile)
     await db.skillStates.bulkPut(data.skillStates)
     await db.factStates.bulkPut(data.factStates)
     await db.attempts.bulkPut(data.attempts)
     if (data.rewards) await db.rewards.put(data.rewards)
+    if (data.world) await db.world.put(data.world)
   })
 }
 
@@ -130,6 +135,7 @@ export async function importProgress(source: string | Blob, options: { strategy?
     const merged = mergeProgress(local, incoming, strategy)
     await writeAll(merged)
     await useProgress.getState().load()
+    emitWorldStored(getDb().name)
     return {
       ok: true,
       strategy,

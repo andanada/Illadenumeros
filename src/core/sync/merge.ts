@@ -1,4 +1,5 @@
-import type { DocData, DocKind, FactData, RewardsData, SkillData } from './schemas'
+import { mergeWorld } from './mergeWorld'
+import type { DocData, DocKind, FactData, RewardsData, SkillData, WorldData } from './schemas'
 
 /*
  * The SAME merge rules as the server (server/src/lib/merge.ts); a contract test checks that both
@@ -37,5 +38,7 @@ export function mergeDoc(kind: DocKind, existing: VersionedDoc, incoming: Versio
     }
     case 'settings':
       return { data: winner.data, updatedAt }
+    case 'world':
+      return { data: mergeWorld(existing.data as WorldData, incoming.data as WorldData), updatedAt }
   }
 }

@@ -1,4 +1,5 @@
-import type { DocData, DocKind, FactData, RewardsData, SkillData } from './docSchemas.js'
+import type { DocData, DocKind, FactData, RewardsData, SkillData, WorldData } from './docSchemas.js'
+import { mergeWorld } from './mergeWorld.js'
 
 export interface VersionedDoc {
   readonly data: DocData
@@ -15,6 +16,8 @@ const union = (a: readonly string[], b: readonly string[]): string[] => [...new 
  *   devices that played offline concurrently (a counter never goes backwards) and keeps correct <= attempts.
  * - rewards: field by field. petals = max; stickers / daysPlayed / missionsDone = sorted set union. Never loses items.
  * - settings: plain last-write-wins.
+ * - world: field by field (mergeWorld.ts): owned/pets = union, avatar and per-scene placements =
+ *   LWW by their own timestamps, petalsSpent = max.
  *
  * The result's updatedAt is the max of both. The operation is idempotent and associative (the leftmost
  * maximum wins, max and union are associative); the property tests check this.
@@ -45,5 +48,7 @@ export function mergeDoc(kind: DocKind, existing: VersionedDoc, incoming: Versio
     }
     case 'settings':
       return { data: winner.data, updatedAt }
+    case 'world':
+      return { data: mergeWorld(existing.data as WorldData, incoming.data as WorldData), updatedAt }
   }
 }

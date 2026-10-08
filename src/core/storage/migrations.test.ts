@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { newFactState } from '../engine/leitner'
 import { newSkillState } from '../engine/mastery'
 import type { Attempt } from '../progress/applyAnswer'
-import { MatesDb, SCHEMA_V1, SCHEMA_VERSION } from './db'
+import { MatesDb, SCHEMA_V1, SCHEMA_V2, SCHEMA_VERSION } from './db'
 import { META_KEYS, readMeta } from './meta'
 
 const openDbs: Dexie[] = []
@@ -52,11 +52,11 @@ async function seedV1(name: string) {
 }
 
 describe('Dexie schema migrations', () => {
-  it('the current schema version is 2', () => {
-    expect(SCHEMA_VERSION).toBe(2)
+  it('the current schema version is 3', () => {
+    expect(SCHEMA_VERSION).toBe(3)
   })
 
-  it('upgrading a v1 database to v2 keeps every row and adds the meta table', async () => {
+  it('upgrading a v1 database to the current version keeps every row and adds the meta table', async () => {
     const name = uniqueName()
     const seeded = await seedV1(name)
 
@@ -74,20 +74,21 @@ describe('Dexie schema migrations', () => {
     expect(await upgraded.attempts.where('skillId').equals('A4').count()).toBe(125)
 
     const meta = await readMeta(upgraded)
-    expect(meta.schemaVersion).toBe(2)
+    expect(meta.schemaVersion).toBe(SCHEMA_VERSION)
     // The original creation date is recovered from the profile instead of "today".
     expect(meta.createdAt).toBe(seeded.profile.createdAt)
     expect(meta.lastBackupAt).toBeUndefined()
   })
 
-  it('a brand-new database is created directly at v2 with its meta rows', async () => {
+  it('a brand-new database is created directly at the current version with its meta rows', async () => {
     const before = Date.now()
     const fresh = new MatesDb(uniqueName())
     openDbs.push(fresh)
     await fresh.open()
     const meta = await readMeta(fresh)
-    expect(meta.schemaVersion).toBe(2)
+    expect(meta.schemaVersion).toBe(SCHEMA_VERSION)
     expect(meta.createdAt).toBeGreaterThanOrEqual(before)
+    expect(await fresh.world.count()).toBe(0)
     expect(await fresh.profile.count()).toBe(0)
   })
 
@@ -98,6 +99,33 @@ describe('Dexie schema migrations', () => {
     await fresh.meta.put({ key: META_KEYS.lastBackupAt, value: 'ahir' })
     const meta = await readMeta(fresh)
     expect(meta.lastBackupAt).toBeUndefined()
-    expect(meta.schemaVersion).toBe(2)
+    expect(meta.schemaVersion).toBe(SCHEMA_VERSION)
+  })
+
+  it('upgrading a v2 database to v3 keeps every row (and the meta dates) and adds an empty world table', async () => {
+    const name = uniqueName()
+    const seeded = await seedV1(name)
+    const v2 = new Dexie(name)
+    v2.version(1).stores(SCHEMA_V1)
+    v2.version(2).stores(SCHEMA_V2)
+    await v2.open()
+    await v2.table('meta').bulkPut([
+      { key: META_KEYS.schemaVersion, value: 2 },
+      { key: META_KEYS.createdAt, value: 1_650_000_000_000 },
+      { key: META_KEYS.lastBackupAt, value: 1_700_000_500_000 },
+    ])
+    v2.close()
+
+    const upgraded = new MatesDb(name)
+    openDbs.push(upgraded)
+    await upgraded.open()
+    expect(upgraded.verno).toBe(3)
+    expect(await upgraded.profile.get('me')).toEqual(seeded.profile)
+    expect(await upgraded.attempts.count()).toBe(seeded.attempts.length)
+    expect(await upgraded.rewards.get('me')).toEqual(seeded.rewards)
+    // The world doc is created lazily (on first read by the town), never by the migration.
+    expect(await upgraded.world.count()).toBe(0)
+    const meta = await readMeta(upgraded)
+    expect(meta).toMatchObject({ schemaVersion: 3, createdAt: 1_650_000_000_000, lastBackupAt: 1_700_000_500_000 })
   })
 })

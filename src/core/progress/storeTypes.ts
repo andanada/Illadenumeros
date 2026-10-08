@@ -40,6 +40,11 @@ export interface ProgressStore extends PlayerData {
   finishDiagnostic: (placement: Record<string, Placement>) => Promise<void>
   record: (input: RecordInput) => Promise<AnswerOutcome>
   grantSticker: () => Promise<string | undefined>
+  /**
+   * Adds `amount` petals (= town coins), serialised with the answers. Integer 1..1000; anything else
+   * resolves false and changes nothing. Resolves false too if nobody is playing or the disk write fails.
+   */
+  grantPetals: (amount: number) => Promise<boolean>
   completeMission: () => Promise<void>
   /** Erases the active player's progress (keeps name, character and colour). Resolves false if the write fails. */
   resetAll: () => Promise<boolean>

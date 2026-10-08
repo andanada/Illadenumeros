@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { CPA_STAGES, GAME_IDS, MISCONCEPTIONS } from '../ambit/types'
 import { SKILL_STATUSES } from '../engine/mastery'
 import { CHARACTER_IDS, THEME_COLORS } from '../storage/db'
+import { MAX_WORLD_BYTES, worldDataSchema, type WorldData } from './worldSchemas'
 
 /*
  * Client copy of the server's sync formats (server/src/lib/docSchemas.ts). Every outgoing doc and
@@ -9,7 +10,7 @@ import { CHARACTER_IDS, THEME_COLORS } from '../storage/db'
  * server reject (422) the whole push. The contract tests compare both copies.
  */
 
-export const DOC_KINDS = ['skill', 'fact', 'rewards', 'settings'] as const
+export const DOC_KINDS = ['skill', 'fact', 'rewards', 'settings', 'world'] as const
 export type DocKind = (typeof DOC_KINDS)[number]
 
 export const MAX_DOC_BYTES = 8 * 1024
@@ -106,16 +107,19 @@ export type FactData = z.infer<typeof factDataSchema>
 export type RewardsData = z.infer<typeof rewardsDataSchema>
 export type SettingsData = z.infer<typeof settingsDataSchema>
 export type AttemptData = z.infer<typeof attemptDataSchema>
-export type DocData = SkillData | FactData | RewardsData | SettingsData
+export type { WorldData }
+export type DocData = SkillData | FactData | RewardsData | SettingsData | WorldData
 
 const SCHEMAS: Record<DocKind, z.ZodType<DocData>> = {
   skill: skillDataSchema,
   fact: factDataSchema,
   rewards: rewardsDataSchema,
   settings: settingsDataSchema,
+  world: worldDataSchema,
 }
 
-export const maxDocBytes = (kind: DocKind): number => (kind === 'rewards' ? MAX_REWARDS_BYTES : MAX_DOC_BYTES)
+export const maxDocBytes = (kind: DocKind): number =>
+  kind === 'rewards' ? MAX_REWARDS_BYTES : kind === 'world' ? MAX_WORLD_BYTES : MAX_DOC_BYTES
 
 /** UTF-8 size of the JSON, the same measure as the server's Buffer.byteLength. */
 export const jsonBytes = (value: unknown): number => new TextEncoder().encode(JSON.stringify(value)).length
@@ -130,7 +134,7 @@ export function checkDocData(kind: DocKind, data: unknown): DataCheck {
 }
 
 const expectedKey = (kind: DocKind, key: string, data: DocData): string =>
-  kind === 'skill' ? (data as SkillData).skillId : kind === 'fact' ? (data as FactData).factKey : kind === 'rewards' ? 'me' : key
+  kind === 'skill' ? (data as SkillData).skillId : kind === 'fact' ? (data as FactData).factKey : kind === 'rewards' ? 'me' : kind === 'world' ? 'world' : key
 
 export interface OutgoingDoc {
   readonly kind: DocKind

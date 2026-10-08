@@ -97,7 +97,7 @@ export default defineConfig({
     include: ['src/**/*.test.{ts,tsx}', 'scripts/voice/**/*.test.ts'],
     coverage: {
       provider: 'v8',
-      include: ['src/core/**', 'src/ambits/**', 'scripts/voice/*.ts'],
+      include: ['src/core/**', 'src/ambits/**', 'src/world/data/**', 'scripts/voice/*.ts'],
       exclude: ['**/*.test.*', '**/*.testutil.ts', 'src/**/index.ts', 'scripts/voice/phrases.ts'],
       thresholds: { lines: 80, functions: 80, branches: 80, statements: 80 },
     },

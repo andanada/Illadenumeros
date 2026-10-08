@@ -2,6 +2,7 @@ import fc from 'fast-check'
 import { CPA_STAGES, GAME_IDS, MISCONCEPTIONS } from '../ambit/types'
 import { SKILL_STATUSES } from '../engine/mastery'
 import type { DocKind } from './schemas'
+import { canonicalWorld, worldData } from './worldArbitraries.testutil'
 
 /** fast-check generators shared by the sync tests (valid docs, optionally corrupted). */
 
@@ -61,6 +62,7 @@ const DATA: Record<DocKind, fc.Arbitrary<Record<string, unknown>>> = {
   fact: factData,
   rewards: rewardsData,
   settings: settingsData,
+  world: worldData,
 }
 
 /** Removes a field or changes it to a wrong type, to check that both validators reject the same things. */
@@ -91,7 +93,7 @@ export interface ArbDoc {
  * Without it, the data is valid enough for merging (numbers non-negative, right shape).
  */
 export function arbDoc(corrupted: boolean, kind?: DocKind): fc.Arbitrary<ArbDoc> {
-  const kinds = fc.constantFrom<DocKind>(...(kind ? [kind] : (['skill', 'fact', 'rewards', 'settings'] as const)))
+  const kinds = fc.constantFrom<DocKind>(...(kind ? [kind] : (['skill', 'fact', 'rewards', 'settings', 'world'] as const)))
   return kinds.chain((k) =>
     DATA[k]
       .map((d) => (corrupted ? d : sanitize(k, d)))
@@ -101,13 +103,14 @@ export function arbDoc(corrupted: boolean, kind?: DocKind): fc.Arbitrary<ArbDoc>
 }
 
 const keyOf = (kind: DocKind, data: Record<string, unknown>): string =>
-  kind === 'skill' ? String(data.skillId) : kind === 'fact' ? String(data.factKey) : kind === 'rewards' ? 'me' : 'profile'
+  kind === 'skill' ? String(data.skillId) : kind === 'fact' ? String(data.factKey) : kind === 'rewards' ? 'me' : kind === 'world' ? 'world' : 'profile'
 
 const nonNeg = (v: unknown): number => (typeof v === 'number' && v >= 0 ? Math.floor(v) : 0)
 
 function sanitize(kind: DocKind, d: Record<string, unknown>): Record<string, unknown> {
   if (kind === 'skill' || kind === 'fact') return { ...d, attempts: nonNeg(d.attempts), correct: nonNeg(d.correct) }
   if (kind === 'rewards') return { ...d, id: 'me', petals: nonNeg(d.petals) }
+  if (kind === 'world') return canonicalWorld(d)
   return d
 }
 

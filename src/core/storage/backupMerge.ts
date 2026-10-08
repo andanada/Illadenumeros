@@ -2,7 +2,9 @@ import type { FactState } from '../engine/leitner'
 import type { SkillState } from '../engine/mastery'
 import type { Attempt } from '../progress/applyAnswer'
 import type { ProgressData } from './backupSchema'
+import { mergeWorld, normalizeWorld } from '../sync/mergeWorld'
 import type { Rewards } from './db'
+import type { WorldRow } from './worldRow'
 
 export type ImportStrategy = 'replace' | 'keep-newer'
 
@@ -59,6 +61,12 @@ function mergeRewards(local: Rewards | null, incoming: Rewards | null): Rewards 
   }
 }
 
+/** The town merges exactly like the cloud sync does (local = existing side, it wins ties). */
+function mergeWorldRows(local: WorldRow | null, incoming: WorldRow | null): WorldRow | null {
+  if (!local || !incoming) return local ?? incoming
+  return mergeWorld(normalizeWorld(local), normalizeWorld(incoming))
+}
+
 /** Pure: the data to write for a given strategy. Never mutates its inputs. */
 export function mergeProgress(local: ProgressData, incoming: ProgressData, strategy: ImportStrategy): ProgressData {
   if (strategy === 'replace') return incoming
@@ -71,6 +79,7 @@ export function mergeProgress(local: ProgressData, incoming: ProgressData, strat
     factStates: mergeFacts(local.factStates, incoming.factStates),
     attempts: mergeAttempts(local.attempts, incoming.attempts),
     rewards: mergeRewards(local.rewards, incoming.rewards),
+    world: mergeWorldRows(local.world ?? null, incoming.world ?? null),
   }
 }
 

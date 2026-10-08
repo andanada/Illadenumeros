@@ -24,6 +24,7 @@ const ProgressPage = lazy(() => import('../features/progress/ProgressPage'))
 const PlayerPickerPage = lazy(() => import('../features/players/PlayerPickerPage'))
 const AccountPage = lazy(() => import('../features/account/AccountPage'))
 const PrivacyPage = lazy(() => import('../features/privacy/PrivacyPage'))
+const TownPage = lazy(() => import('../world/TownPage'))
 
 function Home() {
   const profile = useProgress((s) => s.profile)
@@ -119,6 +120,7 @@ export default function App() {
                 </RequireProfile>
               }
             />
+            <Route path="/poble" element={<RequireProfile><TownPage /></RequireProfile>} />
             <Route path="*" element={<Home />} />
           </Routes>
         </Suspense>

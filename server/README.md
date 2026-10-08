@@ -71,6 +71,7 @@ Correspondencia con Dexie (`mates-magiques`): `skillStates` -> `kind:'skill'`, `
 - **skill / fact**: gana el `updatedAt` mayor (last-write-wins; en empate se conserva el existente). Pero `attempts` y `correct` son monotonos: se toma el **maximo** de ambas versiones (repara deriva entre dispositivos). El `updatedAt` resultante es el maximo.
 - **rewards**: campo a campo. `petals` = maximo; `stickers`, `daysPlayed`, `missionsDone` = union ordenada. Nunca se pierde un elemento.
 - **settings**: last-write-wins.
+- **world** (`key:'world'`, el pueblo; migracion 005): `owned` y `pets` = union ordenada; `avatar` = last-write-wins por `avatarUpdatedAt`; `placed` = last-write-wins por escena segun `placedAt[escena]`; `petalsSpent` = maximo. Monedas = `max(0, rewards.petals - world.petalsSpent)`: `petals` sigue siendo "ganado" (maximo, sin cambios), asi que un gasto en un dispositivo nunca se deshace al fusionar con otro que tenga mas petals. Hasta 64 KB.
 - **attempts**: `INSERT ... ON CONFLICT(profile_id, id) DO NOTHING` (solo anexar). El `id` es unico **por perfil** (migracion 003): otra familia no puede silenciar ni sondear ids ajenos.
 - Un push que no cambia nada no consume `seq` (los otros dispositivos no vuelven a descargarlo).
 - Todo el push se aplica en **una transaccion**; un doc invalido (422) cancela todo el push.

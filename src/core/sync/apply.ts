@@ -4,10 +4,12 @@ import { readPlayerData } from '../progress/playerData'
 import { useProgress } from '../progress/store'
 import { serialised } from '../progress/writeQueue'
 import { emptyRewards, profileSchema, rewardsSchema, type MatesDb } from '../storage/db'
+import { emitWorldStored, WORLD_ROW_ID, worldRowSchema } from '../storage/worldRow'
 import type { SyncResponse } from './api'
-import { attemptFromPull, factFromDoc, factToDoc, normalizeRewards, rewardsFromDoc, SETTINGS_PROFILE_KEY, settingsFromDoc, skillFromDoc, skillToDoc } from './docs'
+import { attemptFromPull, factFromDoc, factToDoc, normalizeRewards, rewardsFromDoc, SETTINGS_PROFILE_KEY, settingsFromDoc, skillFromDoc, skillToDoc, worldFromDoc } from './docs'
 import { mergeDoc } from './merge'
-import { checkAttemptData, checkDocData, DOC_KINDS, type DocKind, type FactData, type RewardsData, type SettingsData, type SkillData } from './schemas'
+import { mergeWorld, normalizeWorld } from './mergeWorld'
+import { checkAttemptData, checkDocData, DOC_KINDS, type DocKind, type FactData, type RewardsData, type SettingsData, type SkillData, type WorldData } from './schemas'
 import { readSyncState, writeSyncState, type SyncState } from './syncState'
 
 const isKind = (k: string): k is DocKind => (DOC_KINDS as readonly string[]).includes(k)
@@ -37,6 +39,14 @@ async function applyRewards(db: MatesDb, data: RewardsData, updatedAt: number): 
   return { syncedRewards: JSON.stringify(normalizeRewards(rewardsFromDoc(data))) }
 }
 
+/** The town row: merged with the local one (local = existing side); the snapshot is the server version. */
+async function applyWorld(db: MatesDb, data: WorldData): Promise<Partial<SyncState>> {
+  const local = worldRowSchema.safeParse(await db.world.get(WORLD_ROW_ID))
+  const remote = normalizeWorld(data)
+  await db.world.put(worldFromDoc(local.success ? mergeWorld(normalizeWorld(local.data), remote) : remote))
+  return { syncedWorld: JSON.stringify(remote) }
+}
+
 /** Settings are last-write-wins; a local change not yet pushed (local != snapshot) is kept. */
 async function applySettings(db: MatesDb, key: string, data: SettingsData, snapshot: string | undefined): Promise<Partial<SyncState>> {
   if (key !== SETTINGS_PROFILE_KEY) return {}
@@ -62,6 +72,7 @@ async function applyItems(db: MatesDb, page: SyncResponse, snapshot: string | un
     if (doc.kind === 'skill') await applySkill(db, checked.data as SkillData, doc.updatedAt)
     else if (doc.kind === 'fact') await applyFact(db, checked.data as FactData, doc.updatedAt)
     else if (doc.kind === 'rewards') patch = { ...patch, ...(await applyRewards(db, checked.data as RewardsData, doc.updatedAt)) }
+    else if (doc.kind === 'world') patch = { ...patch, ...(await applyWorld(db, checked.data as WorldData)) }
     else patch = { ...patch, ...(await applySettings(db, doc.key, checked.data as SettingsData, patch.syncedSettings ?? snapshot)) }
   }
   const attempts = page.attempts.flatMap((a) => {
@@ -80,7 +91,7 @@ async function applyItems(db: MatesDb, page: SyncResponse, snapshot: string | un
  */
 export function applyPage(db: MatesDb, playerId: string, page: SyncResponse, extra: Partial<SyncState> = {}): Promise<number> {
   return serialised(async () => {
-    const tables = [db.skillStates, db.factStates, db.rewards, db.profile, db.attempts, db.meta]
+    const tables = [db.skillStates, db.factStates, db.rewards, db.profile, db.attempts, db.meta, db.world]
     const invalid = await db.transaction('rw', tables, async () => {
       if (Object.keys(extra).length > 0) await writeSyncState(db, extra)
       const { syncedSettings } = await readSyncState(db)
@@ -88,6 +99,8 @@ export function applyPage(db: MatesDb, playerId: string, page: SyncResponse, ext
       await writeSyncState(db, { ...patch, syncSeq: page.seq })
       return bad
     })
+    // The town store reloads its row (if this player is playing); it listens instead of being imported here.
+    if (page.docs.some((d) => d.kind === 'world')) emitWorldStored(db.name)
     const touched = page.docs.length > 0 || page.attempts.length > 0
     if (touched && useProgress.getState().activePlayerId === playerId) {
       const data = await readPlayerData(db)

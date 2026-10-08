@@ -18,6 +18,10 @@ export const GAME_REGISTRY: Readonly<Record<string, GameComponent>> = {
   'numero-amagat': lazy(() => import('../../games/numero-amagat/NumeroAmagatGame').then((m) => ({ default: m.NumeroAmagatGame }))),
   'pastis-fraccions': lazy(() => import('../../games/pastis-fraccions/PastisFraccionsGame').then((m) => ({ default: m.PastisFraccionsGame }))),
   'laberint-aventura': lazy(() => import('../../games/laberint-aventura/LaberintGame').then((m) => ({ default: m.LaberintGame }))),
+  // The town's places are played inside /poble, never as a stand-alone game: these ids just lead there.
+  'poble-botiga': lazy(() => import('../../world/PobleRedirect').then((m) => ({ default: m.PobleRedirect }))),
+  'poble-casa': lazy(() => import('../../world/PobleRedirect').then((m) => ({ default: m.PobleRedirect }))),
+  'poble-autobus': lazy(() => import('../../world/PobleRedirect').then((m) => ({ default: m.PobleRedirect }))),
 }
 
 export const isGameId = (id: string | undefined): id is string => id !== undefined && id in GAME_TITLES && id in GAME_REGISTRY

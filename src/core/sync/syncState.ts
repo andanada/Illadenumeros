@@ -7,7 +7,7 @@ import { emptyRewards, type MatesDb } from '../storage/db'
  *   syncSeq          last server `seq` pulled (the `since` of the next pull)
  *   lastPushedAt     local time at the START of the last successful push of docs (skills/facts changed later are re-sent)
  *   attemptsPushedAt createdAt of the newest attempt the server confirmed (re-sending overlaps is safe)
- *   syncedRewards / syncedSettings / syncedProfile  JSON of the last version agreed with the server
+ *   syncedRewards / syncedSettings / syncedProfile / syncedWorld  JSON of the last version agreed with the server
  *                    (rewards and settings have no timestamp: a difference means "changed here")
  *   quarantine       items the server rejected (422 after bisecting): `kind:key@updatedAt` or `attempt:id`
  *   detached         the profile was deleted from the account elsewhere: never uploaded again
@@ -20,6 +20,7 @@ export const SYNC_META_KEYS = {
   syncedRewards: 'syncedRewards',
   syncedSettings: 'syncedSettings',
   syncedProfile: 'syncedProfile',
+  syncedWorld: 'syncedWorld',
   quarantine: 'syncQuarantine',
   detached: 'syncDetached',
 } as const
@@ -33,6 +34,7 @@ export interface SyncState {
   syncedRewards?: string
   syncedSettings?: string
   syncedProfile?: string
+  syncedWorld?: string
   quarantine: string[]
   /** The profile was deleted from the account (elsewhere): not uploaded again; local progress kept. */
   detached?: boolean
@@ -47,6 +49,7 @@ const SCHEMAS = {
   syncedRewards: snapshot,
   syncedSettings: snapshot,
   syncedProfile: snapshot,
+  syncedWorld: snapshot,
   quarantine: z.array(z.string().max(200)),
   detached: z.boolean(),
 } as const satisfies { [K in keyof SyncState]-?: z.ZodType<NonNullable<SyncState[K]>> }

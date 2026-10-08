@@ -1,7 +1,8 @@
 import { factStateSchema } from '../engine/leitner'
 import { skillStateSchema, type SkillState } from '../engine/mastery'
 import { emptyRewards, profileSchema, rewardsSchema, type MatesDb } from '../storage/db'
-import { attemptQuarantineId, attemptToPush, backfillSkillTimes, docQuarantineId, factToDoc, normalizeRewards, rewardsToDoc, settingsToDoc, skillToDoc, type RawDoc } from './docs'
+import { WORLD_ROW_ID, worldRowSchema } from '../storage/worldRow'
+import { attemptQuarantineId, attemptToPush, backfillSkillTimes, docQuarantineId, factToDoc, normalizeRewards, rewardsToDoc, settingsToDoc, skillToDoc, worldToDoc, type RawDoc } from './docs'
 import { checkOutgoingAttempt, checkOutgoingDoc, MAX_ATTEMPTS_PER_PUSH, type OutgoingAttempt, type OutgoingDoc } from './schemas'
 import type { SyncState } from './syncState'
 
@@ -15,6 +16,7 @@ export interface DocChanges {
   /** Canonical JSON of the rewards / settings being pushed (snapshots once the server has them). */
   readonly rewardsJson?: string
   readonly settingsJson?: string
+  readonly worldJson?: string
 }
 
 const validRows = <T,>(rows: unknown[], parse: (r: unknown) => { success: boolean; data?: T }): T[] =>
@@ -39,11 +41,12 @@ async function backfill(db: MatesDb, skills: SkillState[], fallback: number): Pr
 }
 
 export async function collectDocs(db: MatesDb, state: SyncState, now: number): Promise<DocChanges> {
-  const [skillRows, factRows, rewardsRow, profileRow] = await Promise.all([
+  const [skillRows, factRows, rewardsRow, profileRow, worldRow] = await Promise.all([
     db.skillStates.toArray(),
     db.factStates.toArray(),
     db.rewards.get('me'),
     db.profile.get('me'),
+    db.world.get(WORLD_ROW_ID),
   ])
   const unreadable = skillRows.length + factRows.length
   const skills = await backfill(db, validRows<SkillState>(skillRows, (r) => skillStateSchema.safeParse(r)), state.lastPushedAt || now)
@@ -61,6 +64,11 @@ export async function collectDocs(db: MatesDb, state: SyncState, now: number): P
   const settings = profile.success ? settingsToDoc(profile.data, now) : undefined
   const settingsJson = settings ? JSON.stringify(settings.data) : undefined
   if (settings && settingsJson !== state.syncedSettings) raw.push(settings)
+  // The town row exists only once the town opened (created lazily): no row, nothing to send.
+  const parsedWorld = worldRowSchema.safeParse(worldRow)
+  const world = parsedWorld.success ? worldToDoc(parsedWorld.data, now) : undefined
+  const worldJson = world ? JSON.stringify(world.data) : undefined
+  if (world && worldJson !== state.syncedWorld) raw.push(world)
 
   const quarantine = new Set(state.quarantine)
   const isQuarantined = (d: RawDoc) => quarantine.has(docQuarantineId(d))
@@ -72,6 +80,7 @@ export async function collectDocs(db: MatesDb, state: SyncState, now: number): P
     quarantined: raw.filter(isQuarantined).length,
     rewardsJson,
     ...(settingsJson === undefined ? {} : { settingsJson }),
+    ...(worldJson === undefined ? {} : { worldJson }),
   }
 }
 

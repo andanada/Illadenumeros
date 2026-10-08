@@ -13,4 +13,7 @@ export const GAME_EMOJI: Record<string, string> = {
   'numero-amagat': '⚖️',
   'pastis-fraccions': '🍰',
   'laberint-aventura': '🧭',
+  'poble-botiga': '🏪',
+  'poble-casa': '🏠',
+  'poble-autobus': '🚌',
 }

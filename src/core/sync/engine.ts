@@ -78,6 +78,7 @@ export function createSyncEngine({ api, now = Date.now }: EngineOptions) {
       const extra: Partial<SyncState> = {
         ...(docs.some((d) => d.kind === 'rewards') && changes.rewardsJson ? { syncedRewards: changes.rewardsJson } : {}),
         ...(docs.some((d) => d.kind === 'settings') && changes.settingsJson ? { syncedSettings: changes.settingsJson } : {}),
+        ...(docs.some((d) => d.kind === 'world') && changes.worldJson ? { syncedWorld: changes.worldJson } : {}),
       }
       skipped += await applyPage(db, player.id, page, extra)
       state = { ...state, syncSeq: page.seq }

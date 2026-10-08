@@ -4,8 +4,13 @@ import { factStateSchema, type FactState } from '../engine/leitner'
 import { skillStateSchema, type SkillState } from '../engine/mastery'
 import type { Attempt } from '../progress/applyAnswer'
 import { profileSchema, rewardsSchema, type Profile, type Rewards } from './db'
+import { worldRowSchema, type WorldRow } from './worldRow'
 
 export const BACKUP_APP_ID = 'mates-magiques'
+/**
+ * Still 1: `world` was added as an OPTIONAL field, so older apps import new files (they drop it) and
+ * this app imports older files (no town yet). Bumping would make older apps refuse new copies.
+ */
 export const BACKUP_FORMAT_VERSION = 1
 
 export const attemptSchema = z.object({
@@ -33,6 +38,8 @@ export const backupFileSchema = z.object({
   factStates: z.array(factStateSchema),
   attempts: z.array(attemptSchema),
   rewards: rewardsSchema.nullable(),
+  /** The town (avatar, owned, placed, pets, coins spent); null/absent when it was never opened. */
+  world: worldRowSchema.nullable().optional(),
 })
 export type BackupFile = z.infer<typeof backupFileSchema>
 
@@ -43,6 +50,7 @@ export interface ProgressData {
   factStates: FactState[]
   attempts: Attempt[]
   rewards: Rewards | null
+  world?: WorldRow | null
 }
 
 /** Envelope checked first: right app and a known version, rows checked one by one later. */
@@ -55,6 +63,7 @@ const envelopeSchema = z.object({
   factStates: z.array(z.unknown()),
   attempts: z.array(z.unknown()),
   rewards: z.unknown(),
+  world: z.unknown().optional(),
 })
 
 export const BACKUP_ERRORS = {
@@ -94,12 +103,14 @@ export function parseBackup(json: unknown): ParseResult {
 
   const profile = optionalRow(raw.profile, profileSchema)
   const rewards = optionalRow(raw.rewards, rewardsSchema)
+  const world = optionalRow(raw.world, worldRowSchema)
   const skillStates = validRows(raw.skillStates, skillStateSchema)
   const factStates = validRows(raw.factStates, factStateSchema)
   const attempts = validRows(raw.attempts, attemptSchema)
   const skipped =
     profile.skipped +
     rewards.skipped +
+    world.skipped +
     (raw.skillStates.length - skillStates.length) +
     (raw.factStates.length - factStates.length) +
     (raw.attempts.length - attempts.length)
@@ -113,6 +124,7 @@ export function parseBackup(json: unknown): ParseResult {
     factStates,
     attempts,
     rewards: rewards.value,
+    world: world.value,
   })
   return { ok: true, file, skipped }
 }

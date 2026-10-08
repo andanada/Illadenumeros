@@ -1,0 +1,10 @@
+/** Public API of the character kit (avatar, neighbours, pets, creator, wardrobe catalogue). */
+export { Avatar, type AvatarProps } from './Avatar'
+export { AvatarCreator, type AvatarCreatorProps } from './AvatarCreator'
+export { Neighbour, type NeighbourProps } from './Neighbour'
+export { NEIGHBOURS, NEIGHBOURS_BY_ID, neighbourFromSeed, type NeighbourPreset } from './neighbours'
+export { Pet, type PetProps } from './pets/Pet'
+export { PETS, PET_IDS, PET_CATALOG, type PetId, type PetPose } from './pets/petDefs'
+export { WEARABLES, WEARABLES_BY_ID, STARTER_WEARABLES, THEME_TO_PALETTE, defaultAvatar } from './wearables'
+export { AVATAR_CROPS, GROUND_Y, POSES, lookToward, type AvatarCrop, type Look, type Pose } from './kit/geometry'
+export { EYE_IDS, MOUTH_IDS } from './kit/face'

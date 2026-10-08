@@ -2,7 +2,9 @@ import type { FactState } from '../engine/leitner'
 import type { SkillState } from '../engine/mastery'
 import type { Attempt } from '../progress/applyAnswer'
 import type { Profile, Rewards } from '../storage/db'
-import type { AttemptData, DocKind, FactData, ProfileInput, RewardsData, SettingsData, SkillData } from './schemas'
+import type { WorldRow } from '../storage/worldRow'
+import { normalizeWorld } from './mergeWorld'
+import type { AttemptData, DocKind, FactData, ProfileInput, RewardsData, SettingsData, SkillData, WorldData } from './schemas'
 
 /*
  * Pure mapping between the local Dexie rows and the server sync formats (server/README.md, "mapeo"):
@@ -11,10 +13,12 @@ import type { AttemptData, DocKind, FactData, ProfileInput, RewardsData, Setting
  *   rewards     -> kind 'rewards', key 'me'
  *   profile     -> PUT /api/profiles/:id (name, character, color, createdAt) + kind 'settings', key 'profile' ({diagnosticDone})
  *   attempts    -> { id, createdAt, data: attempt without id }
+ *   world       -> kind 'world', key 'world' (the town row, canonical form; no own timestamp: snapshot like rewards)
  * Outgoing values are NOT validated here: the engine checks them with schemas.ts before sending.
  */
 
 export const SETTINGS_PROFILE_KEY = 'profile'
+export const WORLD_DOC_KEY = 'world'
 
 export interface RawDoc<D = unknown> {
   readonly kind: DocKind
@@ -68,6 +72,10 @@ export const rewardsFromDoc = (data: RewardsData): Rewards => ({ ...data, id: 'm
 export function settingsFromDoc(data: SettingsData): { diagnosticDone?: boolean } {
   return typeof data.diagnosticDone === 'boolean' ? { diagnosticDone: data.diagnosticDone } : {}
 }
+
+export const worldToDoc = (row: WorldRow, updatedAt: number): RawDoc<WorldData> => ({ kind: 'world', key: WORLD_DOC_KEY, data: normalizeWorld(row), updatedAt })
+
+export const worldFromDoc = (data: WorldData): WorldRow => normalizeWorld(data)
 
 export const attemptFromPull = (a: { id: string; data: AttemptData }): Attempt => ({ ...a.data, id: a.id })
 

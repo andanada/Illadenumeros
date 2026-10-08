@@ -5,12 +5,14 @@ import { newSkillState } from '../engine/mastery'
 import { emptyRewards, profileSchema, SCHEMA_VERSION, type Rewards } from '../storage/db'
 import { initialMeta, META_KEYS, readMeta } from '../storage/meta'
 import { getDb, NoActivePlayerError } from '../storage/playerDbs'
+import { emitWorldStored } from '../storage/worldRow'
 import { emitProgressChanged } from '../sync/progressEvents'
 import { readSyncState, resetSnapshots, writeSyncState } from '../sync/syncState'
 import { applyAnswer } from './applyAnswer'
 import { createPlayerActions } from './playerActions'
 import { emptyPlayerData } from './playerData'
 import type { GetState, ProgressStore, SetState } from './storeTypes'
+import { petalGrantSchema, rebaseWorldSpent } from './worldReset'
 import { PlayerSwitchedError, serialisedFor } from './writeQueue'
 
 export type { NewProfile, PlayerPatch, PlayerSummary, RecordInput } from './storeTypes'
@@ -143,6 +145,20 @@ function progressActions(set: SetState, get: GetState) {
       () => undefined,
     )
 
+  const grantPetals: ProgressStore['grantPetals'] = (amount) => {
+    if (!petalGrantSchema.safeParse(amount).success) return Promise.resolve(false)
+    return forActivePlayer(
+      get,
+      async () => {
+        const { rewards } = get()
+        const next = { ...rewards, petals: rewards.petals + amount }
+        set({ rewards: next })
+        return persist(set, () => getDb().rewards.put(next))
+      },
+      () => false,
+    )
+  }
+
   const completeMission: ProgressStore['completeMission'] = () =>
     forActivePlayer(
       get,
@@ -168,7 +184,7 @@ function progressActions(set: SetState, get: GetState) {
           const { playerId } = await readMeta(db)
           const sync = await readSyncState(db)
           const tables = [db.profile, db.skillStates, db.factStates, db.attempts, db.rewards, db.meta]
-          await db.transaction('rw', tables, async () => {
+          await db.transaction('rw', [...tables, db.world], async () => {
             await Promise.all(tables.map((table) => table.clear()))
             // Who the player is (name, character, colour, id) and the schema version are not progress.
             if (kept) await db.profile.put(kept)
@@ -176,17 +192,18 @@ function progressActions(set: SetState, get: GetState) {
             if (playerId) await db.meta.put({ key: META_KEYS.playerId, value: playerId })
             // Cloud sync cursors are not progress. The emptied rewards/settings count as "agreed", so this
             // reset stays on this device instead of being pushed over (and merged with) the cloud copy.
-            await writeSyncState(db, { ...sync, ...resetSnapshots() })
+            await writeSyncState(db, { ...sync, ...resetSnapshots(), ...(await rebaseWorldSpent(db)) })
           })
         }, false)
         if (!ok) return false
+        emitWorldStored(getDb().name)
         set({ ...emptyPlayerData(), profile: kept, sessionResults: [], sessionId: newId() })
         return true
       },
       () => false,
     )
 
-  return { saveProfile, finishDiagnostic, record, grantSticker, completeMission, resetAll }
+  return { saveProfile, finishDiagnostic, record, grantSticker, grantPetals, completeMission, resetAll }
 }
 
 export const useProgress = create<ProgressStore>((set, get) => ({

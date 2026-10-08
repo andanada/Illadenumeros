@@ -106,3 +106,136 @@ body {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
+
+/* ═══ world ═══════════════════════════════════════════════════════════════════════════
+ * El Poble dels Números: design tokens of the town (src/world/art/palette.ts mirrors the swatches).
+ * Flat shapes, no outlines, long soft shadows to the lower right, paper grain on top.
+ * Themes: [data-world='dia'] (street, default) and [data-world='nit'] (interiors / evening).
+ */
+:root,
+[data-world='dia'] {
+  --world-coral: #ff6b5b;
+  --world-mango: #ffb834;
+  --world-llima: #a8d143;
+  --world-menta: #36c5a2;
+  --world-cel: #4da6ec;
+  --world-lila: #9a7be6;
+  --world-rosa: #ff8dba;
+  --world-xocolata: #8a5638;
+  --world-neu: #fbf6ec;
+  --world-carbo: #34304a;
+  --world-ink: #2b2440;
+
+  --world-sky-top: #8fd3ff;
+  --world-sky-bottom: #d7f0ff;
+  --world-ground: #f3e3c3;
+  --world-ground-shade: #e6cfa4;
+  --world-grass: #a8d143;
+  --world-surface: #fff8ec;
+  --world-surface-2: #ffeccd;
+  --world-text: #2b2440;
+  --world-text-soft: #6b5f80;
+  --world-accent: #ff6b5b;
+  --world-accent-shade: #d9473b;
+  --world-focus: #4da6ec;
+
+  --world-shadow-soft: 0 6px 0 rgba(43, 36, 64, 0.12);
+  --world-shadow-lift: 0 10px 0 rgba(43, 36, 64, 0.1), 0 18px 28px -10px rgba(43, 36, 64, 0.25);
+  --world-shadow-press: 0 2px 0 rgba(43, 36, 64, 0.14);
+  --world-radius: 28px;
+  --world-radius-sm: 18px;
+  --world-grain-opacity: 0.55;
+  --world-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+[data-world='nit'] {
+  --world-sky-top: #2f2a5a;
+  --world-sky-bottom: #4c3f7d;
+  --world-ground: #6f5a8e;
+  --world-ground-shade: #5a4877;
+  --world-grass: #3f7d6b;
+  --world-surface: #fff1df;
+  --world-surface-2: #f6dcc0;
+  --world-text: #2b2440;
+  --world-text-soft: #6b5f80;
+  --world-accent: #ffb834;
+  --world-accent-shade: #e8901a;
+  --world-focus: #ffb834;
+  --world-grain-opacity: 0.4;
+}
+
+/* Paper grain: one repeated tile, blended over the scene. */
+.world-grain {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: url('/world/grain.png');
+  background-size: 128px 128px;
+  mix-blend-mode: soft-light;
+  opacity: var(--world-grain-opacity);
+  z-index: 50;
+}
+
+/* Chunky, toy-like controls of the world UI (creator tabs, swatches, buttons). */
+.world-chip {
+  background: var(--world-surface);
+  border-radius: var(--world-radius-sm);
+  box-shadow: var(--world-shadow-soft);
+  transition: transform 0.18s var(--world-bounce), box-shadow 0.18s ease;
+}
+.world-chip:active {
+  transform: translateY(4px) scale(0.97);
+  box-shadow: var(--world-shadow-press);
+}
+.world-chip[aria-checked='true'],
+.world-chip[aria-selected='true'] {
+  background: var(--world-surface-2);
+  box-shadow: inset 0 0 0 4px var(--world-accent), var(--world-shadow-soft);
+}
+.world-chip:focus-visible {
+  outline: 5px solid var(--world-focus);
+  outline-offset: 3px;
+}
+/* People and pets: life loops, all in the SVG's own coordinates (transform-box: view-box). */
+.world-arm { transition: transform 0.45s var(--world-bounce); }
+.world-breathe {
+  transform-box: view-box;
+  transform-origin: 100px 288px;
+  animation: world-breathe 3.4s ease-in-out infinite;
+}
+.world-bob {
+  transform-box: view-box;
+  animation: world-bob 3.4s ease-in-out infinite;
+}
+.world-wave { animation: world-wave 0.9s ease-in-out infinite; }
+.world-cheer { animation: world-cheer 0.7s ease-in-out infinite; }
+.world-hop {
+  transform-box: view-box;
+  transform-origin: 50% 100%;
+  animation: world-hop 0.7s var(--world-bounce) infinite;
+}
+@keyframes world-breathe {
+  0%, 100% { transform: scale(1, 1); }
+  50% { transform: scale(1.012, 0.988); }
+}
+@keyframes world-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(2px); }
+}
+@keyframes world-wave {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(-16deg); }
+}
+@keyframes world-cheer {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(10deg); }
+}
+@keyframes world-hop {
+  0%, 100% { transform: translateY(0) scale(1, 1); }
+  40% { transform: translateY(-14px) scale(0.97, 1.03); }
+  80% { transform: translateY(0) scale(1.04, 0.96); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .world-breathe, .world-bob, .world-wave, .world-cheer, .world-hop { animation: none !important; }
+  .world-arm { transition: none !important; }
+}
+/* ═══ /world ══════════════════════════════════════════════════════════════════════════ */

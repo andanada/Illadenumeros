@@ -1,0 +1,6 @@
+export type { PropDef, PropOptions } from './types'
+export { SVG_TEXT } from './types'
+export { PROPS, PROPS_BY_ID } from './registry'
+export { PropArt, type PropArtProps } from './PropArt'
+export { SHELF_BOARDS } from './shop/fixtures'
+export { BENCH_SEAT_Y } from './street/nature'

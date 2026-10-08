@@ -3,7 +3,8 @@ import { z } from 'zod'
 import type { FactState } from '../engine/leitner'
 import type { SkillState } from '../engine/mastery'
 import type { Attempt } from '../progress/applyAnswer'
-import { initialMeta, type MetaRow } from './meta'
+import { initialMeta, META_KEYS, type MetaRow } from './meta'
+import type { WorldRow } from './worldRow'
 
 export const CHARACTER_IDS = ['nyx', 'mixa', 'blau', 'nuvol', 'melo'] as const
 export type CharacterId = (typeof CHARACTER_IDS)[number]
@@ -65,7 +66,10 @@ export const SCHEMA_V1 = {
 /** v2: adds `meta` ({ key, value }) with `schemaVersion`, `createdAt` and `lastBackupAt`. */
 export const SCHEMA_V2 = { meta: 'key' } as const
 
-export const SCHEMA_VERSION = 2
+/** v3: adds `world` (the town: avatar, owned, placed, pets, petalsSpent), created lazily by src/world/data. */
+export const SCHEMA_V3 = { world: 'id' } as const
+
+export const SCHEMA_VERSION = 3
 
 export class MatesDb extends Dexie {
   profile!: Table<Profile, string>
@@ -74,6 +78,7 @@ export class MatesDb extends Dexie {
   attempts!: Table<Attempt, string>
   rewards!: Table<Rewards, string>
   meta!: Table<MetaRow, string>
+  world!: Table<WorldRow, string>
 
   constructor(name: string = DB_NAME) {
     super(name)
@@ -85,6 +90,13 @@ export class MatesDb extends Dexie {
         const parsed = profileSchema.safeParse(await tx.table('profile').get('me'))
         const createdAt = parsed.success ? parsed.data.createdAt : Date.now()
         await tx.table('meta').bulkPut(initialMeta(2, createdAt))
+      })
+    // Nothing to convert: existing players get their world doc on first read (default avatar from
+    // their character and colour). Only the version stamp changes; createdAt/lastBackupAt stay.
+    this.version(3)
+      .stores(SCHEMA_V3)
+      .upgrade(async (tx) => {
+        await tx.table('meta').put({ key: META_KEYS.schemaVersion, value: 3 })
       })
     // Only for a brand-new database (no upgrade runs then).
     this.on('populate', (tx) => {

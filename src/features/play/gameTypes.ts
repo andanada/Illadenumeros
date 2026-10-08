@@ -32,4 +32,7 @@ export const GAME_TITLES: Record<string, string> = {
   'numero-amagat': 'El Número Amagat',
   'pastis-fraccions': 'Pastís de Fraccions',
   'laberint-aventura': 'Laberint de l’Aventura',
+  'poble-botiga': 'La Botiga del Poble',
+  'poble-casa': 'La Casa del Poble',
+  'poble-autobus': 'L’Autobús del Poble',
 }

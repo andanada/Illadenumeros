@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { MAX_WORLD_BYTES, worldDataSchema, type WorldData } from './worldSchema.js'
 
 /*
  * Field lists copied from the client (src/core/storage/db.ts, engine/mastery.ts, engine/leitner.ts,
@@ -24,6 +25,9 @@ const GAME_IDS = [
   'numero-amagat',
   'pastis-fraccions',
   'laberint-aventura',
+  'poble-botiga',
+  'poble-casa',
+  'poble-autobus',
 ] as const
 const MISCONCEPTIONS = [
   'off-by-one',
@@ -54,12 +58,13 @@ const MISCONCEPTIONS = [
   'percent-wrong-fraction',
 ] as const
 
-export const DOC_KINDS = ['skill', 'fact', 'rewards', 'settings'] as const
+export const DOC_KINDS = ['skill', 'fact', 'rewards', 'settings', 'world'] as const
 export type DocKind = (typeof DOC_KINDS)[number]
 
 /** Max serialized size of one doc. Rewards grows with days played, so it gets a larger (still bounded) cap. */
 export const MAX_DOC_BYTES = 8 * 1024
 export const MAX_REWARDS_BYTES = 64 * 1024
+export { MAX_WORLD_BYTES, worldDataSchema, type WorldData }
 
 const id = z.string().min(1).max(100)
 
@@ -149,7 +154,7 @@ export type FactData = z.infer<typeof factDataSchema>
 export type RewardsData = z.infer<typeof rewardsDataSchema>
 export type SettingsData = z.infer<typeof settingsDataSchema>
 export type AttemptData = z.infer<typeof attemptDataSchema>
-export type DocData = SkillData | FactData | RewardsData | SettingsData
+export type DocData = SkillData | FactData | RewardsData | SettingsData | WorldData
 
 export const profileInputSchema = z.object({
   name: z.string().trim().min(1).max(20),
@@ -203,6 +208,8 @@ function parseData(kind: DocKind, data: unknown): z.SafeParseReturnType<unknown,
       return rewardsDataSchema.safeParse(data)
     case 'settings':
       return settingsDataSchema.safeParse(data)
+    case 'world':
+      return worldDataSchema.safeParse(data)
   }
 }
 
@@ -210,10 +217,12 @@ function expectedKey(kind: DocKind, key: string, data: DocData): string {
   if (kind === 'skill') return (data as SkillData).skillId
   if (kind === 'fact') return (data as FactData).factKey
   if (kind === 'rewards') return 'me'
+  if (kind === 'world') return 'world'
   return key
 }
 
-export const maxDocBytes = (kind: DocKind): number => (kind === 'rewards' ? MAX_REWARDS_BYTES : MAX_DOC_BYTES)
+export const maxDocBytes = (kind: DocKind): number =>
+  kind === 'rewards' ? MAX_REWARDS_BYTES : kind === 'world' ? MAX_WORLD_BYTES : MAX_DOC_BYTES
 
 type DataCheck = { ok: true; data: DocData } | { ok: false; error: string }
 
