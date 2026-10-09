@@ -77,6 +77,21 @@ describe('AvatarCreator', () => {
     expect(names.sort()).toEqual(['Samarreta', 'Samarreta estel'])
   })
 
+  it('shop mode: unowned clothes show a price tag in their name and in the tile, plus a footer slot', async () => {
+    const user = userEvent.setup()
+    const onChange = vi.fn()
+    render(
+      <AvatarCreator initial={initial} onDone={vi.fn()} onChange={onChange} priceOf={(id) => (id === 'camisa' ? 15 : undefined)} footer={<p>Barra de compra</p>} title="L’armari" />,
+    )
+    expect(screen.getByRole('region', { name: 'L’armari' })).toBeInTheDocument()
+    expect(screen.getByText('Barra de compra')).toBeInTheDocument()
+    await user.click(screen.getByRole('tab', { name: 'Roba de dalt' }))
+    const shirt = screen.getByRole('radio', { name: 'Camisa, 15 monedes' })
+    expect(within(shirt).getByText('15')).toBeInTheDocument()
+    await user.click(shirt)
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ top: expect.objectContaining({ item: 'camisa' }) }))
+  })
+
   it('every option is at least 64 px (class contract)', () => {
     setup()
     screen.getAllByRole('radio').forEach((r) => expect(r.className).toMatch(/size-16|min-h-\[84px\]/))

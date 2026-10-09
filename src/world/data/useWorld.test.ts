@@ -28,6 +28,11 @@ describe('useWorld', () => {
     expect(result.current.avatar).toEqual(defaultAvatar('melo', 'rosa'))
     await waitFor(() => expect(result.current.ready).toBe(true))
     expect(result.current.coins).toBe(0)
+    expect(result.current.avatarUpdatedAt).toBe(0)
+    await act(async () => {
+      await result.current.setAvatar({ ...defaultAvatar('melo', 'rosa'), skin: 's4' })
+    })
+    expect(result.current.avatarUpdatedAt).toBeGreaterThan(0)
     await act(async () => {
       await result.current.grantCoins(10, 'encarrec')
     })

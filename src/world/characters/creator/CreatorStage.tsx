@@ -17,7 +17,7 @@ const BURST = Array.from({ length: 8 }, (_, i) => {
  * The live preview: the avatar on a little round stage under the sky. Owns its own pointer-follow
  * state so moving the finger never re-renders the option grids.
  */
-export const CreatorStage = memo(function CreatorStage({ spec, spins, name }: { spec: AvatarSpec; spins: number; name: string }) {
+export const CreatorStage = memo(function CreatorStage({ spec, spins, fits = 0, name }: { spec: AvatarSpec; spins: number; fits?: number; name: string }) {
   const calm = useCalm()
   const box = useRef<HTMLDivElement>(null)
   const [look, setLook] = useState<Look>({ x: 0, y: 0 })
@@ -33,6 +33,18 @@ export const CreatorStage = memo(function CreatorStage({ spec, spins, name }: { 
     setLastSpins(spins)
     setPose('cheer')
   }
+
+  // Trying something on: a little hop with arms up, then back to standing.
+  const [lastFits, setLastFits] = useState(fits)
+  if (fits !== lastFits) {
+    setLastFits(fits)
+    setPose('cheer')
+  }
+  useEffect(() => {
+    if (fits === 0) return
+    const t = setTimeout(() => setPose('idle'), 900)
+    return () => clearTimeout(t)
+  }, [fits])
 
   const onMove = (e: PointerEvent) => {
     const rect = box.current?.getBoundingClientRect()
@@ -62,10 +74,18 @@ export const CreatorStage = memo(function CreatorStage({ spec, spins, name }: { 
           animate={{ scale: 1, rotate: 0, y: 0 }}
           transition={{ type: 'spring', stiffness: 380, damping: 14 }}
         >
-          <AvatarFill spec={spec} pose={pose} look={look} name={name} />
+          <motion.div
+            key={`fit-${fits}`}
+            className="h-full origin-bottom"
+            initial={calm || fits === 0 ? false : { scaleX: 1.12, scaleY: 0.86, y: 6 }}
+            animate={{ scaleX: 1, scaleY: 1, y: 0 }}
+            transition={{ type: 'spring', stiffness: 520, damping: 11 }}
+          >
+            <AvatarFill spec={spec} pose={pose} look={look} name={name} />
+          </motion.div>
         </motion.div>
-        {!calm && spins > 0 && (
-          <svg key={`b${spins}`} className="pointer-events-none absolute left-1/2 top-1/2 overflow-visible" width={0} height={0} aria-hidden="true">
+        {!calm && spins + fits > 0 && (
+          <svg key={`b${spins}-${fits}`} className="pointer-events-none absolute left-1/2 top-1/2 overflow-visible" width={0} height={0} aria-hidden="true">
             {BURST.map((b, i) => (
               <motion.path
                 key={i}

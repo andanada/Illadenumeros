@@ -58,4 +58,17 @@ describe('MapPage', () => {
     const city = document.querySelector('[data-region="ciutat"]')
     expect(city?.querySelectorAll('button').length).toBe(10)
   })
+
+  it('a big "El Poble (nou!)" card leads to the new town', async () => {
+    render(
+      <MemoryRouter initialEntries={['/map']}>
+        <Routes>
+          <Route path="/map" element={<MapPage />} />
+          <Route path="/poble" element={<p>El poble</p>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'El Poble (nou!)' }))
+    expect(await screen.findByText('El poble')).toBeInTheDocument()
+  })
 })

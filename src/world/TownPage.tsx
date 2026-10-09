@@ -1,11 +1,16 @@
 import { AnimatePresence, motion } from 'motion/react'
 import { lazy, Suspense, useCallback, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { PageLoader } from '../app/PageLoader'
+import { AvatarCreator } from './characters'
 import { Hud } from './hud/Hud'
 import { Street, type StreetPlaceId } from './scene/street/Street'
 import { useWorldReducedMotion } from './scene/useReducedMotion'
 import { useWorld } from './data'
 import { worldSfx } from './scene/worldSfx'
+import { wardrobeOwned } from './wardrobe/wardrobeLogic'
+
+const Wardrobe = lazy(() => import('./wardrobe/Wardrobe').then((m) => ({ default: m.Wardrobe })))
 
 const BotigaPlace = lazy(() => import('./places/botiga/BotigaPlace'))
 
@@ -15,26 +20,16 @@ export const ERRANDS_PER_VISIT = 3
 type Where = { at: 'street' } | { at: 'botiga'; origin: { x: number; y: number } }
 
 export interface TownPageProps {
-  /** Slot for the wardrobe screen (built by the art / data agents). */
+  /** Overrides the wardrobe (tests); by default the avatar bubble opens L’armari. */
   onWardrobe?: () => void
-}
-
-function WardrobeSoon({ onClose }: { onClose: () => void }) {
-  return (
-    <div role="dialog" aria-modal="true" aria-label="L’armari" className="fixed inset-0 z-[60] grid place-items-center bg-black/30 p-4" onClick={onClose}>
-      <div className="rounded-[2rem] bg-white p-6 text-center shadow-[var(--world-shadow-lift)]" onClick={(e) => e.stopPropagation()}>
-        <p className="text-2xl font-bold text-[var(--world-ink,#2b2440)]">L’armari obre aviat!</p>
-        <button type="button" onClick={onClose} className="mt-4 min-h-16 rounded-full bg-[var(--world-menta,#36c5a2)] px-7 text-2xl font-bold text-white">
-          D’acord
-        </button>
-      </div>
-    </div>
-  )
 }
 
 /** «El Poble dels Números»: the street, the places behind its doors, and the HUD on top. */
 export default function TownPage({ onWardrobe }: TownPageProps) {
-  const { avatar, coins } = useWorld()
+  const { avatar, coins, owned, ready, avatarUpdatedAt, setAvatar } = useWorld()
+  const navigate = useNavigate()
+  /** First visit: she makes her character before the street (dismissed even if saving fails). */
+  const [created, setCreated] = useState(false)
   const reduced = useWorldReducedMotion()
   const [where, setWhere] = useState<Where>({ at: 'street' })
   const [pending, setPending] = useState(ERRANDS_PER_VISIT)
@@ -65,6 +60,24 @@ export default function TownPage({ onWardrobe }: TownPageProps) {
       worldSfx.doorbell()
       setCallSignal((n) => n + 1)
     }
+  }
+
+  if (!ready) return <PageLoader />
+  if (avatarUpdatedAt === 0 && !created) {
+    return (
+      <div data-world="dia" className="h-dvh w-full overflow-hidden font-display">
+        <AvatarCreator
+          initial={avatar}
+          owned={wardrobeOwned(owned)}
+          onDone={(spec) => {
+            worldSfx.happy()
+            setCreated(true)
+            void setAvatar(spec)
+          }}
+          className="h-full"
+        />
+      </div>
+    )
   }
 
   const zoom = reduced ? { duration: 0 } : { duration: 0.45, ease: [0.3, 0.1, 0.2, 1] as const }
@@ -109,7 +122,20 @@ export default function TownPage({ onWardrobe }: TownPageProps) {
         onWardrobe={() => (onWardrobe ? onWardrobe() : setWardrobe(true))}
         onErrands={onErrands}
       />
-      {wardrobe && <WardrobeSoon onClose={() => setWardrobe(false)} />}
+      {where.at === 'street' && (
+        <button
+          type="button"
+          onClick={() => navigate('/map')}
+          className="absolute bottom-3 left-3 z-40 flex min-h-12 items-center gap-1.5 rounded-full bg-white/85 px-4 text-lg font-bold text-[var(--world-text-soft,#6b5f80)] shadow-[var(--world-shadow-soft)]"
+        >
+          <span aria-hidden="true">‹</span>Mapa
+        </button>
+      )}
+      {wardrobe && (
+        <Suspense fallback={null}>
+          <Wardrobe onClose={() => setWardrobe(false)} />
+        </Suspense>
+      )}
     </div>
   )
 }

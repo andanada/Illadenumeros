@@ -1,11 +1,11 @@
 import { motion } from 'motion/react'
-import { useEffect, useMemo, useReducer, useRef, type KeyboardEvent } from 'react'
+import { useEffect, useMemo, useReducer, useRef, type KeyboardEvent, type ReactNode } from 'react'
 import { Grain } from '../art/Grain'
 import type { AvatarSpec } from '../model/types'
 import { CREATOR_TABS, creatorReducer, initCreator, optionsFor, type CreatorTab } from './creator/creatorReducer'
 import { CreatorStage } from './creator/CreatorStage'
 import { DiceIcon, TabIcon } from './creator/icons'
-import { CreatorPanel } from './creator/panels'
+import { CreatorPanel, type PriceOf } from './creator/panels'
 import { useCalm } from './useBlink'
 
 export interface AvatarCreatorProps {
@@ -22,6 +22,10 @@ export interface AvatarCreatorProps {
   /** Accessible name of the preview avatar. Default "El teu personatge". */
   avatarName?: string
   className?: string
+  /** Wardrobe shop: price of tiles she does not own yet (shown as a tag, read in the tile's name). */
+  priceOf?: PriceOf
+  /** Extra row above the bottom buttons (e.g. the wardrobe's buy bar). */
+  footer?: ReactNode
 }
 
 const TAB_LABELS: Readonly<Record<CreatorTab, { short: string; long: string }>> = {
@@ -34,7 +38,7 @@ const TAB_LABELS: Readonly<Record<CreatorTab, { short: string; long: string }>> 
   complements: { short: 'Extres', long: 'Complements' },
 }
 
-export function AvatarCreator({ initial, onChange, onDone, owned, title = 'Crea el teu personatge', avatarName = 'El teu personatge', className }: AvatarCreatorProps) {
+export function AvatarCreator({ initial, onChange, onDone, owned, title = 'Crea el teu personatge', avatarName = 'El teu personatge', className, priceOf, footer }: AvatarCreatorProps) {
   const options = useMemo(() => optionsFor(owned, initial), [owned, initial])
   const [state, dispatch] = useReducer(creatorReducer, undefined, () => initCreator(initial, options))
   const calm = useCalm()
@@ -76,10 +80,10 @@ export function AvatarCreator({ initial, onChange, onDone, owned, title = 'Crea 
         <h1 className="relative z-10 px-5 pt-4 text-2xl font-bold leading-tight text-[var(--world-carbo)] drop-shadow-[0_2px_0_rgba(255,255,255,0.6)] sm:text-3xl lg:px-8 lg:pt-8 lg:text-4xl">
           {title}
         </h1>
-        <CreatorStage spec={state.spec} spins={state.spins} name={avatarName} />
+        <CreatorStage spec={state.spec} spins={state.spins} fits={state.fits} name={avatarName} />
       </div>
 
-      <div className="relative z-10 flex min-h-0 flex-1 flex-col rounded-t-[36px] bg-[var(--world-surface)] shadow-[0_-10px_0_rgba(43,36,64,0.06)] lg:m-5 lg:rounded-[36px] lg:shadow-[var(--world-shadow-lift)]">
+      <div className="relative z-10 flex min-h-0 min-w-0 flex-1 flex-col rounded-t-[36px] bg-[var(--world-surface)] shadow-[0_-10px_0_rgba(43,36,64,0.06)] lg:m-5 lg:rounded-[36px] lg:shadow-[var(--world-shadow-lift)]">
         <div role="tablist" aria-label="Categories" className="flex shrink-0 gap-2 overflow-x-auto px-4 pb-2 pt-4 [scrollbar-width:none]">
           {CREATOR_TABS.map((tab, i) => {
             const selected = state.tab === tab
@@ -108,8 +112,9 @@ export function AvatarCreator({ initial, onChange, onDone, owned, title = 'Crea 
         </div>
 
         <div id="creator-panel" role="tabpanel" aria-labelledby={`creator-tab-${state.tab}`} className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4 pb-4 pt-2">
-          <CreatorPanel state={state} dispatch={dispatch} />
+          <CreatorPanel state={state} dispatch={dispatch} {...(priceOf ? { priceOf } : {})} />
         </div>
+        {footer}
 
         <div className="flex shrink-0 gap-3 border-t-4 border-[var(--world-surface-2)] px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
           <motion.button

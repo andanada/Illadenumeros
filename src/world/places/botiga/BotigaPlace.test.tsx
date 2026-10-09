@@ -40,6 +40,7 @@ describe('BotigaPlace errands', () => {
     expect(attempts[0]).toMatchObject({ gameId: 'poble-botiga', skillId: 'A4', correct: true, hintsUsed: 0 })
     expect(useProgress.getState().rewards.petals).toBe(3)
     expect(screen.getByTestId('errand-request')).toHaveTextContent(/Moltes gràcies!.*3 monedes/)
+    expect(screen.getByTestId('errand-neighbour')).toHaveAttribute('data-pose', 'cheer')
 
     // Regression: the next neighbour gets an empty basket, not the previous one's.
     await userEvent.click(screen.getByRole('button', { name: 'Adéu!' }))
@@ -100,5 +101,23 @@ describe('BotigaPlace errands', () => {
     expect(screen.getByRole('button', { name: 'La nevera, oberta' })).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: /gata Mixa, dormint/ }))
     expect(screen.getByRole('button', { name: /gata Mixa, desperta/ })).toBeInTheDocument()
+  })
+
+  it('the neighbour who asks stands at the counter (by name), and the rest queue at the door', async () => {
+    render(<BotigaPlace pending={3} callSignal={0} onSolved={vi.fn()} onExit={vi.fn()} forced={{ skillId: 'A4' }} />)
+    const stage = screen.getByRole('region', { name: 'Encàrrec a la Botiga: Senyora Pilar' })
+    expect(within(stage).getByRole('img', { name: 'Senyora Pilar' })).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: '2 veïns esperen a la porta' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Ara no' }))
+    expect(screen.getByRole('img', { name: '3 veïns esperen a la porta' })).toBeInTheDocument()
+    // The counter bell lets the next one in when nobody is being served.
+    await userEvent.click(screen.getByRole('button', { name: 'El timbre del taulell' }))
+    expect(screen.getByRole('region', { name: /^Encàrrec a la Botiga: / })).toBeInTheDocument()
+  })
+
+  it('"Ajuda": the neighbour says the hint in the bubble', async () => {
+    renderShop('A4')
+    await userEvent.click(screen.getByRole('button', { name: 'Ajuda' }))
+    expect((await screen.findByTestId('errand-hint')).textContent?.length).toBeGreaterThan(0)
   })
 })

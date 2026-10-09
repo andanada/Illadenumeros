@@ -18,11 +18,24 @@ const THUMB = 76
 /** Body crops hide the hair so long styles don't poke into the tile. */
 const BODY_CROPS: readonly AvatarCrop[] = ['top', 'bottom', 'feet']
 
-function thumb(spec: AvatarSpec, crop: AvatarCrop) {
+/** Price of a tile she does not own yet (undefined = hers / free). */
+export type PriceOf = (id: string) => number | undefined
+
+function PriceTag({ price }: { price: number }) {
+  return (
+    <span aria-hidden="true" className="absolute bottom-0.5 left-1/2 flex -translate-x-1/2 items-center gap-0.5 rounded-full bg-[var(--world-mango)] py-0.5 pl-1 pr-2 text-sm font-bold text-[var(--world-carbo)] shadow-[0_2px_0_rgba(43,36,64,0.18)]">
+      <span className="block size-3.5 rounded-full bg-[#FFE07A] shadow-[inset_0_-2px_0_#E8901A]" />
+      {price}
+    </span>
+  )
+}
+
+function thumb(spec: AvatarSpec, crop: AvatarCrop, price?: number) {
   const shown = BODY_CROPS.includes(crop) ? { ...spec, hair: { ...spec.hair, style: 'cabell-rapat' }, accessory: null } : spec
   return (
-    <span className="grid size-full place-items-center rounded-[14px] bg-[var(--world-sky-bottom)]">
+    <span className={`relative grid size-full place-items-center rounded-[14px] ${price === undefined ? 'bg-[var(--world-sky-bottom)]' : 'bg-[var(--world-surface-2)]'}`}>
       <Avatar spec={shown} crop={crop} size={crop === 'feet' ? 40 : THUMB} animated={false} />
+      {price !== undefined && <PriceTag price={price} />}
     </span>
   )
 }
@@ -41,10 +54,11 @@ function Swatches({ label, value, onPick }: { label: string; value: PaletteColor
 interface PanelProps {
   state: CreatorState
   dispatch: Dispatch<CreatorAction>
+  priceOf?: PriceOf
 }
 
 /** A picture grid where each tile previews the current avatar wearing that option. */
-function PartGrid({ label, ids, value, names, preview, crop, onPick }: {
+function PartGrid({ label, ids, value, names, preview, crop, onPick, priceOf }: {
   label: string
   ids: readonly string[]
   value: string
@@ -52,8 +66,13 @@ function PartGrid({ label, ids, value, names, preview, crop, onPick }: {
   preview: (id: string) => AvatarSpec
   crop: AvatarCrop
   onPick: (id: string) => void
+  priceOf?: PriceOf
 }) {
-  const options = ids.map((id) => ({ id, label: names[id]?.name ?? id, content: thumb(preview(id), crop) }))
+  const options = ids.map((id) => {
+    const price = priceOf?.(id)
+    const name = names[id]?.name ?? id
+    return { id, label: price === undefined ? name : `${name}, ${price} monedes`, content: thumb(preview(id), crop, price) }
+  })
   return <RadioGrid label={label} options={options} value={value} onChange={onPick} />
 }
 
@@ -63,7 +82,7 @@ function colorPicker(state: CreatorState, dispatch: Dispatch<CreatorAction>, slo
   return <Swatches label={label} value={value} onPick={(color) => dispatch({ type: 'color', slot, color })} />
 }
 
-export function CreatorPanel({ state, dispatch }: PanelProps) {
+export function CreatorPanel({ state, dispatch, priceOf }: PanelProps) {
   const { spec, options, tab } = state
   switch (tab) {
     case 'pell':
@@ -97,21 +116,21 @@ export function CreatorPanel({ state, dispatch }: PanelProps) {
     case 'dalt':
       return (
         <>
-          <PartGrid label="Roba de dalt" ids={options.top} value={spec.top.item} names={TOPS_BY_ID} crop="top" preview={(item) => ({ ...spec, top: { ...spec.top, item } })} onPick={(item) => dispatch({ type: 'wear', slot: 'top', item })} />
+          <PartGrid label="Roba de dalt" ids={options.top} value={spec.top.item} names={TOPS_BY_ID} priceOf={priceOf} crop="top" preview={(item) => ({ ...spec, top: { ...spec.top, item } })} onPick={(item) => dispatch({ type: 'wear', slot: 'top', item })} />
           {colorPicker(state, dispatch, 'top', 'Color')}
         </>
       )
     case 'baix':
       return (
         <>
-          <PartGrid label="Roba de baix" ids={options.bottom} value={spec.bottom.item} names={BOTTOMS_BY_ID} crop="bottom" preview={(item) => ({ ...spec, top: TOPS_BY_ID[spec.top.item]?.long ? { ...spec.top, item: 'samarreta' } : spec.top, bottom: { ...spec.bottom, item } })} onPick={(item) => dispatch({ type: 'wear', slot: 'bottom', item })} />
+          <PartGrid label="Roba de baix" ids={options.bottom} value={spec.bottom.item} names={BOTTOMS_BY_ID} priceOf={priceOf} crop="bottom" preview={(item) => ({ ...spec, top: TOPS_BY_ID[spec.top.item]?.long ? { ...spec.top, item: 'samarreta' } : spec.top, bottom: { ...spec.bottom, item } })} onPick={(item) => dispatch({ type: 'wear', slot: 'bottom', item })} />
           {colorPicker(state, dispatch, 'bottom', 'Color')}
         </>
       )
     case 'sabates':
       return (
         <>
-          <PartGrid label="Sabates" ids={options.shoes} value={spec.shoes.item} names={SHOES_BY_ID} crop="feet" preview={(item) => ({ ...spec, shoes: { ...spec.shoes, item } })} onPick={(item) => dispatch({ type: 'wear', slot: 'shoes', item })} />
+          <PartGrid label="Sabates" ids={options.shoes} value={spec.shoes.item} names={SHOES_BY_ID} priceOf={priceOf} crop="feet" preview={(item) => ({ ...spec, shoes: { ...spec.shoes, item } })} onPick={(item) => dispatch({ type: 'wear', slot: 'shoes', item })} />
           {colorPicker(state, dispatch, 'shoes', 'Color')}
         </>
       )
@@ -125,6 +144,7 @@ export function CreatorPanel({ state, dispatch }: PanelProps) {
             ids={[NONE, ...options.accessory]}
             value={spec.accessory?.item ?? NONE}
             names={names}
+            priceOf={priceOf}
             crop="head"
             preview={(item) => ({ ...spec, accessory: item === NONE ? null : { item, color } })}
             onPick={(item) => dispatch({ type: 'accessory', item: item === NONE ? null : item })}

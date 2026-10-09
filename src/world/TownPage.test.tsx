@@ -1,17 +1,36 @@
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useProgress } from '../core/progress/store'
+import type { MatesDb } from '../core/storage/db'
 import { activateTestPlayer } from '../test/playerDb'
 import { Street } from './scene/street/Street'
 import { defaultAvatar } from './characters'
+import { defaultWorld, useWorldStore } from './data'
 import TownPage from './TownPage'
 
+let db: MatesDb
+const PROFILE = { id: 'me', name: 'Laia', character: 'nyx', color: 'blau', diagnosticDone: true, createdAt: 0 } as const
+
 beforeEach(() => {
-  activateTestPlayer()
-  useProgress.setState({ profile: { id: 'me', name: 'Laia', character: 'nyx', color: 'blau', diagnosticDone: true, createdAt: 0 } })
+  db = activateTestPlayer()
+  useProgress.setState({ profile: PROFILE })
 })
+
+/** A player who already made her character (no first-visit creator). */
+const chosenAvatar = (): Promise<unknown> => db.world.put({ ...defaultWorld(PROFILE), avatarUpdatedAt: 5 })
+
+function renderTown(props: React.ComponentProps<typeof TownPage> = {}) {
+  render(
+    <MemoryRouter initialEntries={['/poble']}>
+      <Routes>
+        <Route path="/poble" element={<TownPage {...props} />} />
+        <Route path="/map" element={<p>El mapa</p>} />
+      </Routes>
+    </MemoryRouter>,
+  )
+}
 
 /** jsdom has no layout: give the street a phone-sized viewport. */
 function sizeStreet(width = 390, height = 700): void {
@@ -61,13 +80,10 @@ describe('Street', () => {
 
 describe('TownPage', () => {
   it('street → shop → street, with the HUD on top', async () => {
-    render(
-      <MemoryRouter>
-        <TownPage />
-      </MemoryRouter>,
-    )
+    await chosenAvatar()
+    renderTown()
+    await userEvent.click(await screen.findByRole('button', { name: 'Entra a la Botiga' }))
     expect(screen.getByLabelText('0 monedes')).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Entra a la Botiga' }))
     expect(await screen.findByRole('region', { name: 'La Botiga' }, { timeout: 4000 })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Encàrrecs: 3 per fer' })).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Ara no' }))
@@ -77,27 +93,40 @@ describe('TownPage', () => {
     expect(await screen.findByTestId('street')).toBeInTheDocument()
   })
 
-  it('the errand board from the street leads into the shop; the avatar opens the wardrobe slot', async () => {
+  it('the errand board from the street leads into the shop; the avatar slot can be overridden', async () => {
+    await chosenAvatar()
     const onWardrobe = vi.fn()
-    render(
-      <MemoryRouter>
-        <TownPage onWardrobe={onWardrobe} />
-      </MemoryRouter>,
-    )
-    await userEvent.click(screen.getByRole('button', { name: 'El meu armari' }))
+    renderTown({ onWardrobe })
+    await userEvent.click(await screen.findByRole('button', { name: 'El meu armari' }))
     expect(onWardrobe).toHaveBeenCalledOnce()
     await userEvent.click(screen.getByRole('button', { name: 'Encàrrecs: 3 per fer' }))
     expect(await screen.findByRole('region', { name: 'La Botiga' }, { timeout: 4000 })).toBeInTheDocument()
   })
 
-  it('without a wardrobe slot a friendly "soon" note shows', async () => {
-    render(
-      <MemoryRouter>
-        <TownPage />
-      </MemoryRouter>,
-    )
-    await userEvent.click(screen.getByRole('button', { name: 'El meu armari' }))
-    await userEvent.click(screen.getByRole('button', { name: 'D’acord' }))
+  it('the avatar bubble opens L’armari, which closes again', async () => {
+    await chosenAvatar()
+    renderTown()
+    await userEvent.click(await screen.findByRole('button', { name: 'El meu armari' }))
+    expect(await screen.findByRole('dialog', { name: 'L’armari' }, { timeout: 4000 })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Tanca l’armari' }))
     expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('first visit: she creates her character before the street, and it is saved', async () => {
+    renderTown()
+    expect(await screen.findByRole('region', { name: 'Crea el teu personatge' })).toBeInTheDocument()
+    expect(screen.queryByTestId('street')).toBeNull()
+    await userEvent.click(screen.getByRole('radio', { name: 'Pell molt fosca' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Fet!' }))
+    expect(await screen.findByTestId('street')).toBeInTheDocument()
+    await waitFor(() => expect(useWorldStore.getState().row?.avatarUpdatedAt).toBeGreaterThan(0))
+    expect(useWorldStore.getState().row?.avatar.skin).toBe('s6')
+  })
+
+  it('a small "Mapa" button goes back to the map', async () => {
+    await chosenAvatar()
+    renderTown()
+    await userEvent.click(await screen.findByRole('button', { name: 'Mapa' }))
+    expect(screen.getByText('El mapa')).toBeInTheDocument()
   })
 })

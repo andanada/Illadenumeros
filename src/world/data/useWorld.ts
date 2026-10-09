@@ -9,6 +9,8 @@ export interface WorldView {
   /** False until the active player's town row has been read (the avatar is the default meanwhile). */
   readonly ready: boolean
   readonly avatar: AvatarSpec
+  /** 0 = the avatar was never chosen by the child (first visit shows the creator). */
+  readonly avatarUpdatedAt: number
   readonly owned: readonly string[]
   readonly placed: Readonly<Partial<Record<SceneId, readonly Placement[]>>>
   readonly pets: readonly string[]
@@ -42,6 +44,7 @@ export function useWorld(): WorldView {
     return {
       ready: status === 'ready' && row !== undefined,
       avatar: shown.avatar,
+      avatarUpdatedAt: shown.avatarUpdatedAt,
       owned: shown.owned,
       placed: shown.placed,
       pets: shown.pets,

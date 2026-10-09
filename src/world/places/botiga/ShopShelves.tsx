@@ -1,72 +1,74 @@
 import { FitProp } from '../../scene/art'
 import { Draggable } from '../../scene/Draggable'
 import { DropZone } from '../../scene/DropZone'
-import { deliveryKind, parseKind, restock, SHELF_CAPACITY, SHELF_IDS, SHELF_NAMES, shelfHasRoom, shelfKind, type ShopState } from './freePlay'
-import { productById, withArticle } from './products'
-
-const labelOf = (id: string): string => {
-  const p = productById(id)
-  return p ? withArticle(p) : id
-}
+import { parseKind, restock, SHELF_CAPACITY, SHELF_IDS, SHELF_NAMES, shelfHasRoom, shelfKind, type ShopState } from './freePlay'
+import { labelOf } from './products'
 
 export interface ShopShelvesProps {
   shop: ShopState
   onChange: (next: ShopState) => void
 }
 
-/** Three shelves to restock from the delivery box: drag, tap-then-tap, or the keyboard. */
-export function ShopShelves({ shop, onChange }: ShopShelvesProps) {
-  const boxed = [...new Set(shop.delivery)]
+const WOOD = '#B9784A'
+const WOOD_DARK = '#94582F'
+const WOOD_LIGHT = '#D9A274'
+const BACK = '#F6DDB9'
+const TAG_COLOURS = ['#FF6B5B', '#36C5A2', '#4DA6EC'] as const
+
+/** Shelf sign on top of the unit. */
+function Crown() {
   return (
-    <div className="flex flex-col gap-3">
-      <div className="rounded-[1.8rem] bg-[var(--world-xocolata,#8a5638)] p-3 shadow-[var(--world-shadow-lift)]">
-        {SHELF_IDS.map((shelf) => (
-          <DropZone
-            key={shelf}
-            id={shelf}
-            label={SHELF_NAMES[shelf]}
-            accepts={(prop) => prop.kind.startsWith('entrega:') && shelfHasRoom(shop, shelf)}
-            onDrop={(prop) => {
-              const parsed = parseKind(prop.kind)
-              if (parsed?.from === 'entrega') onChange(restock(shop, shelf, parsed.product))
-            }}
-            className="mb-2 last:mb-0"
-          >
-            <ul aria-label={SHELF_NAMES[shelf]} className="flex min-h-20 items-end gap-1 border-b-8 border-[var(--world-xocolata-light,#b4805c)] px-1 pb-1" style={{ borderColor: '#B4805C' }}>
-              {shop.shelves[shelf].map((product, index) => (
-                <li key={`${product}-${index}`}>
-                  <Draggable prop={{ id: `${shelf}-${index}`, label: `${labelOf(product)} del prestatge`, kind: shelfKind(shelf, index, product) }} className="grid size-16 place-items-center">
-                    <FitProp id={product} box={52} />
-                  </Draggable>
-                </li>
-              ))}
-              {Array.from({ length: SHELF_CAPACITY - shop.shelves[shelf].length }, (_, i) => (
-                <li key={`buit-${i}`} aria-hidden="true" className="size-16 rounded-xl bg-black/10" />
-              ))}
-            </ul>
-          </DropZone>
-        ))}
+    <div aria-hidden="true" className="relative mx-auto -mb-1 flex h-9 w-[70%] items-center justify-center rounded-t-[1.2rem]" style={{ background: WOOD_DARK }}>
+      <span className="rounded-full px-3 text-base font-bold tracking-[0.18em] text-[#FFE6BF]">FRUITA · PA</span>
+    </div>
+  )
+}
+
+/**
+ * The shop's wooden shelf unit: three boards of compartments to restock from the delivery crate.
+ * Drag, tap-then-tap, or the keyboard. Each board is a drop place.
+ */
+export function ShopShelves({ shop, onChange }: ShopShelvesProps) {
+  return (
+    <div className="mx-auto w-full max-w-[22rem]">
+      <Crown />
+      <div className="rounded-[1.4rem] p-2.5 pb-1 shadow-[var(--world-shadow-lift)]" style={{ background: WOOD }}>
+        <div className="rounded-[0.9rem] px-1.5 pt-1" style={{ background: BACK }}>
+          {SHELF_IDS.map((shelf, row) => (
+            <DropZone
+              key={shelf}
+              id={shelf}
+              label={SHELF_NAMES[shelf]}
+              accepts={(prop) => prop.kind.startsWith('entrega:') && shelfHasRoom(shop, shelf)}
+              onDrop={(prop) => {
+                const parsed = parseKind(prop.kind)
+                if (parsed?.from === 'entrega') onChange(restock(shop, shelf, parsed.product))
+              }}
+              className="rounded-[0.8rem]"
+            >
+              <ul aria-label={SHELF_NAMES[shelf]} className="grid grid-cols-5 items-end gap-0.5 px-0.5 pt-1">
+                {shop.shelves[shelf].map((product, index) => (
+                  <li key={`${product}-${index}`} className="grid place-items-center">
+                    <Draggable prop={{ id: `${shelf}-${index}`, label: `${labelOf(product)} del prestatge`, kind: shelfKind(shelf, index, product) }} className="grid size-14 place-items-end justify-center">
+                      <FitProp id={product} box={46} />
+                    </Draggable>
+                  </li>
+                ))}
+                {Array.from({ length: SHELF_CAPACITY - shop.shelves[shelf].length }, (_, i) => (
+                  <li key={`buit-${i}`} aria-hidden="true" className="mx-auto mb-0.5 h-12 w-[86%] rounded-t-xl" style={{ background: 'rgba(148, 88, 47, 0.12)' }} />
+                ))}
+              </ul>
+              {/* The board, with a little price tag on its front lip. */}
+              <div aria-hidden="true" className="relative -mx-1.5 h-4 rounded-md" style={{ background: WOOD_LIGHT, boxShadow: `inset 0 -5px 0 ${WOOD_DARK}` }}>
+                <span className="absolute left-[12%] top-1 h-3 w-7 rounded-sm" style={{ background: TAG_COLOURS[row % TAG_COLOURS.length] }} />
+              </div>
+            </DropZone>
+          ))}
+        </div>
       </div>
-      <div className="flex items-center gap-2 rounded-[1.6rem] bg-[var(--world-mango,#ffb834)] p-2 shadow-[var(--world-shadow-soft)]">
-        <span className="px-2 text-lg font-bold text-[var(--world-ink,#2b2440)]">Caixa del repartidor</span>
-        <ul aria-label="Caixa del repartidor" className="flex flex-1 flex-wrap gap-1">
-          {boxed.length === 0 && <li className="text-lg font-semibold text-[var(--world-ink,#2b2440)]/70">Tot és al seu lloc!</li>}
-          {boxed.map((product) => {
-            const left = shop.delivery.filter((p) => p === product).length
-            return (
-              <li key={product} className="relative">
-                <Draggable prop={{ id: `entrega-${product}`, label: labelOf(product), kind: deliveryKind(product) }} className="grid size-16 place-items-center rounded-2xl bg-white/50">
-                  <FitProp id={product} box={48} />
-                </Draggable>
-                {left > 1 && (
-                  <span aria-hidden="true" className="pointer-events-none absolute -right-1 -top-1 grid size-7 place-items-center rounded-full bg-white text-sm font-bold">
-                    {left}
-                  </span>
-                )}
-              </li>
-            )
-          })}
-        </ul>
+      <div aria-hidden="true" className="flex justify-between px-4">
+        <span className="block h-3 w-6 rounded-b-md" style={{ background: WOOD_DARK }} />
+        <span className="block h-3 w-6 rounded-b-md" style={{ background: WOOD_DARK }} />
       </div>
     </div>
   )

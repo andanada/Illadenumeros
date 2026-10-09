@@ -30,3 +30,9 @@ const hash = (text: string): number => [...text].reduce((h, c) => (h * 33 + c.ch
 
 /** Stable product for an item: the same question always asks for the same thing. */
 export const productFor = (seed: string, pool: readonly Product[] = BASKET_PRODUCTS): Product => pool[hash(seed) % pool.length] ?? (pool[0] as Product)
+
+/** "la poma" for a product id (the id itself if unknown). */
+export const labelOf = (id: string): string => {
+  const p = productById(id)
+  return p ? withArticle(p) : id
+}

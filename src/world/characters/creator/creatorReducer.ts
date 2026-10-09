@@ -49,6 +49,8 @@ export interface CreatorState {
   accessoryColor: PaletteColor
   /** Increments on every randomise (drives the celebration animation). */
   spins: number
+  /** Increments every time a garment or accessory is put on (drives the "trying it on" bounce). */
+  fits: number
   options: CreatorOptions
 }
 
@@ -65,10 +67,11 @@ export type CreatorAction =
   | { type: 'reset'; spec: AvatarSpec }
 
 export function initCreator(spec: AvatarSpec, options: CreatorOptions = ALL_OPTIONS): CreatorState {
-  return { spec, tab: 'pell', accessoryColor: spec.accessory?.color ?? 'rosa', spins: 0, options }
+  return { spec, tab: 'pell', accessoryColor: spec.accessory?.color ?? 'rosa', spins: 0, fits: 0, options }
 }
 
 const withSpec = (state: CreatorState, spec: AvatarSpec): CreatorState => ({ ...state, spec })
+const tryOn = (state: CreatorState, spec: AvatarSpec): CreatorState => ({ ...state, spec, fits: state.fits + 1 })
 
 function setColor(state: CreatorState, slot: ColorSlot, color: PaletteColor): CreatorState {
   const { spec } = state
@@ -119,10 +122,10 @@ export function creatorReducer(state: CreatorState, action: CreatorAction): Crea
     case 'mouth':
       return options.mouth.includes(action.id) ? withSpec(state, { ...spec, mouth: action.id }) : state
     case 'wear':
-      return options[action.slot].includes(action.item) ? withSpec(state, { ...spec, [action.slot]: { ...spec[action.slot], item: action.item } }) : state
+      return options[action.slot].includes(action.item) ? tryOn(state, { ...spec, [action.slot]: { ...spec[action.slot], item: action.item } }) : state
     case 'accessory':
-      if (action.item === null) return withSpec(state, { ...spec, accessory: null })
-      return options.accessory.includes(action.item) ? withSpec(state, { ...spec, accessory: { item: action.item, color: spec.accessory?.color ?? state.accessoryColor } }) : state
+      if (action.item === null) return tryOn(state, { ...spec, accessory: null })
+      return options.accessory.includes(action.item) ? tryOn(state, { ...spec, accessory: { item: action.item, color: spec.accessory?.color ?? state.accessoryColor } }) : state
     case 'color':
       return PALETTE_COLORS.includes(action.color) ? setColor(state, action.slot, action.color) : state
     case 'randomise': {
