@@ -22,6 +22,7 @@ export const GAME_IDS = [
   'poble-botiga',
   'poble-casa',
   'poble-autobus',
+  'poble-perruqueria',
 ] as const
 export const gameIdSchema = z.enum(GAME_IDS)
 export type GameId = z.infer<typeof gameIdSchema>

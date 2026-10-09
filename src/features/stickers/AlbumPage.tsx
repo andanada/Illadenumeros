@@ -58,7 +58,7 @@ export default function AlbumPage() {
   return (
     <Screen
       title="Àlbum de pegatines"
-      back="/map"
+      back="/poble"
       right={
         <p aria-label={`${count} de ${STICKERS.length} pegatines`} className="sticker min-h-16 rounded-full bg-white px-5 text-2xl font-bold leading-[3.5rem] text-brand-dark">
           {count} / {STICKERS.length}

@@ -21,7 +21,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   private restart = (): void => {
-    window.location.hash = '#/map'
+    window.location.hash = '#/poble'
     window.location.reload()
   }
 

@@ -1,7 +1,7 @@
 import type { CharacterId } from '../../core/storage/db'
 import { CHARACTERS } from '../../ui/mascot/characters'
 
-export function welcomeText(name: string, character: CharacterId): string {
-  return `Hola, ${name}! Sóc ${CHARACTERS[character].name}. Anem a descobrir l’illa dels números!`
+/** Said (and shown) on the welcome step, with her first pet. */
+export function welcomeText(name: string, pet: CharacterId): string {
+  return `Hola, ${name}! Avui és el teu primer dia al poble i ${CHARACTERS[pet].name} t’acompanya. Els veïns ja t’esperen!`
 }
-

@@ -15,6 +15,7 @@ function renderHud(props: Partial<React.ComponentProps<typeof Hud>> = {}) {
       <Routes>
         <Route path="/poble" element={<Hud avatar={defaultAvatar('nyx', 'rosa')} coins={12} pendingErrands={3} onWardrobe={onWardrobe} onErrands={onErrands} {...props} />} />
         <Route path="/familia" element={<p>Pàgina de família</p>} />
+        <Route path="/album" element={<p>Àlbum</p>} />
       </Routes>
     </MemoryRouter>,
   )
@@ -29,6 +30,12 @@ describe('Hud', () => {
     await userEvent.click(screen.getByRole('button', { name: 'El meu armari' }))
     expect(onErrands).toHaveBeenCalledOnce()
     expect(onWardrobe).toHaveBeenCalledOnce()
+  })
+
+  it('the sticker book opens the album', async () => {
+    renderHud()
+    await userEvent.click(screen.getByRole('button', { name: 'Àlbum de pegatines' }))
+    expect(screen.getByText('Àlbum')).toBeInTheDocument()
   })
 
   it('without errands the board has a plain name', () => {

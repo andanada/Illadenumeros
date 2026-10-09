@@ -5,8 +5,13 @@ const MIN_TOUCH_PX = 44
 
 const SCREENS: { name: string; hash: string; ready: (page: Page) => Promise<void> }[] = [
   {
-    name: 'mapa',
-    hash: '#/map',
+    name: 'el poble',
+    hash: '#/poble',
+    ready: (page) => expect(page.getByTestId('street')).toBeVisible(),
+  },
+  {
+    name: 'mapa d’illes',
+    hash: '#/illes',
     ready: (page) => expect(page.getByRole('button', { name: /Missió d’avui/ })).toBeVisible(),
   },
   {
@@ -43,7 +48,7 @@ test.describe('Mòbil vertical: tàctil i sense scroll horitzontal', () => {
   }
 
   test('cap element visible queda tallat fora de la pantalla al mapa', async ({ page }) => {
-    await page.goto('/#/map')
+    await page.goto('/#/illes')
     await expect(page.getByRole('button', { name: /Missió d’avui/ })).toBeVisible()
     const offscreen = await page.evaluate(() =>
       Array.from(document.querySelectorAll<HTMLElement>('button, h1, h2'))

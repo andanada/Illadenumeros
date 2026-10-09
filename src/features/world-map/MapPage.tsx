@@ -11,7 +11,6 @@ import { AdultGate } from '../family/AdultGate'
 import { RegionSection } from './RegionSection'
 import { StopSheet } from './StopSheet'
 import { mazePath } from './mazeAccess'
-import { PobleCard } from './PobleCard'
 import { starsFor, REGIONS, GRADE_LABEL, playableRegions } from './stops'
 import type { SkillNode } from '../../core/ambit/types'
 
@@ -33,6 +32,7 @@ export default function MapPage() {
   return (
     <Screen
       title="L’Illa dels Números"
+      back="/poble"
       right={
         <>
           <div
@@ -88,7 +88,6 @@ export default function MapPage() {
           {missionDone ? '✓ ' : ''}Missió d’avui
         </Button>
         {missionDone && <p className="-mt-3 text-center text-lg font-semibold text-ok">Ja l’has feta! Pots jugar més.</p>}
-        <PobleCard onOpen={() => navigate('/poble')} />
 
         {regions.map(({ region, skills }) => (
           <RegionSection key={region.id} region={region} skills={skills} states={states} focusId={focusId} onOpen={setOpen} onMaze={(ids) => navigate(mazePath(ids))} />

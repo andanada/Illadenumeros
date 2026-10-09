@@ -81,3 +81,11 @@ export function adopt(row: WorldRow, petId: string): WorldResult {
   if (row.pets.includes(petId)) return { ok: true, row }
   return { ok: true, row: { ...row, pets: [...row.pets, petId].sort() } }
 }
+
+/** A free gift (the daily board's surprise): owned without charging. Idempotent; food is never owned. */
+export function grant(row: WorldRow, itemId: string): WorldResult {
+  const known = catalogEntry(itemId)
+  if (!known || known.kind === 'food') return { ok: false, reason: 'unknown-item' }
+  if (owns(row, known.id)) return { ok: true, row }
+  return { ok: true, row: { ...row, owned: [...row.owned, known.id].sort() } }
+}

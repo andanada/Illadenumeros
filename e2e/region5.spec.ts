@@ -43,7 +43,7 @@ async function seedMastered(page: Page, skillIds: readonly string[]): Promise<vo
 
 test.describe('5è: Ciutat dels Decimals', () => {
   test('el mapa mostra la regió tancada fins que es domina 4t i després obre la primera parada', async ({ page, consoleErrors }) => {
-    await page.goto('/#/map')
+    await page.goto('/#/illes')
     const city = page.getByRole('region', { name: 'Ciutat dels Decimals' })
     await city.scrollIntoViewIfNeeded()
     await expect(city.getByText('5è de primària')).toBeVisible()

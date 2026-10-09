@@ -11,7 +11,7 @@ async function openGame(page: Page, gameId: string, title: string, skills: strin
 
 async function expectEndScreen(page: Page): Promise<void> {
   await expect(page.getByRole('button', { name: 'Tornar a jugar' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Tornar al mapa' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Tornar al poble' })).toBeVisible()
   expect(await hasHorizontalScroll(page)).toBe(false)
 }
 
@@ -198,7 +198,7 @@ test.describe('Laberint de l’Aventura', () => {
   })
 
   test('el mapa mostra la porta del laberint a cada regió', async ({ page, consoleErrors }) => {
-    await page.goto('/#/map')
+    await page.goto('/#/illes')
     await expect(page.getByText(/Laberint de l’Aventura/).first()).toBeVisible()
     expect(await hasHorizontalScroll(page)).toBe(false)
     expect(consoleErrors).toEqual([])

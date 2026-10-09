@@ -8,10 +8,12 @@
  *   saveAvatar(spec: AvatarSpec): Promise<WorldResult> only owned or price-0 parts (eyes/mouth always allowed)
  *   placeItem(scene, placement) / movePlaced(scene, uid, patch) / removePlaced(scene, uid): Promise<WorldResult>
  *   adoptPet(petId: string): Promise<WorldResult>      catalogue pet, bought or free
+ *   grantItem(id: string, reason: string): Promise<WorldResult>  free gift (daily board surprise); petalsSpent unchanged
+ *   catalogEntries(): readonly CatalogEntry[]          everything the data layer knows a price for
  *   registerCatalog(entries: readonly CatalogEntry[]): number   places register furniture/pets/food prices
  *   currentCoins(): number, loadWorld(), worldDataPort (same shape as the scene's WorldPort)
  */
-export { catalogEntry, isFree, registerCatalog } from './catalog'
+export { catalogEntries, catalogEntry, isFree, registerCatalog } from './catalog'
 export { defaultWorld } from './defaultWorld'
 export { useWorld, worldDataPort, type WorldView } from './useWorld'
 export type { BuyResult, PlacementPatch, WorldFailure, WorldResult } from './worldLogic'
@@ -20,6 +22,7 @@ export {
   buyItem,
   currentCoins,
   grantCoins,
+  grantItem,
   loadWorld,
   movePlaced,
   placeItem,

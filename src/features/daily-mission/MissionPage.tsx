@@ -30,7 +30,7 @@ export default function MissionPage() {
   const [step, setStep] = useState(0)
   const [chosen, setChosen] = useState<string>()
 
-  const toMap = useCallback(() => navigate('/map'), [navigate])
+  const toMap = useCallback(() => navigate('/poble'), [navigate])
   const current = plan[step]
 
   const finishStep = useCallback(

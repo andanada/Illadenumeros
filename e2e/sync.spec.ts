@@ -20,13 +20,13 @@ async function playOneQuestion(page: Page): Promise<void> {
   const answers = page.getByRole('group', { name: 'Respostes' })
   await (value === undefined ? answers.getByRole('button').first() : answerButton(answers, value)).click()
   await expect(page.getByText('Molt bé! ✨').or(page.getByText('Gairebé! Mirem-ho junts')).first()).toBeVisible()
-  await page.goto('/#/map')
+  await page.goto('/#/poble')
   await expect(page.getByText(`Hola, ${CHILD.name}!`)).toBeVisible()
 }
 
 async function openFamily(page: Page): Promise<void> {
-  await page.goto('/#/map')
-  await page.getByRole('button', { name: 'Per a la família (només adults)' }).click()
+  await page.goto('/#/poble')
+  await page.getByRole('button', { name: 'Per a les famílies' }).click()
   await passAdultCheck(page)
   await expect(page).toHaveURL(/#\/familia$/)
 }
@@ -60,7 +60,7 @@ async function loginOnNewDevice(browser: Browser, email: string): Promise<Page> 
   await expect(accountRegion(page).getByText(email)).toBeVisible()
   await page.getByRole('button', { name: 'Tria qui juga' }).click()
   await page.getByRole('button', { name: new RegExp(`^Entra: ${CHILD.name}`) }).click()
-  await expect(page).toHaveURL(/#\/map$/)
+  await expect(page).toHaveURL(/#\/poble$/)
   return page
 }
 
@@ -93,7 +93,7 @@ test.describe('Compte de la família i sincronització (servidor real)', () => {
     await page.goto('/#/familia')
     await expect(accountRegion(page).getByText(email)).toBeVisible()
     await syncNowAndWait(page)
-    await page.goto('/#/map')
+    await page.goto('/#/poble')
     await expect.poll(() => petalsOnMap(page)).toBe(petalsB)
 
     // A loses the server: plays anyway; the sync waits and catches up when it is back.
@@ -109,14 +109,14 @@ test.describe('Compte de la família i sincronització (servidor real)', () => {
     await expect(accountRegion(page).getByText(/Última sincronització/)).toBeVisible({ timeout: 20_000 })
     await openFamily(pageB)
     await syncNowAndWait(pageB)
-    await pageB.goto('/#/map')
+    await pageB.goto('/#/poble')
     await expect.poll(() => petalsOnMap(pageB)).toBe(petalsOffline)
 
     // B logs out: its local progress stays.
     await openFamily(pageB)
     await accountRegion(pageB).getByRole('button', { name: 'Surt' }).click()
     await expect(accountRegion(pageB).getByRole('button', { name: 'Crea el compte' })).toBeVisible()
-    await pageB.goto('/#/map')
+    await pageB.goto('/#/poble')
     await expect.poll(() => petalsOnMap(pageB)).toBe(petalsOffline)
 
     // A deletes the account (two confirmations + password): server data gone, local progress stays.
@@ -127,7 +127,7 @@ test.describe('Compte de la família i sincronització (servidor real)', () => {
     await region.getByLabel('Contrasenya del compte').fill(PASSWORD)
     await region.getByRole('button', { name: 'Esborra el compte definitivament' }).click()
     await expect(region.getByRole('button', { name: 'Crea el compte' })).toBeVisible()
-    await page.goto('/#/map')
+    await page.goto('/#/poble')
     await expect.poll(() => petalsOnMap(page)).toBe(petalsOffline)
     await openFamily(pageB)
     await fillAuth(pageB, 'login', email, PASSWORD)

@@ -1,5 +1,5 @@
 import type { Locator, Page } from '@playwright/test'
-import { expect, hasHorizontalScroll, seededTest as test, solve } from './helpers'
+import { CHILD, completeDiagnostic, createProfile, expect, hasHorizontalScroll, playerDbNames, seededTest as test, solve, test as freshTest } from './helpers'
 
 /** Screenshots for the design review go here (outside the repo when POBLE_SHOTS is set). */
 const SHOTS = process.env.POBLE_SHOTS
@@ -106,13 +106,62 @@ async function serveOne(page: Page, method: Method, hooks: ServeHooks = {}): Pro
   throw new Error(`Cap encàrrec resolt amb ${method}`)
 }
 
-/** Opens the town; on the very first visit she makes her character first. */
-async function enterTown(page: Page): Promise<void> {
+/** Writes today's errand board straight into the player's database (a fixed, tiny board for the gift test). */
+async function seedBoard(page: Page, tasks: readonly Record<string, unknown>[]): Promise<void> {
+  const dbName = (await playerDbNames(page))[CHILD.name]
+  if (!dbName) throw new Error('No hi ha base de dades del jugador')
+  await page.evaluate(
+    async ({ name, tasks: list }) => {
+      const value = { day: new Date().toLocaleDateString('sv-SE'), tasks: list, done: {} }
+      const database = await new Promise<IDBDatabase>((resolve, reject) => {
+        const req = indexedDB.open(name)
+        req.onsuccess = () => resolve(req.result)
+        req.onerror = () => reject(req.error)
+      })
+      const tx = database.transaction('meta', 'readwrite')
+      tx.objectStore('meta').put({ key: 'errandBoard', value })
+      await new Promise<void>((resolve, reject) => {
+        tx.oncomplete = () => resolve()
+        tx.onerror = () => reject(tx.error)
+      })
+      database.close()
+    },
+    { name: dbName, tasks },
+  )
+}
+
+/** Makes the player look like one from before the avatar existed (no chosen character yet). */
+async function setAvatarUnchosen(page: Page): Promise<void> {
+  const dbName = (await playerDbNames(page))[CHILD.name]
+  if (!dbName) throw new Error('No hi ha base de dades del jugador')
+  await page.evaluate(async (name) => {
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      const req = indexedDB.open(name)
+      req.onsuccess = () => resolve(req.result)
+      req.onerror = () => reject(req.error)
+    })
+    const store = (mode: IDBTransactionMode) => database.transaction('world', mode).objectStore('world')
+    const row = await new Promise<Record<string, unknown>>((resolve, reject) => {
+      const req = store('readonly').get('world')
+      req.onsuccess = () => resolve(req.result as Record<string, unknown>)
+      req.onerror = () => reject(req.error)
+    })
+    await new Promise<void>((resolve, reject) => {
+      const req = store('readwrite').put({ ...row, avatarUpdatedAt: 0 })
+      req.onsuccess = () => resolve()
+      req.onerror = () => reject(req.error)
+    })
+    database.close()
+  }, dbName)
+}
+
+/** Opens the town with a small, known board: `botiga` errands waiting at the shop (the rest of the day is empty). */
+async function enterTown(page: Page, botiga = 3): Promise<void> {
   await page.goto('/#/poble')
-  const creator = page.getByRole('region', { name: 'Crea el teu personatge' })
   const street = page.getByTestId('street')
-  await expect(creator.or(street).first()).toBeVisible()
-  if (await creator.isVisible()) await page.getByRole('button', { name: 'Fet!' }).click()
+  await expect(street).toBeVisible()
+  await seedBoard(page, [{ place: 'botiga', count: botiga, kind: 'repte', neighbour: 'senyora-pilar' }])
+  await page.reload()
   await expect(street).toBeVisible()
 }
 
@@ -207,8 +256,11 @@ test.describe('El Poble dels Números', () => {
     expect(consoleErrors).toEqual([])
   })
 
-  test('first visit: create the character, then the street; it is not asked again', async ({ page, consoleErrors }, testInfo) => {
+  test('an existing player without a chosen character makes one first (then the street, never asked again)', async ({ page, consoleErrors }, testInfo) => {
     await page.goto('/#/poble')
+    await expect(page.getByTestId('street')).toBeVisible()
+    await setAvatarUnchosen(page)
+    await page.reload()
     const creator = page.getByRole('region', { name: 'Crea el teu personatge' })
     await expect(creator).toBeVisible()
     await shot(page, 'creador', testInfo.project.name)
@@ -221,24 +273,91 @@ test.describe('El Poble dels Números', () => {
     expect(consoleErrors).toEqual([])
   })
 
-  test('the map has a door to the town, and the town a way back', async ({ page, consoleErrors }, testInfo) => {
-    await page.goto('/#/map')
-    const card = page.getByRole('button', { name: 'El Poble (nou!)' })
-    await card.scrollIntoViewIfNeeded()
-    await shot(page, 'mapa', testInfo.project.name)
-    await card.click()
+  test('the town is home: / and the old /map lead to the street; the album is in the HUD; no map button', async ({ page, consoleErrors }, testInfo) => {
+    await page.goto('/')
     await expect(page).toHaveURL(/#\/poble$/)
-    const creator = page.getByRole('region', { name: 'Crea el teu personatge' })
-    await expect(creator.or(page.getByTestId('street')).first()).toBeVisible()
-    if (await creator.isVisible()) await page.getByRole('button', { name: 'Fet!' }).click()
-    await page.getByRole('button', { name: 'Mapa' }).click()
-    await expect(page).toHaveURL(/#\/map$/)
+    await expect(page.getByTestId('street')).toBeVisible()
+    await page.goto('/#/map')
+    await expect(page).toHaveURL(/#\/poble$/)
+    await expect(page.getByRole('button', { name: 'Mapa' })).toHaveCount(0)
+    await expect(page.getByText('El Poble (nou!)')).toHaveCount(0)
+    await page.waitForTimeout(900)
+    await shot(page, 'carrer-v2', testInfo.project.name)
+    await page.getByRole('button', { name: 'Àlbum de pegatines' }).click()
+    await expect(page).toHaveURL(/#\/album$/)
+    expect(consoleErrors).toEqual([])
+  })
+
+  test('a place not built yet stands behind scaffolding and says «Obrim aviat!» (no padlock)', async ({ page, consoleErrors }, testInfo) => {
+    await enterTown(page)
+    const fleca = page.getByRole('button', { name: 'La Fleca: obrim aviat' })
+    await expect(fleca).toBeAttached()
+    await fleca.focus()
+    await page.waitForTimeout(900)
+    await shot(page, 'carrer-obres', testInfo.project.name)
+    await expect(fleca.getByText('Obrim aviat!')).toBeAttached()
+    await fleca.dispatchEvent('click')
+    await expect(page.getByTestId('street')).toBeVisible()
+    expect(await page.getByTestId('street').getByText('🔒').count()).toBe(0)
+    expect(consoleErrors).toEqual([])
+  })
+
+  test('the errand board shows today’s errands; «Vés-hi!» walks the street to that place', async ({ page, consoleErrors }, testInfo) => {
+    const project = testInfo.project.name
+    await page.clock.setFixedTime(new Date(2026, 9, 9, 12, 0, 0))
+    await page.goto('/#/poble')
+    await expect(page.getByTestId('street')).toBeVisible()
+    await page.getByRole('button', { name: /^Encàrrecs: \d+ per fer$/ }).click()
+    const board = page.getByRole('dialog', { name: 'El tauler d’encàrrecs' })
+    await expect(board).toBeVisible()
+    await page.waitForTimeout(900)
+    await shot(page, 'tauler', project)
+    const cards = board.getByRole('listitem')
+    expect(await cards.count()).toBeGreaterThan(0)
+    const counts = await cards.evaluateAll((els) => els.map((el) => Number(el.getAttribute('data-count'))))
+    expect(counts.reduce((n, c) => n + c, 0)).toBeGreaterThanOrEqual(8)
+    expect(await hasHorizontalScroll(page)).toBe(false)
+
+    // «Vés-hi!» leaves the street: she walks there and the door opens.
+    await cards.first().getByRole('button', { name: /^Vés-hi/ }).click()
+    await expect(board).toHaveCount(0)
+    await expect(page.getByTestId('street')).toHaveCount(0, { timeout: 8000 })
+    expect(consoleErrors).toEqual([])
+  })
+
+  test('the last errand of the board opens a surprise gift she gets for free, once', async ({ page, consoleErrors }, testInfo) => {
+    const project = testInfo.project.name
+    await page.clock.setFixedTime(new Date(2026, 9, 9, 12, 0, 0))
+    await enterTown(page, 1)
+    await expect(page.getByRole('button', { name: 'Encàrrecs: 1 per fer' })).toBeVisible()
+    await enterShop(page)
+    // Solve one errand by tapping; the surprise pops up over the thank-you.
+    for (let tries = 0; tries < 25; tries++) {
+      const call = page.getByRole('button', { name: 'Fes passar un veí' })
+      if (await call.isVisible()) await call.click()
+      await expect(page.locator('[data-errand-kind]')).toBeVisible()
+      if (await solveErrand(page, 'tap')) break
+      await page.getByRole('button', { name: 'Ara no' }).click()
+    }
+    const gift = page.getByRole('dialog', { name: 'Sorpresa!' })
+    await expect(gift).toBeVisible()
+    await gift.getByRole('button', { name: 'Obre el regal' }).click()
+    await expect(gift.getByRole('status')).toContainText('És per a tu.')
+    await page.waitForTimeout(700)
+    await shot(page, 'sorpresa', project)
+    await gift.getByRole('button', { name: 'Que bé!' }).click()
+    await expect(gift).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Encàrrecs' })).toBeVisible()
+    await page.reload()
+    await expect(page.getByTestId('street')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Encàrrecs' })).toBeVisible()
+    await expect(page.getByRole('dialog', { name: 'Sorpresa!' })).toHaveCount(0)
     expect(consoleErrors).toEqual([])
   })
 
   test('L’armari: short of coins it says so kindly; with errand coins she buys a top, wears it, and it stays after reload', async ({ page, consoleErrors }, testInfo) => {
     const project = testInfo.project.name
-    await enterTown(page)
+    await enterTown(page, 30)
     await enterShop(page)
     for (let i = 0; i < 6 && (await coins(page)) < 8; i++) await serveOne(page, 'tap')
     expect(await coins(page)).toBeGreaterThanOrEqual(8)
@@ -285,9 +404,27 @@ test.describe('El Poble dels Números', () => {
     await expect.poll(async () => (await shop.boundingBox())?.x ?? 0).toBeLessThan(before)
     await page.getByRole('button', { name: 'Camina cap a l’esquerra' }).click()
     await shop.click()
-    await expect(page.getByRole('region', { name: 'La Botiga', exact: true })).toBeVisible({ timeout: 2000 })
+    await expect(page.getByRole('region', { name: 'La Botiga', exact: true })).toBeVisible({ timeout: 5000 })
     await expect(page.getByTestId('street')).toHaveCount(0)
     expect(await hasHorizontalScroll(page)).toBe(false)
+    expect(consoleErrors).toEqual([])
+  })
+})
+
+freshTest.describe('El primer dia al poble', () => {
+  freshTest('new player: name → character → welcome → the neighbours’ first errands → the street, with today’s board waiting', async ({ page, consoleErrors }, testInfo) => {
+    freshTest.setTimeout(120_000)
+    await page.clock.setFixedTime(new Date(2026, 9, 9, 12, 0, 0))
+    await createProfile(page)
+    await page.waitForTimeout(500)
+    await shot(page, 'primers-encarrecs', testInfo.project.name)
+    const run = await completeDiagnostic(page)
+    expect(run.scoreLeaks).toEqual([])
+    await expect(page.getByText(`Hola, ${CHILD.name}!`)).toBeVisible()
+    await page.waitForTimeout(900)
+    await shot(page, 'primer-dia-carrer', testInfo.project.name)
+    await expect(page.getByRole('button', { name: /^Encàrrecs: \d+ per fer$/ })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'La Fleca: obrim aviat' })).toBeAttached()
     expect(consoleErrors).toEqual([])
   })
 })

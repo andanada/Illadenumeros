@@ -86,7 +86,7 @@ export default function FamilyPage({ saveFile, now = Date.now }: FamilyPageProps
   }, [activePlayerId])
 
   return (
-    <Screen title="Per a la família" back="/map">
+    <Screen title="Per a la família" back="/poble">
       <div className="mx-auto flex w-full max-w-xl flex-col gap-6 px-4 pb-16">
         <Card title="On es guarda el progrés" tilt={0.4}>
           <StorageExplanation />

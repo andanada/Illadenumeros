@@ -5,13 +5,13 @@ type StorageState = Awaited<ReturnType<BrowserContext['storageState']>>
 
 export interface Child {
   name: string
-  character: string
+  /** Colour of the top she picks in the avatar creator (the theme of the app follows it). */
   color: string
   theme: string
 }
 
-export const CHILD = { name: 'Laia', character: 'Nyx', color: 'Rosa', theme: 'rosa' } as const satisfies Child
-export const SECOND_CHILD = { name: 'Pau', character: 'Blau', color: 'Blau', theme: 'blau' } as const satisfies Child
+export const CHILD = { name: 'Laia', color: 'Rosa', theme: 'rosa' } as const satisfies Child
+export const SECOND_CHILD = { name: 'Pau', color: 'Cel', theme: 'blau' } as const satisfies Child
 
 /** Anything that looks like a score, a grade or a counter of mistakes. The app must never show it to the child. */
 export const SCORE_RE = /\bpunts?\b|puntuaci[óo]|\bnota\b|\d+\s*\/\s*\d+|\d+\s*%|\bencerts?\b|\berrors?\b|\bvides?\b/i
@@ -64,24 +64,20 @@ export const feedbackStatus = (page: Page): Locator => page.locator('main p[role
 
 export const themeOf = (page: Page): Promise<string | undefined> => page.evaluate(() => document.documentElement.dataset.theme)
 
-/** The 4 onboarding steps (name, character, colour, welcome), ending on the diagnostic. */
+/** The first-day steps (name, avatar, welcome to the town), ending on the arrival errands (diagnostic). */
 export async function fillOnboarding(page: Page, child: Child = CHILD): Promise<void> {
   await expect(page).toHaveURL(/#\/onboarding$/)
   await page.getByLabel('Com et dius?').fill(child.name)
   await page.getByRole('button', { name: 'Continua' }).click()
 
-  const characters = page.getByRole('radiogroup', { name: 'Personatge preferit' })
-  await expect(characters).toBeVisible()
-  await characters.getByRole('radio', { name: child.character }).click()
-  await expect(characters.getByRole('radio', { name: child.character })).toHaveAttribute('aria-checked', 'true')
-  await page.getByRole('button', { name: 'Continua' }).click()
-
-  const colors = page.getByRole('radiogroup', { name: 'Color preferit' })
-  await expect(colors).toBeVisible()
-  await colors.getByRole('radio', { name: child.color }).click()
+  const creator = page.getByRole('region', { name: 'Crea el teu personatge' })
+  await expect(creator).toBeVisible()
+  await creator.getByRole('tab', { name: 'Roba de dalt' }).click()
+  await creator.getByRole('radio', { name: child.color, exact: true }).click()
   await expect.poll(() => themeOf(page)).toBe(child.theme)
-  await page.getByRole('button', { name: 'Continua' }).click()
+  await creator.getByRole('button', { name: 'Fet!' }).click()
 
+  await expect(page.getByRole('heading', { name: 'Benvinguda al poble!' })).toBeVisible()
   await expect(page.getByText(child.name, { exact: false }).first()).toBeVisible()
   await page.getByRole('button', { name: 'Som-hi!' }).click()
   await expect(page).toHaveURL(/#\/diagnostic$/)
@@ -105,10 +101,9 @@ export async function passAdultCheck(page: Page): Promise<void> {
   await gate.getByRole('button', { name: 'Entra' }).click()
 }
 
-/** Petals shown on the map header. */
+/** Coins ("monedes") shown in the town's HUD (nothing is spent in these flows, so coins = petals earned). */
 export async function petalsOnMap(page: Page): Promise<number> {
-  const label = await page.getByLabel(/^\d+ pètals$/).getAttribute('aria-label')
-  return Number(/^(\d+)/.exec(label ?? '')?.[1] ?? NaN)
+  return Number(await page.getByTestId('coins').getAttribute('data-coins'))
 }
 
 /** Player database names on this device, from the registry, by player name. */
@@ -163,11 +158,11 @@ export interface DiagnosticRun {
 const MAX_DIAGNOSTIC_QUESTIONS = 40
 const CLICK_TIMEOUT_MS = 5_000
 
-/** Answers every diagnostic item correctly until the map shows. Records any score-like text seen. */
+/** Answers every diagnostic item correctly until the street shows. Records any score-like text seen. */
 export async function completeDiagnostic(page: Page): Promise<DiagnosticRun> {
   const answers = page.getByRole('group', { name: 'Respostes' })
-  const celebrate = page.getByRole('button', { name: 'Veure el mapa' })
-  const stepMsg = page.getByText('Un pas d’exploració!')
+  const celebrate = page.getByRole('button', { name: 'Surt al carrer' })
+  const stepMsg = page.getByText('Gràcies, veí!')
   const question = page.getByRole('heading', { level: 2 })
   const run: DiagnosticRun = { questions: [], scoreLeaks: [] }
 
@@ -199,7 +194,8 @@ export async function completeDiagnostic(page: Page): Promise<DiagnosticRun> {
   await expect(celebrate).toBeVisible()
   await checkNoScore()
   await celebrate.click()
-  await expect(page).toHaveURL(/#\/map$/)
+  await expect(page).toHaveURL(/#\/poble$/)
+  await expect(page.getByTestId('street')).toBeVisible()
   return run
 }
 

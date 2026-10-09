@@ -73,7 +73,7 @@ export function ChestScene({ character, alreadyRewarded, onOpen, onMap, onAlbum 
       {phase === 'open' && (
         <div className="flex flex-wrap justify-center gap-4">
           <Button big tilt={-2} onClick={onMap}>
-            Tornar al mapa
+            Tornar al poble
           </Button>
           <Button big variant="soft" tilt={2} onClick={onAlbum}>
             Veure l’àlbum

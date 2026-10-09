@@ -72,8 +72,11 @@ export default function App() {
                 </RequireProfile>
               }
             />
+            {/* The island map is retired: the town is home. Old links and bookmarks land there. */}
+            <Route path="/map" element={<Home />} />
+            {/* The old island map stays reachable (not linked from the town) for the skill-by-skill view. */}
             <Route
-              path="/map"
+              path="/illes"
               element={
                 <RequireProfile>
                   <MapPage />
@@ -120,7 +123,14 @@ export default function App() {
                 </RequireProfile>
               }
             />
-            <Route path="/poble" element={<RequireProfile><TownPage /></RequireProfile>} />
+            <Route
+              path="/poble"
+              element={
+                <RequireProfile>
+                  <TownPage />
+                </RequireProfile>
+              }
+            />
             <Route path="*" element={<Home />} />
           </Routes>
         </Suspense>

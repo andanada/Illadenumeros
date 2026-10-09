@@ -3,9 +3,9 @@ import { CHILD, createProfile, dumpProgress, expect, passAdultCheck, PROGRESS_ST
 
 /** Lock icon on the map -> solve the multiplication -> family page. */
 async function passAdultGate(page: Page): Promise<void> {
-  await page.goto('/#/map')
+  await page.goto('/#/poble')
   await expect(page.getByText(`Hola, ${CHILD.name}!`)).toBeVisible()
-  await page.getByRole('button', { name: 'Per a la família (només adults)' }).click()
+  await page.getByRole('button', { name: 'Per a les famílies' }).click()
   await passAdultCheck(page)
   await expect(page).toHaveURL(/#\/familia$/)
   await expect(page.getByRole('heading', { level: 1, name: 'Per a la família' })).toBeVisible()
@@ -51,7 +51,7 @@ test.describe('Per a la família', () => {
       await expect(other.getByRole('status')).toContainText('Còpia recuperada')
       expect(await dumpProgress(other)).toEqual(original)
 
-      await other.goto('/#/map')
+      await other.goto('/#/poble')
       await expect(other.getByText(`Hola, ${CHILD.name}!`)).toBeVisible()
     } finally {
       await fresh.close()

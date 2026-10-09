@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { unlockAudio } from '../../core/audio/sfx'
 import { isMuted, setMuted } from '../../core/audio/speech'
+import { SyncStatusDot } from '../../features/account/SyncStatusDot'
 import { AdultGate } from '../../features/family/AdultGate'
 import type { AvatarSpec } from '../model/types'
 import { Avatar } from '../scene/art'
@@ -44,15 +45,39 @@ function ParentsLock() {
   const [seed] = useState(() => `poble-${new Date().toDateString()}`)
   return (
     <>
-      <button type="button" aria-label="Per a les famílies" onClick={() => setOpen(true)} className={`${round} text-2xl opacity-80`}>
-        <span aria-hidden="true">🔒</span>
-      </button>
+      <span className="relative">
+        <button type="button" aria-label="Per a les famílies" onClick={() => setOpen(true)} className={`${round} text-2xl opacity-80`}>
+          <span aria-hidden="true">🔒</span>
+        </button>
+        {/* Adults only: account sync state (decorative, nothing for the child to read). */}
+        <span className="pointer-events-none absolute -right-1 -top-1 flex">
+          <SyncStatusDot />
+        </span>
+      </span>
       {open && <AdultGate seed={seed} onPass={() => navigate('/familia')} onCancel={() => setOpen(false)} />}
     </>
   )
 }
 
-/** Always-visible town HUD: avatar (wardrobe), coins, errands board, sound and the parents' lock. */
+function AlbumButton() {
+  const navigate = useNavigate()
+  return (
+    <button
+      type="button"
+      aria-label="Àlbum de pegatines"
+      onClick={() => {
+        unlockAudio()
+        worldSfx.squish()
+        navigate('/album')
+      }}
+      className={`${round} text-[1.7rem]`}
+    >
+      <span aria-hidden="true">📒</span>
+    </button>
+  )
+}
+
+/** Always-visible town HUD: avatar (wardrobe), coins, sticker album, errands board, sound and the parents' lock. */
 export function Hud({ avatar, coins, pendingErrands, onWardrobe, onErrands }: HudProps) {
   return (
     <header className="pointer-events-none absolute inset-x-0 top-0 z-50 flex items-start justify-between gap-2 p-2 sm:p-3 [&>*]:pointer-events-auto">
@@ -73,6 +98,7 @@ export function Hud({ avatar, coins, pendingErrands, onWardrobe, onErrands }: Hu
         <CoinCounter coins={coins} />
       </div>
       <div className="ml-auto flex items-center gap-2">
+        <AlbumButton />
         <button
           type="button"
           aria-label={pendingErrands > 0 ? `Encàrrecs: ${pendingErrands} per fer` : 'Encàrrecs'}

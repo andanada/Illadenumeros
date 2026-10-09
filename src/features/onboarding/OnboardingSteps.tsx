@@ -1,8 +1,7 @@
-import { motion } from 'motion/react'
-import { sfx } from '../../core/audio/sfx'
-import { CHARACTER_IDS, THEME_COLORS, type CharacterId, type ThemeColor } from '../../core/storage/db'
-import { CHARACTERS } from '../../ui/mascot/characters'
-import { Mascot } from '../../ui/mascot/Mascot'
+import type { CharacterId } from '../../core/storage/db'
+import { PropArt } from '../../world/art/props'
+import { Avatar, Neighbour, Pet } from '../../world/characters'
+import type { AvatarSpec } from '../../world/model/types'
 import { welcomeText } from './welcomeText'
 
 export const MAX_NAME = 20
@@ -49,82 +48,27 @@ export function NameStep({
   )
 }
 
-export function CharacterStep({ value, onPick }: { value: CharacterId | undefined; onPick: (id: CharacterId) => void }) {
+/** «Benvinguda al poble!»: her new character in the street, her pet and a neighbour waving. */
+export function WelcomeTownStep({ name, avatar, pet }: { name: string; avatar: AvatarSpec; pet: CharacterId }) {
   return (
-    <div className="flex flex-col items-center gap-5">
-      <h2 className="text-4xl font-bold tracking-tight text-brand-dark">Qui és el teu preferit?</h2>
-      <div role="radiogroup" aria-label="Personatge preferit" className="flex flex-wrap justify-center gap-4">
-        {CHARACTER_IDS.map((id, i) => {
-          const selected = value === id
-          return (
-            <motion.button
-              key={id}
-              type="button"
-              role="radio"
-              aria-checked={selected}
-              aria-label={CHARACTERS[id].name}
-              whileTap={{ scale: 0.94 }}
-              onClick={() => {
-                sfx.pop()
-                onPick(id)
-              }}
-              style={{ rotate: selected ? 0 : i % 2 === 0 ? -3 : 3 }}
-              className={`sticker flex min-h-40 w-36 flex-col items-center rounded-[1.8rem] px-2 pb-3 pt-2 ${selected ? 'bg-brand-soft ring-4 ring-brand' : 'bg-white'}`}
-            >
-              <Mascot character={id} mood={selected ? 'balla' : 'pensa'} size={96} />
-              <span className="mt-1 text-2xl font-bold text-brand-dark">{CHARACTERS[id].name}</span>
-            </motion.button>
-          )
-        })}
+    <div className="flex w-full max-w-xl flex-col items-center gap-4 text-center">
+      <h2 className="text-4xl font-bold tracking-tight text-brand-dark">Benvinguda al poble!</h2>
+      <div
+        data-world="dia"
+        className="sticker relative flex h-64 w-full items-end justify-center gap-2 overflow-hidden rounded-[2rem] px-4 sm:h-72"
+        style={{ background: 'linear-gradient(var(--world-sky-top), var(--world-sky-bottom))' }}
+      >
+        <div aria-hidden="true" className="absolute inset-x-0 bottom-0 h-12" style={{ background: 'var(--world-ground)' }} />
+        <div aria-hidden="true" className="absolute bottom-8 left-[4%] opacity-90">
+          <PropArt id="facana-botiga" size={170} title="" shadow={false} />
+        </div>
+        <div className="relative flex items-end gap-1">
+          <Neighbour id="senyora-pilar" pose="wave" size={150} />
+          <Avatar spec={avatar} pose="wave" size={190} title={`${name}, el teu personatge`} />
+          <Pet id={pet} pose="happy" size={84} />
+        </div>
       </div>
-    </div>
-  )
-}
-
-const SWATCH: Record<ThemeColor, { hex: string; label: string }> = {
-  lila: { hex: '#8b5cf6', label: 'Lila' },
-  rosa: { hex: '#ec4899', label: 'Rosa' },
-  blau: { hex: '#3b82f6', label: 'Blau' },
-  menta: { hex: '#14b8a6', label: 'Menta' },
-  taronja: { hex: '#f97316', label: 'Taronja' },
-  negre: { hex: '#1d1530', label: 'Negre' },
-}
-
-export function ColorStep({ value, onPick }: { value: ThemeColor; onPick: (c: ThemeColor) => void }) {
-  return (
-    <div className="flex flex-col items-center gap-5">
-      <h2 className="text-4xl font-bold tracking-tight text-brand-dark">Quin color t’agrada?</h2>
-      <div role="radiogroup" aria-label="Color preferit" className="grid grid-cols-3 gap-5">
-        {THEME_COLORS.map((c, i) => (
-          <motion.button
-            key={c}
-            type="button"
-            role="radio"
-            aria-checked={value === c}
-            aria-label={SWATCH[c].label}
-            whileTap={{ scale: 0.9 }}
-            onClick={() => {
-              sfx.pop()
-              onPick(c)
-            }}
-            style={{ background: SWATCH[c].hex, rotate: value === c ? 0 : i % 2 === 0 ? -4 : 4 }}
-            className={`sticker grid size-24 place-items-center rounded-full text-4xl text-white ${value === c ? 'ring-4 ring-ink ring-offset-2' : ''}`}
-          >
-            {value === c ? '✓' : ''}
-          </motion.button>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-export function WelcomeStep({ name, character }: { name: string; character: CharacterId }) {
-  return (
-    <div className="flex flex-col items-center gap-3 text-center">
-      <Mascot character={character} mood="salut" size={190} />
-      <p className="sticker max-w-md rounded-[2rem] bg-white px-6 py-4 text-3xl font-bold leading-snug text-brand-dark">
-        {welcomeText(name, character)}
-      </p>
+      <p className="sticker max-w-md rounded-[2rem] bg-white px-6 py-4 text-2xl font-bold leading-snug text-brand-dark">{welcomeText(name, pet)}</p>
     </div>
   )
 }

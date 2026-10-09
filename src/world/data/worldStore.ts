@@ -124,6 +124,16 @@ export async function grantCoins(amount: number, reason: string): Promise<boolea
   return granted
 }
 
+/**
+ * Gives a catalogue item for free (the daily board's surprise gift). `reason` is a short tag such as
+ * 'tauler:2026-10-09' (1..64 chars). Coins spent do not change. Idempotent if already owned.
+ */
+export function grantItem(itemId: string, reason: string): Promise<logic.WorldResult | typeof NO_PLAYER> {
+  if (useProgress.getState().activePlayerId === undefined) return Promise.resolve(NO_PLAYER)
+  if (!reasonSchema.safeParse(reason).success) return Promise.resolve({ ok: false, reason: 'invalid' })
+  return mutate((row) => logic.grant(row, itemId))
+}
+
 /** Coins she can spend now: max(0, petals earned - coins spent). */
 export const currentCoins = (): number => coinsOf(useProgress.getState().rewards.petals, useWorldStore.getState().row?.petalsSpent ?? 0)
 

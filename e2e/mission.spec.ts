@@ -2,9 +2,7 @@ import { CHILD, expect, seededTest as test, SCORE_RE } from './helpers'
 
 test.describe('Missió d’avui', () => {
   test('mostra les 4 etapes i el primer joc comença', async ({ page, consoleErrors }) => {
-    await page.goto('/#/map')
-    await page.getByRole('button', { name: /Missió d’avui/ }).click()
-    await expect(page).toHaveURL(/#\/mission$/)
+    await page.goto('/#/mission')
 
     await expect(page.getByRole('heading', { level: 1, name: 'Missió d’avui' })).toBeVisible()
     await expect(page.getByText(`Hola, ${CHILD.name}! Són 4 jocs ràpids.`)).toBeVisible()
@@ -25,10 +23,10 @@ test.describe('Missió d’avui', () => {
     expect(consoleErrors).toEqual([])
   })
 
-  test('el botó Enrere de la missió torna al mapa', async ({ page }) => {
+  test('el botó Enrere de la missió torna al poble', async ({ page }) => {
     await page.goto('/#/mission')
     await expect(page.getByRole('list', { name: /^Missió: 0 de 4 fets$/ })).toBeVisible()
     await page.getByRole('button', { name: 'Enrere' }).click()
-    await expect(page).toHaveURL(/#\/map$/)
+    await expect(page).toHaveURL(/#\/poble$/)
   })
 })

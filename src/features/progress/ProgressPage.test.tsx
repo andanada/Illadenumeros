@@ -23,7 +23,7 @@ function renderPage() {
     <MemoryRouter initialEntries={['/progres']}>
       <Routes>
         <Route path="/progres" element={<ProgressPage now={() => NOW} />} />
-        <Route path="/map" element={<p>Mapa</p>} />
+        <Route path="/poble" element={<p>El poble</p>} />
       </Routes>
     </MemoryRouter>,
   )
@@ -44,10 +44,10 @@ describe('ProgressPage', () => {
     expect(screen.queryByRole('heading', { name: 'Resum' })).not.toBeInTheDocument()
   })
 
-  it('goes back to the map when the check is cancelled', async () => {
+  it('goes back to the town when the check is cancelled', async () => {
     renderPage()
     await userEvent.click(screen.getByRole('button', { name: 'Tanca' }))
-    expect(screen.getByText('Mapa')).toBeInTheDocument()
+    expect(screen.getByText('El poble')).toBeInTheDocument()
   })
 
   it('shows a friendly empty state without any history', async () => {

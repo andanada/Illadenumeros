@@ -1,16 +1,21 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { speak } from '../../core/audio/speech'
 import { useProgress } from '../../core/progress/store'
-import type { CharacterId, ThemeColor } from '../../core/storage/db'
 import { Button } from '../../ui/Button'
 import { Screen } from '../../ui/Screen'
-import { CharacterStep, ColorStep, NameStep, WelcomeStep } from './OnboardingSteps'
+import { AvatarCreator, defaultAvatar } from '../../world/characters'
+import { saveAvatar } from '../../world/data'
+import type { AvatarSpec } from '../../world/model/types'
+import { wardrobeOwned } from '../../world/wardrobe/wardrobeLogic'
+import { NameStep, WelcomeTownStep } from './OnboardingSteps'
 import { validateName } from './nameSchema'
+import { profileFromAvatar } from './profileFromAvatar'
 import { welcomeText } from './welcomeText'
 
-const STEPS = ['nom', 'personatge', 'color', 'benvinguda'] as const
+const STEPS = ['nom', 'personatge', 'benvinguda'] as const
 const LAST_STEP = STEPS.length - 1
+const STARTER = defaultAvatar('nuvol', 'menta')
 
 function Dots({ step }: { step: number }) {
   return (
@@ -25,6 +30,11 @@ function Dots({ step }: { step: number }) {
   )
 }
 
+const setTheme = (spec: AvatarSpec): void => {
+  document.documentElement.dataset.theme = profileFromAvatar(spec).color
+}
+
+/** First day: her name → her character («Crea el teu personatge») → «Benvinguda al poble!» → the arrival errands. */
 export default function OnboardingPage() {
   const navigate = useNavigate()
   const createPlayer = useProgress((s) => s.createPlayer)
@@ -32,26 +42,23 @@ export default function OnboardingPage() {
   const [step, setStep] = useState(0)
   const [name, setName] = useState('')
   const [error, setError] = useState<string>()
-  const [character, setCharacter] = useState<CharacterId>()
-  const [color, setColor] = useState<ThemeColor>('lila')
+  const [avatar, setAvatar] = useState<AvatarSpec>(STARTER)
   const [saving, setSaving] = useState(false)
-
-  const pickColor = (c: ThemeColor) => {
-    setColor(c)
-    document.documentElement.dataset.theme = c
-  }
+  const owned = useMemo(() => wardrobeOwned([]), [])
+  const pet = profileFromAvatar(avatar).character
 
   useEffect(() => {
-    if (step === LAST_STEP && character) speak(welcomeText(name, character))
-  }, [step, character, name])
+    if (step === LAST_STEP) speak(welcomeText(name, pet))
+  }, [step, name, pet])
 
   const finish = async () => {
     const check = validateName(name)
-    if (!check.ok || !character) return
+    if (!check.ok) return
     setSaving(true)
     try {
-      // Every onboarding creates a new player, with an empty progress of their own.
-      await createPlayer({ name: check.name, character, color })
+      // Every onboarding creates a new player, with an empty progress of their own; then her look is saved.
+      await createPlayer({ name: check.name, ...profileFromAvatar(avatar) })
+      await saveAvatar(avatar)
       navigate('/diagnostic', { replace: true })
     } catch {
       setError('Ui, no s’ha pogut desar. Torna-ho a provar!')
@@ -70,7 +77,23 @@ export default function OnboardingPage() {
     setStep(step + 1)
   }
 
-  const canContinue = step !== 1 || character !== undefined
+  if (step === 1) {
+    return (
+      <div className="h-dvh w-full overflow-hidden font-display">
+        <AvatarCreator
+          initial={avatar}
+          owned={owned}
+          onChange={setTheme}
+          onDone={(spec) => {
+            setAvatar(spec)
+            setTheme(spec)
+            setStep(2)
+          }}
+          className="h-full"
+        />
+      </div>
+    )
+  }
 
   return (
     <Screen back={step === 0 ? (hasPlayers ? '/qui-juga' : '/start') : () => setStep(step - 1)} right={<Dots step={step} />}>
@@ -86,15 +109,13 @@ export default function OnboardingPage() {
             onSubmit={() => void next()}
           />
         )}
-        {step === 1 && <CharacterStep value={character} onPick={setCharacter} />}
-        {step === 2 && <ColorStep value={color} onPick={pickColor} />}
-        {step === LAST_STEP && character && <WelcomeStep name={name} character={character} />}
+        {step === LAST_STEP && <WelcomeTownStep name={name} avatar={avatar} pet={pet} />}
         {step === LAST_STEP && error && (
           <p role="alert" className="text-xl font-semibold text-chicle">
             {error}
           </p>
         )}
-        <Button big tilt={-1.5} disabled={!canContinue || saving} onClick={() => void next()}>
+        <Button big tilt={-1.5} disabled={saving} onClick={() => void next()}>
           {step === LAST_STEP ? 'Som-hi!' : 'Continua'}
         </Button>
       </div>

@@ -58,11 +58,12 @@ test.describe('PWA en producció', () => {
     try {
       await page.reload()
       await expect(page.getByText(`Hola, ${CHILD.name}!`)).toBeVisible()
-      await page.getByRole('button', { name: /Missió d’avui/ }).click()
-      await expect(page.getByRole('list', { name: /^Missió: 0 de 4 fets$/ })).toBeVisible()
+      // A place is a lazy chunk: entering it offline proves the precache covers the town too.
+      await page.getByRole('button', { name: 'Entra a la Botiga' }).click()
+      await expect(page.getByRole('region', { name: 'La Botiga', exact: true })).toBeVisible()
       // A fresh navigation to a deep hash route (lazy chunk) also works offline.
       await page.goto('/#/album')
-      await expect(page.locator('main')).toBeVisible()
+      await expect(page.getByRole('heading', { level: 1, name: 'Àlbum de pegatines' })).toBeVisible()
     } finally {
       await context.setOffline(false)
     }

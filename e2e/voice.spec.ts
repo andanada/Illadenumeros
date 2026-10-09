@@ -67,7 +67,7 @@ async function installProbes(page: Page): Promise<void> {
 const probeOf = (page: Page): Promise<Probe> => page.evaluate(() => (window as unknown as { __voice: Probe }).__voice)
 
 async function openFirstQuestion(page: Page): Promise<void> {
-  await page.goto('/#/map')
+  await page.goto('/#/poble')
   // Any tap counts as the user gesture the browser needs before audio may start.
   await page.locator('body').click({ position: { x: 5, y: 5 } })
   await page.evaluate(() => {

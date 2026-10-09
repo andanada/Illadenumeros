@@ -55,7 +55,7 @@ export function GameSummaryView({ summary, character, onReplay, onMap }: GameSum
           Tornar a jugar
         </Button>
         <Button big variant="soft" tilt={2} onClick={onMap}>
-          Tornar al mapa
+          Tornar al poble
         </Button>
       </div>
     </div>

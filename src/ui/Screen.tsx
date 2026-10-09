@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { isMuted, setMuted, speak } from '../core/audio/speech'
 import { Button } from './Button'
+import { useEmbeddedScreen } from './EmbeddedScreen'
 
 export function SpeakerButton({ text, label = 'Escoltar' }: { text: string; label?: string }) {
   return (
@@ -46,6 +47,26 @@ export function Screen({
   children: React.ReactNode
 }) {
   const navigate = useNavigate()
+  const embedded = useEmbeddedScreen()
+  if (embedded) {
+    return (
+      <div className="flex min-h-full flex-col" data-embedded-screen="true">
+        <header className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 px-2 py-1.5">
+          <div className="flex min-w-0 items-center gap-2">
+            {back !== undefined && (
+              <Button variant="soft" aria-label="Enrere" className="px-4" onClick={() => (typeof back === 'function' ? back() : navigate(back))}>
+                ←
+              </Button>
+            )}
+            {/* The cabinet's marquee already shows the name. */}
+            {title && <h1 className="sr-only">{title}</h1>}
+          </div>
+          <div className="flex flex-wrap items-center justify-end gap-2">{right}</div>
+        </header>
+        <main className="flex flex-1 flex-col">{children}</main>
+      </div>
+    )
+  }
   return (
     <div className="notebook flex min-h-full flex-col overflow-hidden">
       <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-2 z-0 hidden flex-col justify-around py-8 sm:flex">

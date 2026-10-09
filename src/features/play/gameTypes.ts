@@ -35,4 +35,5 @@ export const GAME_TITLES: Record<string, string> = {
   'poble-botiga': 'La Botiga del Poble',
   'poble-casa': 'La Casa del Poble',
   'poble-autobus': 'L’Autobús del Poble',
+  'poble-perruqueria': 'La Perruqueria del Poble',
 }

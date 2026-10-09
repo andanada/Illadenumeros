@@ -17,7 +17,7 @@ describe('OnboardingPage', () => {
     expect(screen.getByLabelText('Com et dius?')).toBeInTheDocument()
   })
 
-  it('moves to the character step with a valid name and requires a pick', async () => {
+  it('moves to the avatar creator with a valid name', async () => {
     render(
       <MemoryRouter>
         <OnboardingPage />
@@ -25,16 +25,12 @@ describe('OnboardingPage', () => {
     )
     await userEvent.type(screen.getByLabelText('Com et dius?'), 'Júlia')
     await userEvent.click(screen.getByRole('button', { name: 'Continua' }))
-    expect(screen.getByRole('radiogroup', { name: 'Personatge preferit' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Continua' })).toBeDisabled()
-    await userEvent.click(screen.getByRole('radio', { name: 'Nyx' }))
-    expect(screen.getByRole('button', { name: 'Continua' })).toBeEnabled()
+    expect(screen.getByRole('region', { name: 'Crea el teu personatge' })).toBeInTheDocument()
   })
 
-  it('finishing creates a NEW player (its own progress) and goes to that player’s diagnostic', async () => {
+  it('name → avatar → «Benvinguda al poble!» creates a NEW player and goes to the arrival errands', async () => {
     const createPlayer = vi.fn(async () => '11111111-1111-4111-8111-111111111111')
-    const saveProfile = vi.fn(async () => undefined)
-    useProgress.setState({ createPlayer, saveProfile })
+    useProgress.setState({ createPlayer })
     render(
       <MemoryRouter initialEntries={['/onboarding']}>
         <Routes>
@@ -45,13 +41,10 @@ describe('OnboardingPage', () => {
     )
     await userEvent.type(screen.getByLabelText('Com et dius?'), ' Pau ')
     await userEvent.click(screen.getByRole('button', { name: 'Continua' }))
-    await userEvent.click(screen.getByRole('radio', { name: 'Blau' }))
-    await userEvent.click(screen.getByRole('button', { name: 'Continua' }))
-    await userEvent.click(screen.getByRole('radio', { name: 'Menta' }))
-    await userEvent.click(screen.getByRole('button', { name: 'Continua' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Fet!' }))
+    expect(await screen.findByRole('heading', { name: 'Benvinguda al poble!' })).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Som-hi!' }))
     expect(await screen.findByText('Prova inicial')).toBeInTheDocument()
-    expect(createPlayer).toHaveBeenCalledWith({ name: 'Pau', character: 'blau', color: 'menta' })
-    expect(saveProfile).not.toHaveBeenCalled()
+    expect(createPlayer).toHaveBeenCalledWith({ name: 'Pau', character: expect.any(String), color: expect.any(String) })
   })
 })

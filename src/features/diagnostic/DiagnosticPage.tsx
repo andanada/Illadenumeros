@@ -8,49 +8,44 @@ import { speak } from '../../core/audio/speech'
 import { currentAnchor, placementFrom, recordDiagnostic, startDiagnostic, type DiagnosticState } from '../../core/engine/diagnostic'
 import type { Choice } from '../../core/ambit/types'
 import { useProgress } from '../../core/progress/store'
-import { Button } from '../../ui/Button'
 import { Confetti } from '../../ui/Confetti'
-import { MuteToggle, Screen, SpeakerButton } from '../../ui/Screen'
-import { Mascot } from '../../ui/mascot/Mascot'
+import { MuteToggle, SpeakerButton } from '../../ui/Screen'
 import { ChoiceBubble } from '../../ui/question/ChoiceBubble'
 import { VisualModelView } from '../../ui/visual/VisualModelView'
-import type { CharacterId } from '../../core/storage/db'
+import { NEIGHBOURS } from '../../world/characters/neighbours'
+import { Avatar, Grain, Neighbour } from '../../world/scene/art'
+import { useWorld } from '../../world/data'
+import type { AvatarSpec } from '../../world/model/types'
 import { useQuestionFlow } from '../play/useQuestionFlow'
 import { diagnosticAnswer, stripSteps } from './diagnosticLogic'
 
 const STEP_MS = 800
 const REDIRECT_MS = 4500
 
-function ExpeditionStrip({ state }: { state: DiagnosticState }) {
+function ErrandsStrip({ state }: { state: DiagnosticState }) {
   const steps = stripSteps(state)
   return (
-    <ol className="flex items-center gap-3" aria-label="Progrés de l’expedició">
-      {steps.map((s, i) => (
-        <li key={s.anchor} className="flex items-center gap-3">
-          <span
-            aria-hidden="true"
-            className={`sticker grid size-12 place-items-center rounded-full text-2xl ${
-              s.status === 'done' ? 'bg-sol' : s.status === 'current' ? 'bg-chicle' : 'bg-white opacity-60'
-            }`}
-          >
-            {s.status === 'done' ? '⭐' : s.status === 'current' ? '🧭' : '🏝️'}
-          </span>
-          {i < steps.length - 1 && <span aria-hidden="true" className="h-1 w-5 rounded border-t-4 border-dotted border-brand/40" />}
+    <ol className="flex items-center gap-1 sm:gap-2" aria-label="Progrés dels primers encàrrecs">
+      {steps.map((s) => (
+        <li key={s.anchor} aria-hidden="true" className={`grid size-6 place-items-center rounded-full text-sm font-bold sm:size-9 sm:text-lg shadow-[var(--world-shadow-soft)] ${s.status === 'done' ? 'bg-[var(--world-menta)] text-white' : s.status === 'current' ? 'bg-[var(--world-mango)]' : 'bg-white/70'}`}>
+          {s.status === 'done' ? '✓' : ''}
         </li>
       ))}
     </ol>
   )
 }
 
-function Celebration({ character, onGo }: { character: CharacterId; onGo: () => void }) {
+function Celebration({ avatar, onGo }: { avatar: AvatarSpec; onGo: () => void }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-6 p-6 text-center">
       <Confetti count={60} emoji />
-      <Mascot character={character} mood="balla" size={180} />
-      <motion.h2 initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-5xl font-bold text-brand-dark">
-        Hem descobert l’illa!
+      <Avatar spec={avatar} pose="cheer" size={220} />
+      <motion.h2 initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-4xl font-bold text-[var(--world-ink)] sm:text-5xl">
+        Ja coneixes el poble!
       </motion.h2>
-      <Button big onClick={onGo}>Veure el mapa</Button>
+      <button type="button" onClick={onGo} className="min-h-20 rounded-full bg-[var(--world-coral)] px-10 text-3xl font-bold text-white shadow-[var(--world-shadow-lift)] active:translate-y-0.5">
+        Surt al carrer
+      </button>
     </div>
   )
 }
@@ -58,14 +53,11 @@ function Celebration({ character, onGo }: { character: CharacterId; onGo: () => 
 /** Milliseconds since a `performance.now()` reading; called from handlers only. */
 const elapsedSince = (start: number): number => performance.now() - start
 
-function useCharacter() {
-  return useProgress((s) => s.profile?.character) ?? 'mixa'
-}
 
-/** "L'Expedició del Mapa": placement test dressed as a treasure expedition. No score, no wrong feedback. */
+/** «Els primers encàrrecs»: the placement test as the neighbours' requests on her arrival day. No score, no wrong feedback. */
 export default function DiagnosticPage() {
   const navigate = useNavigate()
-  const character = useCharacter()
+  const avatar = useWorld().avatar
   const finishDiagnostic = useProgress((s) => s.finishDiagnostic)
   const [diag, setDiag] = useState<DiagnosticState>(() => startDiagnostic([...DIAGNOSTIC_ANCHORS]))
   const [picked, setPicked] = useState<string | undefined>(undefined)
@@ -100,7 +92,7 @@ export default function DiagnosticPage() {
     await finishDiagnostic(placementFrom(state, matesAmbit.skills))
     sfx.fanfare()
     setFinished(true)
-    timers.current.push(setTimeout(() => navigate('/map'), REDIRECT_MS))
+    timers.current.push(setTimeout(() => navigate('/poble'), REDIRECT_MS))
   }
 
   const pick = async (choice: Choice) => {
@@ -127,27 +119,37 @@ export default function DiagnosticPage() {
     }
   }
 
+  const neighbour = NEIGHBOURS[(diag.index + 1) % NEIGHBOURS.length]
+
   if (finished) {
     return (
-      <Screen title="L’Expedició del Mapa">
-        <Celebration character={character} onGo={() => navigate('/map')} />
-      </Screen>
+      <div data-world="dia" className="flex min-h-dvh flex-col font-display" style={{ background: 'linear-gradient(var(--world-sky-top), var(--world-sky-bottom))' }}>
+        <h1 className="sr-only">Els primers encàrrecs</h1>
+        <Celebration avatar={avatar} onGo={() => navigate('/poble')} />
+      </div>
     )
   }
 
   return (
-    <Screen title="L’Expedició del Mapa" right={<MuteToggle />}>
-      <div className="flex flex-col items-center gap-4 px-4 pb-3">
-        <ExpeditionStrip state={diag} />
-        <p className="text-xl font-bold text-brand-dark">Anem a descobrir l’illa!</p>
-      </div>
-      <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-5 px-3 pb-8">
-        <div className="flex flex-wrap items-center justify-center gap-4">
-          <h2 className="text-center text-5xl font-bold tracking-tight text-brand-dark sm:text-6xl">{item.text}</h2>
-          <SpeakerButton text={item.speech} label="Escoltar la pregunta" />
+    <div data-world="dia" className="relative flex min-h-dvh flex-col overflow-x-hidden font-display" style={{ background: 'linear-gradient(var(--world-sky-top), var(--world-sky-bottom) 70%)' }}>
+      <header className="flex flex-wrap items-center justify-between gap-3 p-3 sm:p-4">
+        <h1 className="rounded-full bg-white/85 px-4 py-2 text-xl font-bold text-[var(--world-ink)] shadow-[var(--world-shadow-soft)] sm:text-2xl">Els primers encàrrecs</h1>
+        <div className="flex items-center gap-3">
+          <ErrandsStrip state={diag} />
+          <MuteToggle />
+        </div>
+      </header>
+      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col items-center gap-4 px-3 pb-24">
+        <div className="flex w-full min-w-0 flex-col items-center gap-1 sm:flex-row sm:items-end sm:justify-center sm:gap-2">
+          {neighbour && <Neighbour id={neighbour.id} pose="wave" size={140} />}
+          <div className="relative flex min-w-0 max-w-full flex-wrap items-center justify-center gap-3 rounded-[2rem] bg-white px-4 py-3 shadow-[var(--world-shadow-lift)] sm:mb-10 sm:px-5 sm:py-4">
+            <p className="sr-only">{neighbour?.name} et demana:</p>
+            <h2 className="text-center min-w-0 break-words text-3xl font-bold tracking-tight text-[var(--world-ink)] sm:text-5xl">{item.text}</h2>
+            <SpeakerButton text={item.speech} label="Escoltar la pregunta" />
+          </div>
         </div>
         {item.visual.kind !== 'none' && (
-          <div className="rounded-[2rem] bg-white/60 p-3">
+          <div className="rounded-[2rem] bg-white/70 p-3">
             <VisualModelView key={item.id} model={item.visual} size="md" />
           </div>
         )}
@@ -165,11 +167,12 @@ export default function DiagnosticPage() {
           ))}
         </div>
         {picked !== undefined && (
-          <motion.p initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-3xl font-bold text-almost" aria-live="polite">
-            ⭐ Un pas d’exploració!
+          <motion.p initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-3xl font-bold text-[var(--world-ink)]" aria-live="polite">
+            Gràcies, veí!
           </motion.p>
         )}
-      </div>
-    </Screen>
+      </main>
+      <Grain />
+    </div>
   )
 }

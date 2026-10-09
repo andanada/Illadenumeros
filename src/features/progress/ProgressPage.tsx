@@ -51,8 +51,8 @@ export default function ProgressPage({ now }: { now?: () => number }) {
   const [seed] = useState(() => crypto.randomUUID())
   const [passed, setPassed] = useState(false)
   return (
-    <Screen title="Progrés" back="/map">
-      {passed ? <Report now={now} /> : <AdultGate seed={seed} onPass={() => setPassed(true)} onCancel={() => navigate('/map', { replace: true })} />}
+    <Screen title="Progrés" back="/poble">
+      {passed ? <Report now={now} /> : <AdultGate seed={seed} onPass={() => setPassed(true)} onCancel={() => navigate('/poble', { replace: true })} />}
     </Screen>
   )
 }

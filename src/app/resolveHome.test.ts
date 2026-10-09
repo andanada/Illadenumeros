@@ -15,15 +15,15 @@ describe('resolveHome', () => {
     expect(resolveHome({ playerCount: 2, activePlayerId: ID, profile: { diagnosticDone: false } })).toBe('/diagnostic')
   })
 
-  it('sends the active player with diagnostic to the map', () => {
-    expect(resolveHome({ playerCount: 1, activePlayerId: ID, profile: { diagnosticDone: true } })).toBe('/map')
+  it('sends the active player with diagnostic to the town', () => {
+    expect(resolveHome({ playerCount: 1, activePlayerId: ID, profile: { diagnosticDone: true } })).toBe('/poble')
   })
 
   it('an active player whose profile could not be read goes back to the picker', () => {
     expect(resolveHome({ playerCount: 2, activePlayerId: ID, profile: undefined })).toBe('/qui-juga')
   })
 
-  it('a profile kept only in memory (storage unavailable) still reaches the map', () => {
-    expect(resolveHome({ playerCount: 0, activePlayerId: ID, profile: { diagnosticDone: true } })).toBe('/map')
+  it('a profile kept only in memory (storage unavailable) still reaches the town', () => {
+    expect(resolveHome({ playerCount: 0, activePlayerId: ID, profile: { diagnosticDone: true } })).toBe('/poble')
   })
 })

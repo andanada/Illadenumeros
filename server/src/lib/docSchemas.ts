@@ -28,6 +28,7 @@ const GAME_IDS = [
   'poble-botiga',
   'poble-casa',
   'poble-autobus',
+  'poble-perruqueria',
 ] as const
 const MISCONCEPTIONS = [
   'off-by-one',

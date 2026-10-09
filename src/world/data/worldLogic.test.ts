@@ -4,7 +4,7 @@ import type { WorldRow } from '../../core/storage/worldRow'
 import type { CatalogEntry } from '../model/types'
 import { registerCatalog, resetCatalogForTest } from './catalog'
 import { defaultWorld } from './defaultWorld'
-import { adopt, buy, move, place, remove, setAvatar } from './worldLogic'
+import { adopt, buy, grant, move, place, remove, setAvatar } from './worldLogic'
 
 const SOFA: CatalogEntry = { id: 'sofa', kind: 'furniture', name: 'Sofà', price: 20, scene: 'casa' }
 const GAT: CatalogEntry = { id: 'gat-gris', kind: 'pet', name: 'Gat', price: 15 }
@@ -120,5 +120,27 @@ describe('adopt', () => {
   it('refuses a pet that is not bought, or not a pet at all', () => {
     expect(adopt(base(), 'gat-gris')).toEqual({ ok: false, reason: 'not-owned' })
     expect(adopt({ ...base(), owned: ['sofa'] }, 'sofa')).toEqual({ ok: false, reason: 'unknown-item' })
+  })
+})
+
+describe('grant (free gift)', () => {
+  it('adds a catalogue item without charging, never mutating the input', () => {
+    const row = Object.freeze(base())
+    const r = grant(row, 'sofa')
+    expect(r).toEqual({ ok: true, row: { ...row, owned: ['sofa'] } })
+    expect(row.owned).toEqual([])
+    if (r.ok) expect(r.row.petalsSpent).toBe(row.petalsSpent)
+  })
+
+  it('is idempotent and keeps the owned list sorted', () => {
+    const first = grant({ ...base(), owned: ['zebra'] }, 'sofa')
+    if (!first.ok) throw new Error('grant failed')
+    expect(first.row.owned).toEqual(['sofa', 'zebra'])
+    expect(grant(first.row, 'sofa')).toEqual({ ok: true, row: first.row })
+  })
+
+  it('refuses unknown items and food (food is never owned)', () => {
+    expect(grant(base(), 'no-existeix')).toEqual({ ok: false, reason: 'unknown-item' })
+    expect(grant(base(), 'pa')).toEqual({ ok: false, reason: 'unknown-item' })
   })
 })

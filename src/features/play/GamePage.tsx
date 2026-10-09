@@ -30,15 +30,15 @@ export default function GamePage() {
     return Number.isInteger(value) && value >= 1 && value <= MAX_URL_ROUNDS ? value : undefined
   }, [params])
 
-  const toMap = useCallback(() => navigate('/map'), [navigate])
+  const toMap = useCallback(() => navigate('/poble'), [navigate])
   const replay = useCallback(() => {
     setSummary(undefined)
     setRound((r) => r + 1)
   }, [])
 
-  if (!isGameId(gameId)) return <Navigate to="/map" replace />
+  if (!isGameId(gameId)) return <Navigate to="/poble" replace />
   const Game = GAME_REGISTRY[gameId]
-  if (!Game) return <Navigate to="/map" replace />
+  if (!Game) return <Navigate to="/poble" replace />
 
   if (summary) {
     return (

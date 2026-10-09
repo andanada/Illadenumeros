@@ -37,7 +37,7 @@ test.describe('Privacitat', () => {
     await page.goto('/#/privacitat')
     await expect(page.getByRole('heading', { level: 1, name: 'Privacitat' })).toBeVisible()
     await page.getByRole('button', { name: 'Enrere' }).click()
-    await expect(page).toHaveURL(/#\/(map|diagnostic)$/)
+    await expect(page).toHaveURL(/#\/(poble|diagnostic)$/)
 
     expect(external).toEqual([])
     expect(consoleErrors).toEqual([])

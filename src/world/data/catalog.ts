@@ -28,6 +28,9 @@ export function registerCatalog(entries: readonly CatalogEntry[]): number {
   return valid.length
 }
 
+/** Every known entry (wearables + what places registered), in no particular order. */
+export const catalogEntries = (): readonly CatalogEntry[] => [...registry.values()]
+
 export const catalogEntry = (id: string): CatalogEntry | undefined => registry.get(id)
 
 /** Free = known to the catalogue with price 0 (the starter set: every default-avatar part, all hair). */

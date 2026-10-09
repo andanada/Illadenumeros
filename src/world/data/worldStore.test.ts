@@ -8,8 +8,8 @@ import { wipeAllDatabases } from '../../test/idb'
 import { resetStoreForTest } from '../../test/playerDb'
 import type { CatalogEntry } from '../model/types'
 import { defaultAvatar } from '../characters/wearables'
-import { registerCatalog, resetCatalogForTest } from './catalog'
-import { adoptPet, buyItem, currentCoins, grantCoins, loadWorld, movePlaced, placeItem, removePlaced, resetWorldStoreForTest, saveAvatar, useWorldStore } from './worldStore'
+import { catalogEntries, registerCatalog, resetCatalogForTest } from './catalog'
+import { adoptPet, buyItem, currentCoins, grantCoins, grantItem, loadWorld, movePlaced, placeItem, removePlaced, resetWorldStoreForTest, saveAvatar, useWorldStore } from './worldStore'
 
 const SOFA: CatalogEntry = { id: 'sofa', kind: 'furniture', name: 'Sofà', price: 20, scene: 'casa' }
 const GAT: CatalogEntry = { id: 'gat-gris', kind: 'pet', name: 'Gat', price: 5 }
@@ -152,5 +152,35 @@ describe('avatar, placements and pets', () => {
     await buyItem(GAT)
     expect(await adoptPet('gat-gris')).toMatchObject({ ok: true })
     expect(useWorldStore.getState().row?.pets).toEqual(['gat-gris'])
+  })
+})
+
+describe('grantItem (surprise gifts)', () => {
+  it('gives the item for free, persisted, and keeps the coins spent as they were', async () => {
+    await store().createPlayer({ name: 'Laia', character: 'mixa', color: 'menta' })
+    await grantCoins(30, 'test')
+    await buyItem(SOFA)
+    const result = await grantItem('corona', 'tauler:2026-10-09')
+    expect(result.ok).toBe(true)
+    const row = await dbOfActive().world.get('world')
+    expect(row?.owned).toEqual(['corona', 'sofa'])
+    expect(row?.petalsSpent).toBe(20)
+    expect(currentCoins()).toBe(10)
+    expect(useWorldStore.getState().row?.owned).toContain('corona')
+  })
+
+  it('refuses a bad reason, an unknown item, and nobody playing', async () => {
+    expect(await grantItem('corona', 'x')).toEqual({ ok: false, reason: 'no-player' })
+    await store().createPlayer({ name: 'Laia', character: 'mixa', color: 'menta' })
+    expect(await grantItem('corona', '  ')).toEqual({ ok: false, reason: 'invalid' })
+    expect(await grantItem('no-existeix', 'tauler')).toEqual({ ok: false, reason: 'unknown-item' })
+  })
+})
+
+describe('catalogEntries', () => {
+  it('lists the wearables and what places registered', () => {
+    const ids = catalogEntries().map((e) => e.id)
+    expect(ids).toContain('corona')
+    expect(ids).toContain('sofa')
   })
 })

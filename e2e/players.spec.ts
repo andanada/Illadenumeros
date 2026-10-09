@@ -17,13 +17,23 @@ import {
 } from './helpers'
 
 /** Accessible names of the skill stops with their stars, e.g. "Sumes fins a 10: 2 de 3 estrelles". */
-const starLabels = async (page: Page): Promise<string[]> =>
-  (await page.getByRole('button', { name: /de 3 estrelles$/ }).evaluateAll((els) => els.map((el) => el.getAttribute('aria-label') ?? ''))).sort()
+const starLabels = async (page: Page): Promise<string[]> => {
+  // The skill-by-skill island map is a side view now; visit it and come back to the town.
+  await page.evaluate(() => {
+    window.location.hash = '#/illes'
+  })
+  const stops = page.getByRole('button', { name: /de 3 estrelles$/ })
+  await expect(stops.first()).toBeVisible()
+  const labels = (await stops.evaluateAll((els) => els.map((el) => el.getAttribute('aria-label') ?? ''))).sort()
+  await page.getByRole('button', { name: 'Enrere' }).click()
+  await expect(page.getByTestId('street')).toBeVisible()
+  return labels
+}
 
 const databaseNames = (page: Page): Promise<string[]> =>
   page.evaluate(async () => (await indexedDB.databases()).flatMap((d) => (d.name ? [d.name] : [])).sort())
 
-/** One correct answer in "El Repte de l'Illa", then back to the map. */
+/** One correct answer in "El Repte de l'Illa", then back to the town. */
 async function playOneQuestion(page: Page): Promise<void> {
   await page.goto('/#/play/repte-illa')
   const question = page.getByTestId('question-text')
@@ -32,7 +42,7 @@ async function playOneQuestion(page: Page): Promise<void> {
   const answers = page.getByRole('group', { name: 'Respostes' })
   await (value === undefined ? answers.getByRole('button').first() : answerButton(answers, value)).click()
   await expect(page.getByText('Molt bé! ✨').or(page.getByText('Gairebé! Mirem-ho junts')).first()).toBeVisible()
-  await page.goto('/#/map')
+  await page.goto('/#/poble')
 }
 
 const changePlayer = async (page: Page, current: string): Promise<void> => {
@@ -72,7 +82,7 @@ test.describe('Diversos jugadors en un mateix dispositiu', () => {
     // Back to player 1: everything as she left it.
     await changePlayer(page, SECOND_CHILD.name)
     await page.getByRole('button', { name: `Entra: ${CHILD.name}` }).click()
-    await expect(page).toHaveURL(/#\/map$/)
+    await expect(page).toHaveURL(/#\/poble$/)
     await expect(page.getByText(`Hola, ${CHILD.name}!`)).toBeVisible()
     await expect.poll(() => themeOf(page)).toBe(CHILD.theme)
     expect(await petalsOnMap(page)).toBe(laiaPetals)
@@ -90,7 +100,7 @@ test.describe('Diversos jugadors en un mateix dispositiu', () => {
     await expect(page.getByText(`Hola, ${CHILD.name}!`)).toBeVisible()
     const pauDb = (await playerDbNames(page))[SECOND_CHILD.name]
     expect(pauDb).toMatch(/^mates-magiques-[0-9a-f-]{36}$/)
-    await page.getByRole('button', { name: 'Per a la família (només adults)' }).click()
+    await page.getByRole('button', { name: 'Per a les famílies' }).click()
     await passAdultCheck(page)
     const players = page.getByRole('region', { name: 'Jugadors' })
     await players.getByRole('button', { name: `Esborra ${SECOND_CHILD.name}` }).click()
@@ -104,7 +114,7 @@ test.describe('Diversos jugadors en un mateix dispositiu', () => {
     // Only player 1 remains: the app skips the picker and her progress is intact.
     await page.goto('/')
     await page.reload()
-    await expect(page).toHaveURL(/#\/map$/)
+    await expect(page).toHaveURL(/#\/poble$/)
     await expect(page.getByText(`Hola, ${CHILD.name}!`)).toBeVisible()
     expect(await petalsOnMap(page)).toBe(laiaPetals)
     expect(consoleErrors).toEqual([])
