@@ -1,7 +1,11 @@
 import { place as autobus } from './autobus'
 import { place as botiga } from './botiga'
 import { place as casa } from './casa'
+import { place as fleca } from './fleca'
+import { place as granja } from './granja'
+import { place as mercat } from './mercat'
 import { place as perruqueria } from './perruqueria'
+import { place as pizzeria } from './pizzeria'
 import { place as recreatius } from './recreatius'
 import type { PlaceModule } from './types'
 
@@ -10,4 +14,4 @@ import type { PlaceModule } from './types'
  * the lots still under construction live in streetPlan.ts; when a place opens is decided by unlock.ts.
  * Only the modules' metadata is loaded here: each place's scene is a lazy chunk.
  */
-export const PLACES: readonly PlaceModule[] = [casa, botiga, autobus, perruqueria, recreatius]
+export const PLACES: readonly PlaceModule[] = [casa, botiga, autobus, perruqueria, recreatius, fleca, granja, pizzeria, mercat]

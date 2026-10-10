@@ -23,6 +23,10 @@ export const GAME_REGISTRY: Readonly<Record<string, GameComponent>> = {
   'poble-casa': lazy(() => import('../../world/PobleRedirect').then((m) => ({ default: m.PobleRedirect }))),
   'poble-autobus': lazy(() => import('../../world/PobleRedirect').then((m) => ({ default: m.PobleRedirect }))),
   'poble-perruqueria': lazy(() => import('../../world/PobleRedirect').then((m) => ({ default: m.PobleRedirect }))),
+  'poble-fleca': lazy(() => import('../../world/PobleRedirect').then((m) => ({ default: m.PobleRedirect }))),
+  'poble-pizzeria': lazy(() => import('../../world/PobleRedirect').then((m) => ({ default: m.PobleRedirect }))),
+  'poble-granja': lazy(() => import('../../world/PobleRedirect').then((m) => ({ default: m.PobleRedirect }))),
+  'poble-mercat': lazy(() => import('../../world/PobleRedirect').then((m) => ({ default: m.PobleRedirect }))),
 }
 
 export const isGameId = (id: string | undefined): id is string => id !== undefined && id in GAME_TITLES && id in GAME_REGISTRY

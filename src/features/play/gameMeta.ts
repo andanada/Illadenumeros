@@ -17,4 +17,8 @@ export const GAME_EMOJI: Record<string, string> = {
   'poble-casa': '🏠',
   'poble-autobus': '🚌',
   'poble-perruqueria': '💇',
+  'poble-fleca': '🥐',
+  'poble-pizzeria': '🍕',
+  'poble-granja': '🐓',
+  'poble-mercat': '🧺',
 }
