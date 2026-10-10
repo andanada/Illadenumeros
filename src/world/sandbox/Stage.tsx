@@ -5,10 +5,13 @@ import { ActorRing } from './ActorRing'
 import { ActorSwitcher } from './ActorSwitcher'
 import { useCast } from './CastContext'
 import { Hotspots } from './Hotspots'
+import { hotRects } from './hotRects'
+import { Zones } from './Zones'
 import { ItemsLayer } from './ItemsLayer'
 import { useItems } from './ItemsContext'
 import type { Pt } from './logic/actorMachine'
 import type { Block } from './logic/walkPlan'
+import type { Rect } from './logic/zones'
 import { Feedback } from './Feedback'
 import { StageContext } from './StageContext'
 import { useFootsteps } from './useFootsteps'
@@ -35,6 +38,13 @@ export interface StageProps {
   className?: string
   /** The «Qui mous?» buttons (default true). */
   switcher?: boolean
+  /**
+   * A stage that is only shown, not the one being played (the other floors of a house, a backdrop room):
+   * no footsteps, no pet-follow, no announcements, no ring, no puffs. It still describes its walking grid.
+   */
+  passive?: boolean
+  /** Rectangles (fractions of the stage) pets never walk into when they trail someone. Seats, doors and zones are added. */
+  petFree?: readonly Rect[]
 }
 
 const STEP = 0.07
@@ -44,7 +54,7 @@ const DIRS: Readonly<Record<string, Pt>> = { ArrowLeft: { x: -1, y: 0 }, ArrowRi
  * A room where the cast lives: tap the floor to walk, tap things to use them. Arrow keys walk the chosen
  * character a step at a time, Tab reaches every actor, object, seat and door.
  */
-export function Stage({ label, room, floorTop = 0.42, backdrop, blocks = [], seats = [], doors = [], surfaces = [], children, className = '', switcher = true }: StageProps) {
+export function Stage({ label, room, floorTop = 0.42, backdrop, blocks = [], seats = [], doors = [], surfaces = [], children, className = '', switcher = true, passive = false, petFree = [] }: StageProps) {
   const cast = useCast()
   const items = useItems()
   const ref = useRef<HTMLElement | null>(null)
@@ -61,14 +71,17 @@ export function Stage({ label, room, floorTop = 0.42, backdrop, blocks = [], sea
   const key = JSON.stringify(blocks)
   const { setFloor } = cast
   useEffect(() => {
-    setFloor(blocks, floorTop)
+    setFloor(blocks, floorTop, room)
     // `key` stands for the blocks' content.
-  }, [key, floorTop, setFloor])
+  }, [key, floorTop, setFloor, room])
 
-  const info = useMemo(() => ({ w: size.w, h: size.h, unit: Math.min(size.h, size.w * 0.9), room, floorTop }), [size, room, floorTop])
+  const hot = useMemo(() => hotRects(seats, doors, surfaces, size, floorTop), [seats, doors, surfaces, size, floorTop])
+  const info = useMemo(() => ({ w: size.w, h: size.h, unit: Math.min(size.h, size.w * 0.9), room, floorTop, hot }), [size, room, floorTop, hot])
+  const zoneRects = useMemo(() => Object.values(items.zones).filter((z) => z.room === room).map((z) => z.rect), [items.zones, room])
+  const avoid = useMemo(() => [...petFree, ...zoneRects, ...hot.map(({ x, y, w, h }) => ({ x, y, w, h }))], [petFree, zoneRects, hot])
   const selected = cast.state.selected
-  usePetFollow()
-  useFootsteps()
+  usePetFollow(!passive, room, avoid)
+  useFootsteps(!passive)
 
   const onFloorClick = (e: React.MouseEvent<HTMLDivElement>): void => {
     const box = e.currentTarget.getBoundingClientRect()
@@ -99,16 +112,19 @@ export function Stage({ label, room, floorTop = 0.42, backdrop, blocks = [], sea
         <div data-testid="stage-floor" aria-hidden="true" onClick={onFloorClick} className="absolute inset-0 z-[1] cursor-pointer" />
         {children}
         <Hotspots seats={seats} doors={doors} surfaces={surfaces} />
+        <Zones />
         <ItemsLayer />
         {cast.order.map((id) => (
           <Actor key={id} id={id} />
         ))}
-        <Feedback />
-        <ActorRing />
-        {switcher && <ActorSwitcher />}
-        <p role="status" aria-live="polite" className="sr-only">
-          {cast.announcement}
-        </p>
+        {!passive && <Feedback />}
+        {!passive && <ActorRing />}
+        {switcher && !passive && <ActorSwitcher />}
+        {!passive && (
+          <p role="status" aria-live="polite" className="sr-only">
+            {cast.announcement}
+          </p>
+        )}
       </section>
     </StageContext.Provider>
   )

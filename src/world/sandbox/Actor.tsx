@@ -6,6 +6,7 @@ import { EmoteIcon } from './EmoteIcon'
 import { HeldArt } from './ItemArt'
 import { useItems } from './ItemsContext'
 import { itemsHeldBy } from './logic/itemsState'
+import { petLayer } from './logic/layers'
 import { poseOf, type ActorState } from './logic/actorMachine'
 import { depthScale, stackOf, useStage } from './StageContext'
 import type { ActorSeed } from './types'
@@ -77,7 +78,7 @@ export const Actor = memo(function Actor({ id }: { id: string }) {
         else items.setRingOpen(!items.ringOpen)
       }}
       className="sb-hit absolute m-0 cursor-pointer select-none border-0 bg-transparent p-0 outline-none focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-[var(--world-focus,#4da6ec)]"
-      style={{ left: `${st.at.x * 100}%`, top: `${st.at.y * 100}%`, width: w, height: h, transform: 'translate(-50%, -100%)', zIndex: stackOf(st.at.y) + (selected ? 1 : 0) - (isPet ? 120 : 0), touchAction: 'manipulation' }}
+      style={{ left: `${st.at.x * 100}%`, top: `${st.at.y * 100}%`, width: w, height: h, transform: 'translate(-50%, -100%)', zIndex: isPet ? petLayer(st.at, w / stage.w, h / stage.h, stage.hot ?? []) + (selected ? 1 : 0) : stackOf(st.at.y) + (selected ? 1 : 0), touchAction: 'manipulation' }}
     >
       {(selected || partner) && (
         <span

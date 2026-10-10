@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react'
 import { defaultAvatar } from '../characters'
 import { Anchor, type AnchorState } from './Anchor'
 import { CastProvider, useCast } from './CastContext'
+import { CountDemo } from './CountDemo'
+import type { ZoneDef } from './zoneTypes'
 import { ItemsProvider, type StartItem } from './ItemsContext'
 import { PLAY_DEFS } from './playItems'
 import { PLAY_ROOMS } from './playRooms'
@@ -25,6 +27,8 @@ const START: readonly StartItem[] = [
   { uid: 'pilota', def: 'pilota', room: 'jardi', at: { x: 0.45, y: 0.82 } },
   { uid: 'pilota-2', def: 'pilota', room: 'sala', at: { x: 0.1, y: 0.74 } },
 ]
+
+const ZONES: readonly ZoneDef[] = [{ id: 'cistella', room: 'sala', label: 'la cistella', rect: { x: 0.5, y: 0.7, w: 0.3, h: 0.12 }, capacity: 12, cols: 6, accepts: (def) => def === 'pometa' }]
 
 function Rooms() {
   const cast = useCast()
@@ -59,9 +63,10 @@ export function Playground() {
     <div data-testid="playground" className="relative h-dvh w-full overflow-hidden bg-[#2b2440] font-display">
       <h1 className="sr-only">Laboratori de joc</h1>
       <CastProvider seeds={seeds} initialSelected="laia" defaultRoom="sala">
-        <ItemsProvider defs={PLAY_DEFS} start={start} floorTop={0.47}>
+        <ItemsProvider defs={PLAY_DEFS} start={start} floorTop={0.47} zones={ZONES}>
           <div className="absolute inset-x-0 top-1/2 mx-auto h-full -translate-y-1/2 overflow-hidden" style={{ maxHeight: '115vw' }}>
             <Rooms />
+            <CountDemo />
           </div>
         </ItemsProvider>
       </CastProvider>

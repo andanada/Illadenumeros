@@ -1,4 +1,5 @@
 import { createContext, useContext } from 'react'
+import type { HotRect } from './logic/layers'
 
 export interface StageInfo {
   /** Stage size in px. */
@@ -8,6 +9,8 @@ export interface StageInfo {
   readonly unit: number
   readonly room: string
   readonly floorTop: number
+  /** Seats, doors and spots on screen: pets never cover them. */
+  readonly hot?: readonly HotRect[]
 }
 
 export const StageContext = createContext<StageInfo | undefined>(undefined)

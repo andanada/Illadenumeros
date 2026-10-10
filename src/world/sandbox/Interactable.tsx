@@ -37,7 +37,7 @@ export function Interactable({ item, at, flying = false }: InteractableProps) {
   if (!def) return null
   const size = def.height * stage.unit * depthScale(at.y, stage.floorTop)
   const stageName = def.use ? (currentStage(def.use, item.chain).label ?? currentStage(def.use, item.chain).id) : ''
-  const state = [stageName, item.open ? 'obert' : '', item.surprise.revealed ? `amb ${item.surprise.revealed}` : ''].filter((x) => x !== '').join(', ')
+  const state = [(item.qty ?? 1) > 1 ? `${item.qty} unitats` : '', stageName, item.open ? 'obert' : '', item.surprise.revealed ? `amb ${item.surprise.revealed}` : ''].filter((x) => x !== '').join(', ')
   const aspect = def.aspect ?? 1
   const charged = def.surpriseTaps && item.surprise.taps > 0 && item.surprise.revealed === undefined
 
@@ -70,6 +70,7 @@ export function Interactable({ item, at, flying = false }: InteractableProps) {
       type="button"
       data-uid={item.uid}
       data-def={item.def}
+      {...(item.zone ? { 'data-in': item.zone } : {})}
       data-stage={stageName}
       data-open={item.open}
       aria-label={`${def.label}${state ? `, ${state}` : ''}`}
@@ -92,6 +93,11 @@ export function Interactable({ item, at, flying = false }: InteractableProps) {
           <ItemArt def={def} item={item} size={size} />
         </span>
       </span>
+      {def.quantityBadge && (item.qty ?? 1) > 1 && (
+        <span data-qty={item.qty} aria-hidden="true" className="pointer-events-none absolute -right-1 -top-1 grid min-w-6 place-items-center rounded-full bg-white px-1.5 text-sm font-bold text-[#3a2d63] shadow-[var(--world-shadow-soft)]">
+          {item.qty}
+        </span>
+      )}
     </button>
   )
 }

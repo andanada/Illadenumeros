@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { spawn, type EmoteKind, type Pt } from './logic/actorMachine'
-import { anyWalking, castReducer, makeCast, type CastState } from './logic/castState'
+import { anyWalking, castReducer, makeCast, type CastAction, type CastState } from './logic/castState'
 import type { Grid } from './logic/pathfind'
 import type { SocialKind } from './logic/social'
 import { floorGrid, planWalk, snapToFloor } from './logic/walkPlan'
@@ -35,7 +35,8 @@ export interface CastApi {
   /** Through a door: the actor appears in `room` at `at`, keeping what they carry. */
   enterRoom: (id: string, room: string, at: Pt) => void
   announce: (text: string) => void
-  setFloor: (blocks: Parameters<typeof floorGrid>[0], floorTop: number) => void
+  /** Furniture and floor line of one room (`room` omitted: the fallback for rooms never described). Each room keeps its own walking grid. */
+  setFloor: (blocks: Parameters<typeof floorGrid>[0], floorTop: number, room?: string) => void
   poof: (at: Pt) => void
   /** The nearest spot of the floor where someone can stand (around the furniture). */
   snap: (at: Pt) => Pt
@@ -66,7 +67,7 @@ export function CastProvider({ seeds: rawSeeds, initialSelected, defaultRoom = '
   const parsed = useMemo(() => parseSeeds(rawSeeds), [rawSeeds])
   const seedMap = useMemo(() => Object.fromEntries(parsed.map((s) => [s.id, s])), [parsed])
   const order = useMemo(() => parsed.map((s) => s.id), [parsed])
-  const [state, dispatch] = useReducer(
+  const [state, rawDispatch] = useReducer(
     castReducer,
     undefined,
     () => makeCast(Object.fromEntries(parsed.map((s) => [s.id, spawn(s.at, s.facing ?? 1)])), initialSelected ?? parsed.find((s) => s.kind === 'avatar')?.id ?? parsed[0]?.id ?? ''),
@@ -74,12 +75,18 @@ export function CastProvider({ seeds: rawSeeds, initialSelected, defaultRoom = '
   const [announcement, announce] = useState('')
   const [poofs, setPoofs] = useState<readonly Poof[]>([])
   const live = useRef(state)
-  const grid = useRef<Grid>(floorGrid([], 0.4))
+  const fallbackGrid = useRef<Grid>(floorGrid([], 0.4))
+  const grids = useRef(new Map<string, Grid>())
+  // The reducer is pure: mirroring it makes the state read right after a dispatch (enterRoom → walkTo) fresh.
+  const dispatch = useCallback((a: CastAction): void => {
+    live.current = castReducer(live.current, a)
+    rawDispatch(a)
+  }, [])
+  const gridOf = useCallback((id: string): Grid => grids.current.get(live.current.actors[id]?.room ?? defaultRoom) ?? fallbackGrid.current, [defaultRoom])
   const arrivals = useRef(new Map<string, () => void>())
   const counter = useRef(0)
 
   useEffect(() => {
-    live.current = state
     for (const [id, cb] of arrivals.current) {
       if (state.actors[id]?.mode !== 'walking') {
         arrivals.current.delete(id)
@@ -98,7 +105,7 @@ export function CastProvider({ seeds: rawSeeds, initialSelected, defaultRoom = '
       frame = requestAnimationFrame(tick)
     })
     return () => cancelAnimationFrame(frame)
-  }, [walking])
+  }, [walking, dispatch])
 
   const poof = useCallback((at: Pt) => {
     counter.current += 1
@@ -113,13 +120,13 @@ export function CastProvider({ seeds: rawSeeds, initialSelected, defaultRoom = '
     (id: string, to: Pt) => {
       const cur = live.current.actors[id]
       if (!cur) return
-      const spot = snapToFloor(grid.current, to)
+      const spot = snapToFloor(gridOf(id), to)
       poof(cur.at)
       poof(spot)
       const { seat: _seat, ...rest } = cur
       dispatch({ type: 'put', id, state: { ...rest, mode: 'idle', at: spot, path: [] } })
     },
-    [poof],
+    [poof, gridOf, dispatch],
   )
 
   const walkTo = useCallback(
@@ -128,14 +135,14 @@ export function CastProvider({ seeds: rawSeeds, initialSelected, defaultRoom = '
       if (!cur) return
       if (reduced) {
         const { seat: _s, ...rest } = cur
-        const spot = snapToFloor(grid.current, to)
+        const spot = snapToFloor(gridOf(id), to)
         poof(cur.at)
         poof(spot)
         dispatch({ type: 'put', id, state: { ...rest, mode: 'idle', at: spot, path: [] } })
         if (then) setTimeout(then, 0)
         return
       }
-      const path = planWalk(grid.current, cur.at, to)
+      const path = planWalk(gridOf(id), cur.at, to)
       if (path.length === 0) {
         if (then) setTimeout(then, 0)
         return
@@ -144,13 +151,13 @@ export function CastProvider({ seeds: rawSeeds, initialSelected, defaultRoom = '
       if (then) arrivals.current.set(id, then)
       dispatch({ type: 'actor', id, event: { type: 'walk', path } })
     },
-    [reduced, poof],
+    [reduced, poof, gridOf, dispatch],
   )
 
   const emote = useCallback((id: string, kind: EmoteKind, ms = 1700) => {
     dispatch({ type: 'actor', id, event: { type: 'emote', kind } })
     setTimeout(() => dispatch({ type: 'actor', id, event: { type: 'emoteEnd' } }), ms)
-  }, [])
+  }, [dispatch])
 
   const api = useMemo<CastApi>(
     () => ({
@@ -175,14 +182,16 @@ export function CastProvider({ seeds: rawSeeds, initialSelected, defaultRoom = '
         dispatch({ type: 'actor', id, event: { type: 'enter', room, at } })
       },
       announce,
-      setFloor: (blocks, floorTop) => {
-        grid.current = floorGrid(blocks, floorTop)
+      setFloor: (blocks, floorTop, room) => {
+        const g = floorGrid(blocks, floorTop)
+        if (room !== undefined) grids.current.set(room, g)
+        fallbackGrid.current = g
       },
       poof,
-      snap: (at) => snapToFloor(grid.current, at),
+      snap: (at) => snapToFloor(gridOf(live.current.selected), at),
       positionOf,
     }),
-    [state, seedMap, order, poofs, announcement, reduced, defaultRoom, walkTo, teleport, emote, poof, positionOf],
+    [state, seedMap, order, poofs, announcement, reduced, defaultRoom, walkTo, teleport, emote, poof, positionOf, gridOf, dispatch],
   )
 
   return <CastContext.Provider value={api}>{children}</CastContext.Provider>

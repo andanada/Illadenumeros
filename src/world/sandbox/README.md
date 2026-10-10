@@ -72,3 +72,54 @@ It never flashes or shakes, is a real `<button>` (≥ 56 px), and stops bobbing 
 `<Street>` keeps its `onEnter(placeId, from)` contract. The avatar now walks: tap the ground, tap a door (she walks there and goes in;
 if she is already there it opens at once), hold an arrow (a quick tap is one stride), or use ← → on the focused street. The camera
 glides after her; dragging still pans it. New optional prop `carrying` (SVG for her hand) keeps what she holds in the street.
+
+## Doing maths in the world (objects, zones, `useRequestTask`)
+
+### ItemsApi additions (all validated with zod; unknown def / taken uid / no room → `undefined`/`false`, malformed input throws)
+
+| call | |
+|---|---|
+| `spawn(defId, { room, at, uid?, qty?, zone? }) => string \| undefined` | new object; `qty` only for `stackable` defs; `zone` puts it in the zone's next free slot (`undefined` if full / not accepted) |
+| `place(uid, { room, at }) => boolean` | moves it anywhere (leaves its zone, empties a hand) |
+| `putInZone(uid, zoneId) => boolean` | next free slot (or merges into the stack there); announces and fires `onDrop` |
+| `remove(uid) => boolean` / `consume(uid) => boolean` | remove for good / use up with a poof (stays as `gone`, counts nowhere) |
+| `count({ zone?, room?, def? }) => number`, `query(room, defId?) => ItemState[]` | read the **fresh** state, also right after a `spawn` in the same event |
+| `onChange(listener) => unsubscribe`, `useItems(selector)`, `useZoneCount(zoneId, defId?)` | observe zone contents (`ChangeEvent { zone, counts, total }`) |
+| `tapZone(zoneId)` | tap alternative: the chosen character walks over and puts what she carries in |
+
+`ItemsProvider zones={ZoneDef[]}`: `{ id, room, rect, label /* «la cistella» */, accepts?(defId), capacity? (10), cols? (5), showCount? (false), quiet?, announceCount? (true), onDrop?, onChange? }`.
+Slots are a neat ten-frame (`logic/zones.ts`); the zone shows no number unless `showCount`. While she carries something the zone becomes a button
+(«Deixa-ho a la cistella», focusable, Enter); tapping a thing in a zone takes it out. Announcements: «Has posat una poma a la cistella: ara hi ha 7.»
+`InteractableDef` gains `single` («una poma»), `stackable`, `quantityBadge`. Picking from a stack takes one. Zone members carry `data-in="<zone>"`; the zone has `data-count`.
+
+### `useRequestTask(errand, spec) => { state, count, expected, submit(), hint }`
+
+`errand` is a real `Errand` (only `item, phase, tries, hintText, submit` are used, so a fake fits). `spec` (`RequestTaskSpec`, zod):
+`{ zone, def?, source?: { def, room, at }, supply? (expected + 2), expected? (item.answer, else operands), giveTo?: actorId, active? (true) }`.
+
+- lays out `supply` source objects as a pile; the child carries them into `zone`; `count` = what lies there (of `def`);
+- `submit()` answers `errand.submit(choiceForValue(String(count), item))` — same attempt / Leitner / fluency pipeline; no-op while `count === 0` or not `asking`;
+- a wrong count: everything pops back to the pile (no red anything), `hint` shows the ladder text, `state` returns to `empty`; after the last try (`shown`) the solution is laid out;
+- right (`thanks`): with `giveTo` the things are consumed, that actor gets a heart and «Has donat 3 a la Pilar.»
+- `state`: `empty | counting | checking | done | shown`.
+
+```tsx
+const errand = useErrand({ gameId, skillIds, adapters, onSolved })        // unchanged flow
+const task = useRequestTask(errand, {
+  zone: 'cistella', def: 'poma', source: { def: 'poma', room: 'botiga', at: { x: 0.3, y: 0.9 } },
+  giveTo: 'fatima', active: open,                                           // open: this request is on
+})
+return (
+  <>
+    <Anchor actorId="fatima" state={task.state === 'done' ? 'done' : 'waiting'} number={task.expected} label={errand.request.text} onActivate={openRequest} />
+    <button disabled={task.state !== 'counting'} onClick={() => void task.submit()}>Comprova</button>
+    {task.hint && <p>{task.hint}</p>}
+  </>
+)
+```
+
+### Stage / cast fixes
+
+- `Stage passive`: no footsteps, pet-follow, aria-live, ring, puffs or switcher (the other floors of a house). `Stage petFree={Rect[]}`: pets never step there (seats, doors and zones are added automatically).
+- Walking grids are per room: `Stage` calls `setFloor(blocks, floorTop, room)`; an actor walks on the grid of the room she is in. `walkTo` right after `enterRoom` sees the new room at once (the cast state is mirrored synchronously).
+- `ActorSwitcher room? filter?(id)`. Seats, doors and spots are drawn above pets they overlap (`petLayer`); persons keep their order.

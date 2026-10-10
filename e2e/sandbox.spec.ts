@@ -213,6 +213,50 @@ test.describe('Sandbox: personatges lliures i objectes que s’usen', () => {
     expect(consoleErrors).toEqual([])
   })
 
+  test('count in the world: carry 7 + 5 apples into the basket, check, pops back when wrong, then coins', async ({ page }, testInfo) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await open(page)
+    await page.getByRole('button', { name: 'Demana 7 + 5 pomes' }).click()
+    const basket = page.locator('[data-zone="cistella"]')
+    const putApples = async (n: number, from: number): Promise<void> => {
+      for (let i = 0; i < n; i++) {
+        await page.locator('[data-def="pometa"]:not([data-in])').first().click({ force: true })
+        await expect(actor(page, 'laia')).toHaveAccessibleName(/porta la poma/)
+        await page.locator('[data-zone-drop="cistella"]').click()
+        await expect(basket).toHaveAttribute('data-count', String(from + i + 1))
+      }
+    }
+    await putApples(7, 0)
+    await expect(page.getByRole('status')).toContainText('Has posat una poma a la cistella: ara hi ha 7.')
+    await shot(page, 'sandbox-cistella-7', testInfo.project.name)
+
+    // 7 is not 12: no red anything, the apples go back to the pile and the hint appears.
+    await page.getByRole('button', { name: 'Comprova' }).click()
+    await expect(basket).toHaveAttribute('data-count', '0')
+    await expect(page.getByText('Posa les pomes a la cistella d’una en una.')).toBeVisible()
+    await expect(page.locator('[data-coins="0"]')).toHaveCount(1)
+
+    await putApples(12, 0)
+    await shot(page, 'sandbox-cistella-12', testInfo.project.name)
+    await page.getByRole('button', { name: 'Comprova' }).click()
+    await expect(page.locator('[data-coins="3"]')).toHaveCount(1)
+    await expect(page.locator('[data-qty="3"]')).toBeVisible()
+    expect(await hasHorizontalScroll(page)).toBe(false)
+  })
+
+  test('keyboard path: tab to an apple, Enter, then Enter on the basket; the pet stays off the seats', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await open(page)
+    await page.getByRole('button', { name: 'Demana 7 + 5 pomes' }).click()
+    await page.locator('[data-def="pometa"]:not([data-in])').first().focus()
+    await page.keyboard.press('Enter')
+    await expect(actor(page, 'laia')).toHaveAccessibleName(/porta la poma/)
+    await page.locator('[data-zone-drop="cistella"]').focus()
+    await page.keyboard.press('Enter')
+    await expect(page.locator('[data-zone="cistella"]')).toHaveAttribute('data-count', '1')
+    await expect(page.getByRole('status')).toContainText('ara hi ha 1')
+  })
+
   test('the speech-bubble anchor is a named button that can be ignored or tapped', async ({ page }) => {
     await open(page)
     const anchor = page.getByRole('button', { name: 'La Pilar vol 3 pomes' })

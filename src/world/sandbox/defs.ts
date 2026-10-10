@@ -35,6 +35,12 @@ export interface InteractableDef extends DefBehaviour {
   readonly pickup?: boolean
   readonly toss?: boolean
   readonly sound?: 'squish' | 'plop' | 'coin' | 'lift'
+  /** Indefinite form for counting announcements: «una poma». Defaults to the label. */
+  readonly single?: string
+  /** Objects of this def can pile up in one stack with a quantity (`spawn(…, {qty})`); picking takes one. */
+  readonly stackable?: boolean
+  /** Show the stack's quantity as a small badge when it is more than one (default off: a place asks). */
+  readonly quantityBadge?: boolean
   readonly surpriseTaps?: number
   readonly surpriseOptions?: readonly string[]
 }

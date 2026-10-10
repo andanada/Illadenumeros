@@ -11,7 +11,9 @@ import { meetingSpot, SOCIAL_LABEL, socialEmotes, type SocialKind } from './logi
 import { tapSurprise } from './logic/surprise'
 import { launch, type Ball, type TossBounds } from './logic/toss'
 import { applyTool } from './logic/useChain'
-import { toPlace } from './logic/catalan'
+import { takenSaid, toPlace } from './logic/catalan'
+import { zoneCounts } from './logic/zones'
+import type { ZoneDef } from './zoneTypes'
 import type { DoorDef, SeatDef, SurfaceDef } from './types'
 
 export interface ActionDeps {
@@ -24,6 +26,9 @@ export interface ActionDeps {
   launchFlight: (uid: string, ball: Ball, room: string, bounds: TossBounds) => void
   onEnter?: ((door: DoorDef, actorId: string) => void) | undefined
   ripple: (at: Pt) => void
+  zones: Readonly<Record<string, ZoneDef>>
+  /** Takes one from a stack (the rest stays) and returns the uid now in hand. */
+  takeOne: (uid: string) => string
 }
 
 const REACH = 0.09
@@ -87,12 +92,18 @@ export function makeActions(get: () => ActionDeps) {
     const def = d.defs[item?.def ?? '']
     const label = labelOf(plan.uid)
     switch (plan.kind) {
-      case 'pickup':
-        d.dispatch({ type: 'pick', uid: plan.uid, by: who })
-        d.cast.setCarrying(who, plan.uid)
+      case 'pickup': {
+        const zone = item?.zone ? d.zones[item.zone] : undefined
+        const uid = d.takeOne(plan.uid)
+        d.dispatch({ type: 'pick', uid, by: who })
+        d.cast.setCarrying(who, uid)
         fx.pick()
-        say(`Has agafat ${label}.`)
+        if (zone && item) {
+          const single = def?.single ?? label
+          say(zone.announceCount === false ? `Has agafat ${label}.` : takenSaid(single, zone.label, Math.max(0, (zoneCounts(d.items, zone.id)[item.def] ?? 1) - 1)))
+        } else say(`Has agafat ${label}.`)
         break
+      }
       case 'toggle': {
         d.dispatch({ type: 'toggle', uid: plan.uid })
         if (item?.open) {

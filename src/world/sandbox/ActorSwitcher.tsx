@@ -4,12 +4,22 @@ import { useItems } from './ItemsContext'
 import './sandbox.css'
 
 /** «Qui mous?»: one round button per character. The alternative to tapping them, and the keyboard way in. */
-export function ActorSwitcher({ className = '' }: { className?: string }) {
+export interface ActorSwitcherProps {
+  className?: string
+  /** Only the characters who are in this room (default: everyone). */
+  room?: string
+  /** Extra filter, e.g. hide the customers still in the street. */
+  filter?: (id: string) => boolean
+}
+
+export function ActorSwitcher({ className = '', room, filter }: ActorSwitcherProps) {
   const cast = useCast()
   const api = useItems()
   return (
     <div role="group" aria-label="Qui mous?" className={`absolute z-[3000] flex items-center gap-2 ${className}`} style={{ left: 12, top: 12 }}>
-      {cast.order.map((id) => {
+      {cast.order
+        .filter((id) => (room === undefined || (cast.state.actors[id]?.room ?? cast.defaultRoom) === room) && (filter?.(id) ?? true))
+        .map((id) => {
         const seed = cast.seeds[id]
         if (!seed) return null
         const selected = cast.state.selected === id
