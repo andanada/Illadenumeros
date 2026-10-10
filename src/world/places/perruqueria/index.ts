@@ -12,3 +12,5 @@ export const place: PlaceModule = {
   facade: 'facana-casa',
   Component: lazy(() => import('./PerruqueriaPlace')),
 }
+
+export { requestHost } from './requestHost'

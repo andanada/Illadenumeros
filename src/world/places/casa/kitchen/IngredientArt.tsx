@@ -62,7 +62,31 @@ function Ou() {
   )
 }
 
-const ART = { maduixa: Maduixa, nabiu: Nabiu, galeta: Galeta, ou: Ou } as const
+function Tovallola() {
+  return (
+    <g>
+      <rect x={6} y={8} width={28} height={26} rx={5} fill={P.cel.base} />
+      <rect x={6} y={8} width={28} height={8} rx={4} fill={P.cel.light} />
+      <rect x={6} y={26} width={28} height={8} rx={4} fill={P.cel.shade} />
+      {[10, 16, 22, 28].map((x) => (
+        <rect key={x} x={x} y={32} width={2.4} height={6} rx={1.2} fill={P.cel.light} />
+      ))}
+    </g>
+  )
+}
+
+function Croqueta() {
+  return (
+    <g>
+      <path d="M8 24 C6 12 16 6 26 8 C36 10 36 24 30 30 C24 36 10 34 8 24 Z" fill={P.xocolata.light} />
+      <path d="M30 30 C24 36 10 34 8 24 C16 32 26 30 32 20 C34 24 33 27 30 30 Z" fill={P.xocolata.base} />
+      <circle cx={16} cy={16} r={2} fill={P.mango.light} />
+      <circle cx={24} cy={20} r={1.6} fill={P.mango.light} />
+    </g>
+  )
+}
+
+const ART = { maduixa: Maduixa, nabiu: Nabiu, galeta: Galeta, ou: Ou, tovallola: Tovallola, croqueta: Croqueta } as const
 
 /** One ingredient as a decorative svg of `size` px. */
 export const IngredientArt = memo(function IngredientArt({ id, size = 32 }: { id: Ingredient['id']; size?: number }) {

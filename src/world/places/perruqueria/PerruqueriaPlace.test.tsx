@@ -1,130 +1,116 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useProgress } from '../../../core/progress/store'
 import type { MatesDb } from '../../../core/storage/db'
 import { activateTestPlayer } from '../../../test/playerDb'
 import PerruqueriaPlace from './PerruqueriaPlace'
 
 // Many taps per test: a loaded machine (the whole suite in parallel) needs more than the default 5 s.
-vi.setConfig({ testTimeout: 30_000 })
+vi.setConfig({ testTimeout: 40_000 })
 
 let db: MatesDb
 
 beforeEach(() => {
   db = activateTestPlayer()
+  vi.stubGlobal('matchMedia', (query: string) => ({ matches: query.includes('reduce'), media: query, addEventListener: () => undefined, removeEventListener: () => undefined, addListener: () => undefined, removeListener: () => undefined }))
 })
+afterEach(() => vi.unstubAllGlobals())
 
+const q = (selector: string): HTMLElement => {
+  const el = document.querySelector<HTMLElement>(selector)
+  if (!el) throw new Error(`No trobo ${selector}`)
+  return el
+}
+const tool = (id: string): HTMLElement => q(`[data-uid="eina-${id}"]`)
+const spot = (id: string): HTMLElement => q(`[data-surface="${id}"]`)
 const request = (): string => screen.getByTestId('errand-request').textContent ?? ''
 
-function renderSalon(skillId: string, onSolved = vi.fn(), pending = 1) {
-  render(<PerruqueriaPlace pending={pending} callSignal={0} onSolved={onSolved} onExit={vi.fn()} forced={{ skillId }} />)
+function renderSalon(opts: { pending?: number; skillId?: string; onSolved?: () => void } = {}) {
+  const onSolved = opts.onSolved ?? vi.fn()
+  render(<PerruqueriaPlace pending={opts.pending ?? 1} callSignal={0} onSolved={onSolved} onExit={vi.fn()} {...(opts.skillId ? { forced: { skillId: opts.skillId } } : {})} />)
   return onSolved
 }
 
-const clipBox = (stage: HTMLElement): HTMLElement => {
-  const el = stage.querySelector<HTMLElement>('[data-prop-kind="pinca-caixa"]')
-  if (!el) throw new Error('Sense capsa')
-  return el
+/** Takes a tool and puts it down on the customer's chair. */
+async function useOnChair(name: string, chair = 'eina-cadira-1'): Promise<void> {
+  await userEvent.click(tool(name))
+  await waitFor(() => expect(q('[data-actor="laia"]')).toHaveAccessibleName(/porta/))
+  await userEvent.click(spot(chair))
+  await waitFor(() => expect(q('[data-actor="laia"]')).not.toHaveAccessibleName(/porta/))
 }
 
-async function fillTray(stage: HTMLElement, n: number): Promise<void> {
-  for (let i = 0; i < n; i++) {
-    await userEvent.click(clipBox(stage))
-    await userEvent.click(screen.getByRole('button', { name: 'Posa-ho a la safata' }))
-  }
-}
+const status = (): HTMLElement => screen.getAllByRole('status').find((s) => s.className.includes('sr-only')) as HTMLElement
 
-describe('PerruqueriaPlace errands', () => {
-  it('two groups of clips, solved by tap-to-place: attempt recorded, coins, cheer', async () => {
-    const onSolved = renderSalon('A7')
-    const stage = screen.getByRole('region', { name: /^Encàrrec a la Perruqueria/ })
-    expect(stage).toHaveAttribute('data-errand-kind', 'pinces')
-    const m = /: (\d+) \+ (\d+)\./.exec(request())
-    if (!m) throw new Error(`Encàrrec inesperat: ${request()}`)
-    const total = Number(m[1]) + Number(m[2])
-    await fillTray(stage, total)
-    expect(screen.getByRole('img', { name: new RegExp(`^Safata: ${total} pinc`) })).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Ja està!' }))
-    await waitFor(() => expect(onSolved).toHaveBeenCalledWith(3))
-    const attempts = await db.attempts.toArray()
-    expect(attempts).toHaveLength(1)
-    expect(attempts[0]).toMatchObject({ gameId: 'poble-perruqueria', skillId: 'A7', correct: true, hintsUsed: 0 })
-    expect(useProgress.getState().rewards.petals).toBe(3)
-    expect(screen.getByTestId('errand-request')).toHaveTextContent(/Moltes gràcies!.*3 monedes/)
-    expect(screen.getByTestId('errand-neighbour')).toHaveAttribute('data-pose', 'cheer')
-    // The next customer starts with an empty tray.
-    await userEvent.click(screen.getByRole('button', { name: 'Adéu!' }))
-    expect(await screen.findByRole('img', { name: /^Safata: 0 / })).toBeInTheDocument()
+describe('Perruqueria: free play', () => {
+  it('has two chairs, a basin, a sofa, the stylist, and the asking customer sits in chair 1', () => {
+    renderSalon()
+    expect(screen.getByRole('region', { name: 'La Perruqueria' })).toBeInTheDocument()
+    expect(q('[data-actor="la-nuria"]')).toBeInTheDocument()
+    for (const seat of ['cadira-1', 'cadira-2', 'rentapaus', 'sofa-1', 'sofa-2']) expect(q(`[data-seat="${seat}"]`)).toBeInTheDocument()
+    expect(q('[data-actor="la-fatima"]')).toHaveAttribute('data-mode', 'sitting')
+    expect(screen.getByTestId('mirall')).toHaveAccessibleName(/La Fàtima/)
   })
 
-  it('"how many more" errands: she only brings what is missing', async () => {
-    const onSolved = renderSalon('A5')
-    const stage = screen.getByRole('region', { name: /^Encàrrec a la Perruqueria/ })
-    const m = /Ja porto (\d+) pinc\S+ i en vull (\d+)/.exec(request())
-    if (!m) throw new Error(`Encàrrec inesperat: ${request()}`)
-    await fillTray(stage, Number(m[2]) - Number(m[1]))
-    await userEvent.click(screen.getByRole('button', { name: 'Ja està!' }))
-    await waitFor(() => expect(onSolved).toHaveBeenCalledWith(3))
+  it('uses the tools in a chain: out of order only says what comes first, in order the customer reacts', async () => {
+    renderSalon()
+    await useOnChair('tisores')
+    await waitFor(() => expect(status()).toHaveTextContent('Abans toca pentinar-lo'))
+    await useOnChair('dutxa')
+    await waitFor(() => expect(status()).toHaveTextContent('Quina aigua més bona'))
+    await useOnChair('pinta')
+    await useOnChair('tisores')
+    await waitFor(() => expect(status()).toHaveTextContent('Cris, cris'))
+    expect(document.querySelector('[data-actor="la-fatima"] [data-emote]')).not.toBeNull()
   })
 
-  it('a wrong tray never shows a cross: hint, then the right one counts as helped', async () => {
-    const onSolved = renderSalon('A4')
-    const stage = screen.getByRole('region', { name: /^Encàrrec a la Perruqueria/ })
-    await fillTray(stage, 1)
-    await userEvent.click(screen.getByRole('button', { name: 'Ja està!' }))
-    expect((await screen.findByTestId('errand-hint')).textContent?.length).toBeGreaterThan(0)
-    expect(screen.queryByText(/✕|❌/)).toBeNull()
-    const m = /: (\d+) \+ (\d+)\./.exec(request())
-    if (!m) throw new Error(`Encàrrec inesperat: ${request()}`)
-    await fillTray(stage, Number(m[1]) + Number(m[2]) - 1)
-    await userEvent.click(screen.getByRole('button', { name: 'Ja està!' }))
-    await waitFor(() => expect(onSolved).toHaveBeenCalledWith(1))
-    const attempts = await db.attempts.toArray()
-    expect(attempts.map((a) => a.correct).sort()).toEqual([false, true])
-    expect(attempts.find((a) => a.correct)?.hintsUsed).toBeGreaterThan(0)
+  it('the mirror shows the new look after the last step', async () => {
+    renderSalon()
+    const before = q('[data-testid="mirall"]').innerHTML
+    for (const t of ['dutxa', 'pinta', 'tisores', 'esprai']) await useOnChair(t)
+    await waitFor(() => expect(q('[data-testid="mirall"]').innerHTML).not.toBe(before))
   })
 
-  it('a clip can be taken back off the tray', async () => {
-    renderSalon('A4')
-    const stage = screen.getByRole('region', { name: /^Encàrrec a la Perruqueria/ })
-    await fillTray(stage, 2)
-    await userEvent.click(screen.getByRole('button', { name: 'Treu una pinça de la safata' }))
-    await userEvent.click(screen.getByRole('button', { name: 'Posa-ho a la capsa de pinces' }))
-    expect(screen.getByRole('img', { name: /^Safata: 1 pinça/ })).toBeInTheDocument()
+  it('a tool on an empty chair says there is nobody, nothing breaks', async () => {
+    renderSalon()
+    await useOnChair('dutxa', 'eina-cadira-2')
+    await waitFor(() => expect(status()).toHaveTextContent('No hi ha ningú'))
   })
 
-  it('the customer stands behind the desk by name and the rest queue at the door', async () => {
-    renderSalon('A4', vi.fn(), 3)
-    const stage = screen.getByRole('region', { name: 'Encàrrec a la Perruqueria: Senyora Pilar' })
-    expect(within(stage).getByRole('img', { name: 'Senyora Pilar' })).toBeInTheDocument()
-    expect(screen.getByRole('img', { name: '2 clients esperen a la porta' })).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Ara no' }))
-    expect(screen.getByRole('img', { name: '3 clients esperen a la porta' })).toBeInTheDocument()
-  })
-
-  it('"Ajuda" has the customer say the hint and draw the model', async () => {
-    renderSalon('A8')
-    await userEvent.click(screen.getByRole('button', { name: 'Ajuda' }))
-    expect((await screen.findByTestId('errand-hint')).textContent?.length).toBeGreaterThan(0)
-    expect(screen.getByRole('group', { name: 'Pista' })).toBeInTheDocument()
+  it('the child can sit another character on the sofa with the keyboard path (select + seat)', async () => {
+    renderSalon()
+    await userEvent.click(screen.getByRole('button', { name: 'Mou la Núria' }))
+    await userEvent.click(q('[data-seat="sofa-1"]'))
+    await waitFor(() => expect(q('[data-actor="la-nuria"]')).toHaveAttribute('data-mode', 'sitting'))
   })
 })
 
-describe('PerruqueriaPlace free play', () => {
-  it('with nobody asking, tools restyle the customer and she reacts; the bell calls the next one', async () => {
-    render(<PerruqueriaPlace pending={0} callSignal={0} onSolved={vi.fn()} onExit={vi.fn()} />)
-    const before = screen.getByRole('img', { name: 'La Fàtima, a la cadira' }).innerHTML
-    await userEvent.click(screen.getByRole('button', { name: 'les tisores' }))
-    await userEvent.click(screen.getByRole('button', { name: 'Posa-ho a la clienta' }))
-    expect(screen.getByRole('img', { name: 'La Fàtima, a la cadira' }).innerHTML).not.toBe(before)
-    expect(screen.getByText(/Cris, cris|Tallat/)).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'l’assecador' }))
-    await userEvent.click(screen.getByRole('button', { name: 'Posa-ho a la clienta' }))
-    expect(screen.getByTestId('aire')).toBeInTheDocument()
+describe('Perruqueria: the clips wish', () => {
+  it('two groups of clips, solved by tap-to-place: attempt recorded, coins', async () => {
+    const onSolved = renderSalon({ skillId: 'A7' })
+    await userEvent.click(await screen.findByRole('button', { name: /toca per atendre/ }))
+    const sheet = screen.getByRole('region', { name: /^Encàrrec a la Perruqueria: / })
+    expect(sheet).toHaveAttribute('data-errand-kind', 'pinces')
+    const m = /: (\d+) \+ (\d+)\./.exec(request())
+    if (!m) throw new Error(`Encàrrec inesperat: ${request()}`)
+    const total = Number(m[1]) + Number(m[2])
+    for (let i = 0; i < total; i++) {
+      await userEvent.click(sheet.querySelector<HTMLElement>('[data-prop-kind="pinca-caixa"]') as HTMLElement)
+      await userEvent.click(screen.getByRole('button', { name: 'Posa-ho a la safata' }))
+    }
+    expect(screen.getByRole('img', { name: new RegExp(`^Safata: ${total} pinc`) })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Ja està!' }))
+    await waitFor(() => expect(onSolved).toHaveBeenCalledWith(3))
+    expect(await db.attempts.toArray()).toHaveLength(1)
+    expect(useProgress.getState().rewards.petals).toBe(3)
+    await userEvent.click(screen.getByRole('button', { name: 'Adéu!' }))
+    expect(screen.queryByTestId('errand-request')).toBeNull()
+  })
+
+  it('ignoring is fine: «Ara no» records nothing', async () => {
+    renderSalon({ skillId: 'A7' })
+    await userEvent.click(await screen.findByRole('button', { name: /toca per atendre/ }))
+    await userEvent.click(screen.getByRole('button', { name: 'Ara no' }))
     expect(await db.attempts.count()).toBe(0)
-    expect(useProgress.getState().rewards.petals).toBe(0)
-    await userEvent.click(screen.getByRole('button', { name: 'Fes passar un client' }))
-    expect(screen.getByRole('region', { name: /^Encàrrec a la Perruqueria: / })).toBeInTheDocument()
   })
 })

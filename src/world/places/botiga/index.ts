@@ -12,3 +12,5 @@ export const place: PlaceModule = {
   facade: 'facana-botiga',
   Component: lazy(() => import('./BotigaPlace')),
 }
+
+export { requestHost } from './requestHost'

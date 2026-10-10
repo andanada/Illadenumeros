@@ -1,0 +1,6 @@
+/* The three floors are three sandbox stages sharing one cast: puffs and ripples belong to the floor she is on only. */
+[data-casa-here='baixa'] [data-floor]:not([data-floor='baixa']) .sb-poof,
+[data-casa-here='pis'] [data-floor]:not([data-floor='pis']) .sb-poof,
+[data-casa-here='golfes'] [data-floor]:not([data-floor='golfes']) .sb-poof {
+  display: none;
+}

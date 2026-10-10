@@ -3,14 +3,14 @@ import { isFree } from '../../../data'
 import { Draggable } from '../../../scene/Draggable'
 import { furnitureFor, withArticle } from '../furniture/catalog'
 import { FurnitureArt } from '../furniture/FurnitureArt'
-import type { FurnitureDef, RoomId } from '../furniture/types'
+import type { FurnitureDef } from '../furniture/types'
 
 export const CATALOGUE_KIND = 'moble-cataleg'
 export const catalogueProp = (def: FurnitureDef) => ({ id: `cat:${def.id}`, label: withArticle(def), kind: CATALOGUE_KIND })
 export const itemOfProp = (id: string): string => id.replace(/^cat:/, '')
 
 export interface CatalogueProps {
-  room: RoomId
+  room: string
   coins: number
   owned: readonly string[]
   note: string

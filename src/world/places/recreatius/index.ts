@@ -13,3 +13,5 @@ export const place: PlaceModule = {
   facade: RecreatiusFacade,
   Component: lazy(() => import('./RecreatiusPlace')),
 }
+
+export { requestHost } from './requestHost'

@@ -12,3 +12,5 @@ export const place: PlaceModule = {
   facade: 'parada-autobus',
   Component: lazy(() => import('./AutobusPlace')),
 }
+
+export { requestHost } from './requestHost'

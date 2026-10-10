@@ -110,58 +110,12 @@ async function enterPlace(page: Page, name: RegExp): Promise<void> {
   await door.click()
 }
 
-const isLandscape = (page: Page): boolean => {
-  const size = page.viewportSize()
-  return !!size && size.width > size.height
-}
-
-/** The errand is above the fold; on landscape screens the place does not scroll at all. */
-async function expectErrandFits(page: Page, submit: string): Promise<void> {
-  await expect(page.getByTestId('errand-request')).toBeInViewport()
-  await expect(page.getByRole('button', { name: 'Ara no' })).toBeInViewport()
-  await expect(page.getByRole('button', { name: 'Ajuda' })).toBeInViewport()
-  await expect(page.getByRole('button', { name: submit })).toBeInViewport()
-  if (isLandscape(page)) {
-    const overflow = await page.evaluate(() => {
-      const main = document.querySelector('main')
-      return main ? main.scrollHeight - main.clientHeight : 0
-    })
-    expect(overflow).toBeLessThanOrEqual(1)
-  }
-}
-
-async function expectNeighbourVisible(page: Page): Promise<void> {
-  const stage = page.locator('[data-errand-kind]')
-  const label = (await stage.getAttribute('aria-label')) ?? ''
-  const name = label.replace(/^Encàrrec a [^:]+: /, '')
-  expect(name.length).toBeGreaterThan(0)
-  await expect(stage.getByRole('img', { name, exact: true })).toBeInViewport({ ratio: 0.4 })
-}
-
 /** Puts `n` items from `source` into `zone`. */
 async function repeatMove(page: Page, method: Method, n: number, source: () => Locator, zone: () => Locator): Promise<void> {
   for (let i = 0; i < n; i++) await moveProp(page, method, source(), zone())
 }
 
 type Solver = (page: Page, method: Method, request: string) => Promise<boolean>
-
-async function serveOne(page: Page, method: Method, solve: Solver, hooks: { asking?: () => Promise<void>; thanked?: () => Promise<void> } = {}): Promise<void> {
-  for (let tries = 0; tries < 25; tries++) {
-    const call = page.getByRole('button', { name: /^(Fes passar un client|Qui vol cuinar\? Fes passar un veí)$/ })
-    if (await call.isVisible()) await call.click()
-    await expect(page.locator('[data-errand-kind]')).toBeVisible()
-    await hooks.asking?.()
-    const request = (await page.getByTestId('errand-request').innerText()).replace(/\s+/g, ' ')
-    if (await solve(page, method, request)) {
-      await expect(page.getByRole('button', { name: 'Adéu!' })).toBeVisible()
-      await hooks.thanked?.()
-      await page.getByRole('button', { name: 'Adéu!' }).click()
-      return
-    }
-    await page.getByRole('button', { name: 'Ara no' }).click()
-  }
-  throw new Error(`Cap encàrrec resolt amb ${method}`)
-}
 
 const solveBowl: Solver = async (page, method, request) => {
   const sum = /: (\d+) \+ (\d+) /.exec(request)
@@ -173,154 +127,100 @@ const solveBowl: Solver = async (page, method, request) => {
   return true
 }
 
-const solveClips: Solver = async (page, method, request) => {
-  const pair = /: (\d+) \+ (\d+)\./.exec(request)
-  const more = /Ja porto (\d+) \S+ i en vull (\d+)/.exec(request)
-  const n = pair ? Number(pair[1]) + Number(pair[2]) : more ? Number(more[2]) - Number(more[1]) : undefined
-  if (n === undefined) return false
-  await repeatMove(page, method, n, () => page.locator('[data-prop-kind="pinca-caixa"]'), () => page.locator('[data-zone-id="safata-pinces"]'))
-  await page.getByRole('button', { name: 'Ja està!' }).click()
-  return true
-}
-
-test.describe('Casa i Perruqueria', () => {
-  test('Casa: the kitchen errand by drag and by tap, then decorate: buy-free piece placed by drag, moved, persisted', async ({ page, consoleErrors }, testInfo) => {
+test.describe('Casa', () => {
+  test('walk up the stairs carrying fruit, answer a family request by drag and by tap, decorate and keep it', async ({ page, consoleErrors }, testInfo) => {
+    test.setTimeout(150_000)
     const project = testInfo.project.name
     await enterTown(page, [{ place: 'casa', count: 3, kind: 'repte', neighbour: 'senyora-pilar' }])
     await enterPlace(page, /^Entra a (la )?Casa$/i)
     await expect(page.getByRole('region', { name: 'La Casa', exact: true })).toBeVisible()
-    await expect(page.getByTestId('door-queue')).toHaveAttribute('data-waiting', '0')
-    const start = await coins(page)
-
-    await serveOne(page, 'drag', solveBowl, {
-      asking: async () => {
-        await expectNeighbourVisible(page)
-        await expectErrandFits(page, 'Ja està!')
-        await page.waitForTimeout(1600)
-        await shot(page, 'casa-cuina-encarrec', project)
-      },
-      thanked: async () => {
-        await expect(page.getByTestId('errand-neighbour')).toHaveAttribute('data-pose', 'cheer')
-        await page.waitForTimeout(450)
-        await shot(page, 'casa-cuina-gracies', project)
-      },
-    })
-    await expect.poll(() => coins(page)).toBeGreaterThan(start)
-    const afterDrag = await coins(page)
-    await serveOne(page, 'tap', solveBowl, {
-      asking: async () => {
-        await page.getByRole('button', { name: 'Ajuda' }).click()
-        await expect(page.getByTestId('errand-hint')).toBeVisible()
-        await page.waitForTimeout(800)
-        await shot(page, 'casa-cuina-ajuda', project)
-      },
-    })
-    await expect.poll(() => coins(page)).toBeGreaterThan(afterDrag)
+    for (const floor of ['Planta baixa', 'Primer pis', 'Golfes']) await expect(page.getByRole('region', { name: floor, exact: true })).toBeAttached()
+    await expect(page.locator('[data-actor="jo"]')).toBeVisible()
+    await shot(page, 'casa-planta-baixa', project)
     expect(await hasHorizontalScroll(page)).toBe(false)
 
-    // Nobody is forced to stay: with no request waiting the place goes quiet and the bell is there; free play in the living room.
-    await expect(page.getByRole('button', { name: /Fes passar un veí/ })).toBeVisible()
-    await page.getByRole('button', { name: 'La sala' }).click()
-    await shot(page, 'casa-sala', project)
+    // Take the fruit from the fridge and carry it up to the first floor: the stairs are walked, not teleported.
+    await page.locator('[data-def="nevera"]').click()
+    await expect(page.locator('[data-def="nevera"]')).toHaveAttribute('data-open', 'true')
+    await page.locator('[data-uid="poma-1"]').click()
+    await expect(page.locator('[data-actor="jo"]')).toHaveAccessibleName(/porta la poma/)
+    await page.locator('[data-stair="escala-baixa-up"]').click()
+    await expect(page.locator('[data-floor="pis"] [data-actor="jo"]')).toBeAttached({ timeout: 15_000 })
+    await expect(page.locator('[data-actor="jo"]')).toHaveAccessibleName(/porta la poma/)
+    await page.waitForTimeout(1200)
+    await shot(page, 'casa-pis-amb-poma', project)
+
+    // Bubbles over the family: ignoring them is fine, answering gives coins.
+    const bubble = page.locator('[data-anchor="waiting"]').first()
+    await expect(bubble).toBeAttached({ timeout: 20_000 })
+    await bubble.evaluate((el) => el.scrollIntoView({ block: 'center' }))
+    await shot(page, 'casa-bombolla', project)
+    await bubble.click({ force: true })
+    const sheet = page.getByRole('region', { name: /^Encàrrec a la Casa/ })
+    await expect(sheet).toBeVisible()
+    await expect(page.getByTestId('errand-request')).toBeInViewport()
+    await page.getByRole('button', { name: 'Ara no' }).click()
+    await expect(sheet).toHaveCount(0)
+
+    for (const method of ['drag', 'tap'] as const) {
+      const before = await coins(page)
+      // The next request comes when the day's pacing says so (a few seconds).
+      await expect(page.locator('[data-anchor="waiting"]').first()).toBeAttached({ timeout: 45_000 })
+      await page.locator('[data-anchor="waiting"]').first().click({ force: true })
+      await expect(page.locator('[data-errand-kind]')).toBeVisible()
+      if (method === 'tap') {
+        await page.getByRole('button', { name: 'Ajuda' }).click()
+        await expect(page.getByTestId('errand-hint')).toBeVisible()
+        await shot(page, 'casa-peticio-ajuda', project)
+      } else await shot(page, 'casa-peticio', project)
+      const text = (await page.getByTestId('errand-request').innerText()).replace(/\s+/g, ' ')
+      if (!(await solveBowl(page, method, text))) {
+        await page.getByRole('button', { name: 'Ara no' }).click()
+        continue
+      }
+      await expect(page.getByRole('button', { name: 'Adéu!' })).toBeVisible()
+      await page.getByRole('button', { name: 'Adéu!' }).click()
+      await expect.poll(() => coins(page)).toBeGreaterThan(before)
+    }
+
+    // Decorate: a free piece from the catalogue dragged into the living room, moved, and still there after a reload.
+    await page.getByRole('button', { name: 'Decora', exact: true }).click()
     await page.getByRole('button', { name: 'Mobles', exact: true }).click()
     const catalogue = page.getByRole('region', { name: 'Catàleg de mobles' })
     await expect(catalogue).toBeVisible()
     await shot(page, 'casa-cataleg', project)
-    const cushion = catalogue.locator('[data-prop-kind="moble-cataleg"]').first()
-    const room = page.locator('[data-room="sala"]')
-    const box = await room.boundingBox()
-    if (!box) throw new Error('Sense sala')
-    const before = await room.locator('[data-placed]').count()
-    await dragToPoint(page, cushion, { x: box.x + box.width * 0.62, y: box.y + box.height * 0.6 })
-    await expect(room.locator('[data-placed]')).toHaveCount(before + 1)
-    await expect(page.getByRole('toolbar')).toBeVisible()
+    const zone = page.locator('[data-zone-id="zona-sala"]')
+    const box = await zone.boundingBox()
+    if (!box) throw new Error('Sense zona de la sala')
+    const before = await page.locator('[data-placed]').count()
+    await dragToPoint(page, catalogue.locator('[data-prop-kind="moble-cataleg"]').first(), { x: box.x + box.width * 0.6, y: box.y + box.height * 0.8 })
+    await expect(page.locator('[data-placed]')).toHaveCount(before + 1)
+    await expect(page.getByRole('toolbar', { name: /Què fem amb/ })).toBeVisible()
     await shot(page, 'casa-moble-triat', project)
-
-    // Move it with the keyboard-friendly buttons, then reload: it stays where she left it.
-    const placed = room.locator('[data-placed]').last()
+    const placed = page.locator('[data-placed]').last()
     const at = await placed.boundingBox()
     await page.getByRole('button', { name: 'Mou-ho a la dreta' }).click()
     await expect.poll(async () => (await placed.boundingBox())?.x ?? 0).toBeGreaterThan((at?.x ?? 0) + 5)
-    await page.getByRole('button', { name: 'Fet' }).click()
+    await page.getByRole('button', { name: 'Fet', exact: true }).first().click()
     await page.reload()
     await enterPlace(page, /^Entra a (la )?Casa$/i)
-    // An errand is still on the board: the neighbour is in the kitchen until she lets them go.
-    await page.getByRole('button', { name: 'Ara no' }).click()
-    await page.getByRole('button', { name: 'La sala' }).click()
-    await expect(page.locator('[data-room="sala"] [data-placed]')).toHaveCount(before + 1)
+    await expect(page.locator('[data-placed]')).toHaveCount(before + 1)
     expect(await hasHorizontalScroll(page)).toBe(false)
     expect(consoleErrors).toEqual([])
   })
 
-  test('Casa: the bed makes it night and the lamp switches on', async ({ page, consoleErrors }, testInfo) => {
+  test('sit on the sofa; night dims the floors and each floor has its own light', async ({ page, consoleErrors }, testInfo) => {
     await enterTown(page, [])
     await enterPlace(page, /^Entra a (la )?Casa$/i)
-    await page.getByRole('button', { name: 'L’habitació' }).click()
-    // The avatar walks to where she taps (far left), out of the bed's way.
-    const avatar = page.getByTestId('casa-avatar')
-    const x0 = (await avatar.boundingBox())?.x ?? 0
-    await page.getByTestId('casa-terra').click({ position: { x: 12, y: 220 } })
-    await expect.poll(async () => (await avatar.boundingBox())?.x ?? x0).toBeLessThan(x0 - 20)
-    await page.waitForTimeout(1500)
-    await page.getByRole('button', { name: 'Llit', exact: true }).click({ position: { x: 20, y: 30 } })
-    await page.getByRole('button', { name: /A dormir/ }).click()
-    await expect(page.getByTestId('casa-nit')).toBeVisible()
-    await page.waitForTimeout(700)
+    await page.locator('[data-seat="sofa-0"]').click({ position: { x: 12, y: 24 } })
+    await expect(page.locator('[data-actor="jo"]')).toHaveAttribute('data-mode', 'sitting', { timeout: 15_000 })
+    await page.getByRole('button', { name: 'Fes de nit' }).click()
+    await expect(page.getByTestId('nit-baixa')).toHaveAttribute('data-dark', 'true')
+    await page.getByRole('button', { name: /Llum de planta baixa/ }).click()
+    await expect(page.getByTestId('nit-baixa')).toHaveAttribute('data-dark', 'false')
+    await page.waitForTimeout(800)
     await shot(page, 'casa-nit', testInfo.project.name)
-    await page.getByRole('button', { name: 'Bon dia!' }).click()
-    await expect(page.getByTestId('casa-nit')).toHaveCount(0)
-    expect(await hasHorizontalScroll(page)).toBe(false)
-    expect(consoleErrors).toEqual([])
-  })
-
-  test('Perruqueria: clips by drag and by tap, then restyle the customer with the tools', async ({ page, consoleErrors }, testInfo) => {
-    const project = testInfo.project.name
-    await enterTown(page, [{ place: 'perruqueria', count: 3, kind: 'repte', neighbour: 'la-nuria' }])
-    await enterPlace(page, /^Entra a (la )?Perruqueria$/i)
-    await expect(page.getByRole('region', { name: 'La Perruqueria', exact: true })).toBeVisible()
-    await expect(page.getByTestId('door-queue')).toHaveAttribute('data-waiting', '0')
-    const start = await coins(page)
-
-    await serveOne(page, 'drag', solveClips, {
-      asking: async () => {
-        await expectNeighbourVisible(page)
-        await expectErrandFits(page, 'Ja està!')
-        await page.waitForTimeout(1600)
-        await shot(page, 'perruqueria-encarrec', project)
-      },
-      thanked: async () => {
-        await expect(page.getByTestId('errand-neighbour')).toHaveAttribute('data-pose', 'cheer')
-        await page.waitForTimeout(450)
-        await shot(page, 'perruqueria-gracies', project)
-      },
-    })
-    await expect.poll(() => coins(page)).toBeGreaterThan(start)
-    const afterDrag = await coins(page)
-    await serveOne(page, 'tap', solveClips, {
-      asking: async () => {
-        await page.getByRole('button', { name: 'Ajuda' }).click()
-        await expect(page.getByTestId('errand-hint')).toBeVisible()
-        await page.waitForTimeout(800)
-        await shot(page, 'perruqueria-ajuda', project)
-      },
-    })
-    await expect.poll(() => coins(page)).toBeGreaterThan(afterDrag)
-    // Nobody is forced to stay: with no request waiting the salon goes quiet and the bell is there.
-    await expect(page.getByRole('button', { name: /Fes passar un client/ })).toBeVisible()
-
-    // Free play: drag the scissors, then the spray, onto the customer.
-    const customer = page.locator('[data-zone-id="client-perruqueria"]')
-    await expect(customer).toBeVisible()
-    const head = page.getByRole('img', { name: 'La Fàtima, a la cadira' })
-    const before = await head.innerHTML()
-    await dragToPoint(page, page.getByRole('button', { name: 'les tisores' }), await centre(customer))
-    await expect.poll(() => head.innerHTML()).not.toBe(before)
-    await expect(page.getByText(/Cris, cris|Tallat/)).toBeVisible()
-    await shot(page, 'perruqueria-tisores', project)
-    await moveProp(page, 'tap', page.getByRole('button', { name: 'l’esprai de color' }), customer)
-    await moveProp(page, 'tap', page.getByRole('button', { name: 'les pinces' }), customer)
-    await page.waitForTimeout(500)
-    await shot(page, 'perruqueria-joc-lliure', project)
+    await page.getByRole('button', { name: 'Fes de dia' }).click()
     expect(await hasHorizontalScroll(page)).toBe(false)
     expect(consoleErrors).toEqual([])
   })

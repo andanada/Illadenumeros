@@ -82,23 +82,34 @@ async function solveErrand(page: Page, method: Method): Promise<boolean> {
 }
 
 interface ServeHooks {
-  /** While the neighbour is asking (before any move). */
+  /** While the customer is asking (before any move). */
   asking?: () => Promise<void>
   /** After the thank-you, before "Adéu!". */
   thanked?: () => Promise<void>
 }
 
-/** Serves neighbours until one is solved with `method`. */
+/** The bubble over the customer who needs something (it is a button; ignoring it is fine). */
+const wishBubble = (page: Page): Locator => page.getByRole('button', { name: /toca per atendre/ })
+
+/**
+ * Waits for a customer with a bubble (the governor is gentle: after a solved one the place rests a while,
+ * so the clock is moved on), opens it and solves the errand with `method`. Customers whose wish cannot be
+ * read are sent away with «Ara no» and the next one is tried.
+ */
 async function serveOne(page: Page, method: Method, hooks: ServeHooks = {}): Promise<void> {
   for (let tries = 0; tries < 25; tries++) {
-    const call = page.getByRole('button', { name: 'Fes passar un veí' })
-    if (await call.isVisible()) await call.click()
+    if (!(await wishBubble(page).isVisible())) {
+      await page.clock.fastForward(30_000)
+      await expect(wishBubble(page)).toBeVisible({ timeout: 15_000 })
+    }
+    await wishBubble(page).click({ force: true })
     await expect(page.locator('[data-errand-kind]')).toBeVisible()
     await hooks.asking?.()
     if (await solveErrand(page, method)) {
       await expect(page.getByRole('button', { name: 'Adéu!' })).toBeVisible()
       await hooks.thanked?.()
       await page.getByRole('button', { name: 'Adéu!' }).click()
+      await expect(page.locator('[data-errand-kind]')).toHaveCount(0)
       return
     }
     await page.getByRole('button', { name: 'Ara no' }).click()
@@ -172,40 +183,38 @@ async function enterShop(page: Page): Promise<void> {
   await expect(page.getByRole('region', { name: 'La Botiga', exact: true })).toBeVisible()
 }
 
-/** The neighbour named in the errand region is drawn, on screen. */
-async function expectNeighbourVisible(page: Page): Promise<void> {
-  const stage = page.locator('[data-errand-kind]')
-  const label = (await stage.getAttribute('aria-label')) ?? ''
-  const name = label.replace(/^Encàrrec a la Botiga: /, '')
-  expect(name.length).toBeGreaterThan(0)
-  await expect(stage.getByRole('img', { name, exact: true })).toBeInViewport({ ratio: 0.4 })
-}
-
 const isLandscape = (page: Page): boolean => {
   const size = page.viewportSize()
   return !!size && size.width > size.height
 }
 
-/** The errand is above the fold; on landscape screens (iPad, desktop) the shop does not scroll at all. */
+/** The customer who asks stands in the shop, on screen, with the shop's things around. */
+async function expectCustomerVisible(page: Page): Promise<void> {
+  const stage = page.getByRole('region', { name: 'La botiga', exact: true })
+  await expect(stage.locator('[data-actor="la-fatima"], [data-actor="en-kofi"], [data-actor="la-mei"], [data-actor="l-avi-ramon"]').first()).toBeInViewport({ ratio: 0.4 })
+  await expect(page.getByRole('status', { name: /^Caixa: / })).toBeInViewport()
+  await expect(page.getByRole('status', { name: /^Bàscula: / })).toBeInViewport()
+}
+
+/** The errand sheet is above the fold; on landscape screens (iPad, desktop) the shop does not scroll at all. */
 async function expectErrandFits(page: Page): Promise<void> {
   await expect(page.getByTestId('errand-request')).toBeInViewport()
   await expect(page.getByRole('button', { name: 'Ara no' })).toBeInViewport()
   await expect(page.getByRole('button', { name: 'Ajuda' })).toBeInViewport()
+  const submit = page.getByRole('button', { name: /^(Ja està!|Dona el canvi)$/ })
+  if ((await submit.count()) > 0) await expect(submit).toBeInViewport()
   if (!isLandscape(page)) return
   const overflow = await page.evaluate(() => {
     const main = document.querySelector('main')
     return main ? main.scrollHeight - main.clientHeight : 0
   })
   expect(overflow).toBeLessThanOrEqual(1)
-  await expect(page.getByRole('button', { name: /caixa registradora/ })).toBeInViewport()
-  await expect(page.getByRole('button', { name: /gata Mixa/ })).toBeInViewport()
-  const submit = page.getByRole('button', { name: /^(Ja està!|Dona el canvi)$/ })
-  if ((await submit.count()) > 0) await expect(submit).toBeInViewport()
 }
 
 test.describe('El Poble dels Números', () => {
   test('pan the street, enter the shop, the neighbour asks at the counter, solve by drag and by tapping', async ({ page, consoleErrors }, testInfo) => {
     const project = testInfo.project.name
+    await page.clock.install({ time: new Date(2026, 9, 9, 12, 0, 0) })
     await enterTown(page)
     const street = page.getByTestId('street')
     await shot(page, 'carrer', project)
@@ -225,19 +234,22 @@ test.describe('El Poble dels Números', () => {
     await expect(page.getByTestId('street-hint-botiga')).toBeVisible()
     await shot(page, 'carrer-globus', project)
     await enterShop(page)
-    // Only the waiting request is at the counter; nobody is queueing yet (the governor is gentle).
-    await expect(page.getByTestId('door-queue')).toHaveAttribute('data-waiting', '0')
+    // The customer who asks waits with a bubble; ignoring it is fine.
+    await expect(wishBubble(page)).toBeVisible()
+    await expect(street).toHaveCount(0)
+    await page.waitForTimeout(900)
+    await shot(page, 'botiga-joc', project)
     const start = await coins(page)
 
     await serveOne(page, 'drag', {
       asking: async () => {
-        await expectNeighbourVisible(page)
+        await expectCustomerVisible(page)
         await expectErrandFits(page)
         await page.waitForTimeout(1600)
         await shot(page, 'botiga-encarrec', project)
       },
       thanked: async () => {
-        await expect(page.getByTestId('errand-neighbour')).toHaveAttribute('data-pose', 'cheer')
+        await expect(page.getByTestId('errand-request')).toContainText('Moltes gràcies')
         await page.waitForTimeout(450)
         await shot(page, 'botiga-gracies', project)
       },
@@ -246,7 +258,7 @@ test.describe('El Poble dels Números', () => {
     const afterDrag = await coins(page)
     await serveOne(page, 'tap', {
       asking: async () => {
-        await expectNeighbourVisible(page)
+        await expectCustomerVisible(page)
         await page.getByRole('button', { name: 'Ajuda' }).click()
         await expect(page.getByTestId('errand-hint')).toBeVisible()
         await page.waitForTimeout(800)
@@ -336,7 +348,7 @@ test.describe('El Poble dels Números', () => {
     // Tapping a bubble goes in, and somebody is already waiting there (no "call a neighbour" needed).
     await bubbles.first().evaluate((el) => (el.querySelector('[data-request-bubble]') as HTMLElement).click())
     await expect(page.getByTestId('street')).toHaveCount(0, { timeout: 8000 })
-    await expect(page.locator('[data-errand-kind], [data-warmup="true"]').first()).toBeAttached({ timeout: 8000 })
+    await expect(page.locator('[data-errand-kind], [data-warmup="true"], [data-anchor]').first()).toBeAttached({ timeout: 8000 })
     expect(consoleErrors).toEqual([])
   })
 
@@ -348,8 +360,8 @@ test.describe('El Poble dels Números', () => {
     await enterShop(page)
     // Solve one errand by tapping; the surprise pops up over the thank-you.
     for (let tries = 0; tries < 25; tries++) {
-      const call = page.getByRole('button', { name: 'Fes passar un veí' })
-      if (await call.isVisible()) await call.click()
+      if (!(await wishBubble(page).isVisible())) await page.clock.fastForward(30_000)
+      await wishBubble(page).click({ force: true })
       await expect(page.locator('[data-errand-kind]')).toBeVisible()
       if (await solveErrand(page, 'tap')) break
       await page.getByRole('button', { name: 'Ara no' }).click()
@@ -373,6 +385,7 @@ test.describe('El Poble dels Números', () => {
 
   test('L’armari: short of coins it says so kindly; with errand coins she buys a top, wears it, and it stays after reload', async ({ page, consoleErrors }, testInfo) => {
     const project = testInfo.project.name
+    await page.clock.install({ time: new Date(2026, 9, 9, 12, 0, 0) })
     await enterTown(page, 30)
     await enterShop(page)
     for (let i = 0; i < 6 && (await coins(page)) < 8; i++) await serveOne(page, 'tap')

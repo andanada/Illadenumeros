@@ -1,7 +1,7 @@
 import { configure, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MatesDb } from '../../../core/storage/db'
 import { seedLearningAddition } from '../../../games/shared/speed/speedTestUtils'
 import { activateTestPlayer } from '../../../test/playerDb'
@@ -13,7 +13,22 @@ configure({ asyncUtilTimeout: 5000 })
 
 let db: MatesDb
 
+/** Reduced motion: she reaches a cabinet at once instead of walking there frame by frame. */
+function mockReducedMotion(): void {
+  vi.stubGlobal('matchMedia', (query: string) => ({
+    matches: query.includes('reduce'),
+    media: query,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+    addListener: () => undefined,
+    removeListener: () => undefined,
+  }))
+}
+
+afterEach(() => vi.unstubAllGlobals())
+
 beforeEach(async () => {
+  mockReducedMotion()
   db = activateTestPlayer()
   await Promise.all([db.skillStates.clear(), db.factStates.clear(), db.attempts.clear()])
   seedLearningAddition()

@@ -69,7 +69,7 @@ export function CabinetFront({ def, lit, warmup, onOpen, className = '' }: Cabin
       aria-label={`${def.title}${warmup ? ', escalfament' : ''}: juga`}
       data-cabinet={def.id}
       data-warmup={warmup}
-      className={`group relative flex min-h-24 flex-col items-center rounded-[1.4rem] outline-none transition-transform focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-[var(--color-chicle)] active:translate-y-1 ${className}`}
+      className={`group relative flex min-h-24 flex-col items-center rounded-[1.4rem] ${warmup ? 'drop-shadow-[0_0_14px_rgba(255,184,52,0.95)]' : ''} outline-none transition-transform focus-visible:outline-4 focus-visible:outline-offset-4 focus-visible:outline-[var(--color-chicle)] active:translate-y-1 ${className}`}
     >
       <svg viewBox="0 0 160 280" className="h-auto w-full overflow-visible" aria-hidden="true">
         <ellipse cx={80} cy={274} rx={74} ry={7} fill="#2B2440" opacity={0.2} />
@@ -109,17 +109,6 @@ export function CabinetFront({ def, lit, warmup, onOpen, className = '' }: Cabin
           {def.emoji}
         </text>
       </svg>
-      {warmup && (
-        <span
-          aria-hidden="true"
-          className="absolute -top-3 left-1/2 -translate-x-1/2 -rotate-3 whitespace-nowrap rounded-full bg-[var(--world-coral,#ff6b5b)] px-3 py-1 text-base font-bold text-white shadow-[var(--world-shadow-lift)] sm:text-lg"
-        >
-          ⚡ Escalfament
-        </span>
-      )}
-      <span className="mt-1 rounded-full bg-white/90 px-3 py-0.5 text-center text-sm font-bold leading-tight text-[var(--world-ink,#2b2440)] shadow-[var(--world-shadow-soft)] sm:text-base">
-        {def.title}
-      </span>
     </button>
   )
 }

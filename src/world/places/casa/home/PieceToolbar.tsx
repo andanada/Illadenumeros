@@ -1,8 +1,8 @@
 import type { Placement } from '../../../model/types'
 import { useScene } from '../../../scene/SceneContext'
 import { FURNITURE_BY_ID, withArticle } from '../furniture/catalog'
-import type { Direction } from './homeLogic'
-import { PLACED_KIND, placedPropId } from './PlacedPiece'
+import type { Direction } from '../house/zones'
+import { PLACED_KIND, placedPropId } from './placedProps'
 
 export interface PieceToolbarProps {
   piece: Placement

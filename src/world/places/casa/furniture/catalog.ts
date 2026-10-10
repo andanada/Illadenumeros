@@ -3,7 +3,7 @@ import type { CatalogEntry } from '../../../model/types'
 import { DECOR } from './decor'
 import { SEATING } from './seating'
 import { STORAGE } from './storage'
-import type { FurnitureDef, RoomId } from './types'
+import type { FurnitureDef } from './types'
 
 /** Every piece of the home, cheapest first. */
 export const FURNITURE: readonly FurnitureDef[] = [...SEATING, ...STORAGE, ...DECOR].sort((a, b) => a.price - b.price || a.name.localeCompare(b.name, 'ca'))
@@ -17,7 +17,7 @@ export const CASA_CATALOG: readonly CatalogEntry[] = FURNITURE.map((f) => ({ id:
 export const registerCasaCatalog = (): number => registerCatalog(CASA_CATALOG)
 
 /** The pieces for a room's catalogue page: the ones suggested for it first, then the rest. */
-export const furnitureFor = (room: RoomId): readonly FurnitureDef[] => [...FURNITURE.filter((f) => f.room === room), ...FURNITURE.filter((f) => f.room !== room)]
+export const furnitureFor = (room: string): readonly FurnitureDef[] => [...FURNITURE.filter((f) => f.room === room), ...FURNITURE.filter((f) => f.room !== room)]
 
 const FEMININE = new Set(['cadira', 'taula', 'tauleta', 'butaca', 'catifa-rodona', 'catifa-ratlles', 'lampada-peu', 'planta-test', 'prestatgeria', 'peixera', 'garlanda-llums'])
 

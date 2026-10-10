@@ -1,8 +1,8 @@
 import { PALETTE as P, swatch } from '../../../art/palette'
 import type { PaletteColor } from '../../../model/types'
-import type { Tool } from './salonLogic'
+import type { Tool } from '../styling/styleLogic'
 
-/** The four salon tools, flat and outline-free, each in a 60 × 60 box. */
+/** The six salon tools, flat and outline-free, each in a 60 × 60 box. */
 function Scissors() {
   return (
     <g>
@@ -54,13 +54,41 @@ function Clips() {
   )
 }
 
+/** A shower head with water drops. */
+function Shower() {
+  return (
+    <g>
+      <rect x="26" y="4" width="8" height="22" rx="4" fill={P.carbo.light} transform="rotate(20 30 14)" />
+      <ellipse cx="30" cy="30" rx="20" ry="9" fill={P.cel.base} />
+      <ellipse cx="30" cy="27" rx="20" ry="8" fill={P.cel.light} />
+      {[16, 26, 36, 46].map((x) => (
+        <rect key={x} x={x - 3} y="42" width="4" height="12" rx="2" fill={P.cel.base} />
+      ))}
+    </g>
+  )
+}
+
+function Comb() {
+  return (
+    <g>
+      <rect x="4" y="14" width="52" height="14" rx="7" fill={P.mango.base} />
+      <rect x="4" y="14" width="52" height="6" rx="3" fill={P.mango.light} />
+      {Array.from({ length: 9 }, (_, i) => (
+        <rect key={i} x={8 + i * 5.2} y="26" width="3" height="22" rx="1.5" fill={P.mango.shade} />
+      ))}
+    </g>
+  )
+}
+
 export function ToolArt({ tool, size = 56, spray = 'rosa' }: { tool: Tool; size?: number; spray?: PaletteColor }) {
   return (
     <svg viewBox="0 0 60 60" width={size} height={size} aria-hidden="true" className="pointer-events-none block overflow-visible">
       {tool === 'tisores' && <Scissors />}
       {tool === 'assecador' && <Dryer />}
-      {tool === 'color' && <Spray color={spray} />}
+      {tool === 'esprai' && <Spray color={spray} />}
       {tool === 'pinces' && <Clips />}
+      {tool === 'dutxa' && <Shower />}
+      {tool === 'pinta' && <Comb />}
     </svg>
   )
 }

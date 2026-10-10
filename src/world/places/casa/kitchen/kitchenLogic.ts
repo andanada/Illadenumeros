@@ -69,6 +69,9 @@ export const takeOne = (task: BowlTask, count: number): number => Math.max(task.
 const isDouble = (t: BowlTask): boolean => t.a === t.b
 const isNearDouble = (t: BowlTask): boolean => Math.abs(t.a - t.b) === 1
 
+/** «Per a el pastís» is «Per al pastís»; «Per a les creps» stays. */
+export const forDish = (dish: string): string => (dish.startsWith('el ') ? `Per al ${dish.slice(3)}` : `Per a ${dish}`)
+
 /** The cook's words, in Catalan, with the expression on the recipe. */
 export function bowlRequest(task: BowlTask): { text: string; speech: string } {
   const { ingredient: i, a, b } = task
@@ -77,13 +80,13 @@ export function bowlRequest(task: BowlTask): { text: string; speech: string } {
     const whole = a + b
     const missing = i.gender === 'f' ? 'les que falten' : 'els que falten'
     return {
-      text: `Per a ${i.dish} calen ${countWord(whole, i.one, i.many)}. Al bol ja n’hi ha ${a}: ${a} + ? = ${whole}. Posa ${missing}!`,
-      speech: `Per a ${i.dish} calen ${countWord(whole, i.one, i.many)}. Al bol ja n’hi ha ${a}. Posa ${missing}!`,
+      text: `${forDish(i.dish)} calen ${countWord(whole, i.one, i.many)}. Al bol ja n’hi ha ${a}: ${a} + ? = ${whole}. Posa ${missing}!`,
+      speech: `${forDish(i.dish)} calen ${countWord(whole, i.one, i.many)}. Al bol ja n’hi ha ${a}. Posa ${missing}!`,
     }
   }
   const flavour = isDouble(task) ? ' És un doble!' : isNearDouble(task) && task.skillId === 'A7' ? ' Gairebé un doble!' : task.skillId === 'A8' ? ' Omple primer la desena!' : ''
   return {
-    text: `Per a ${i.dish}: ${a} + ${b} ${i.many}.${flavour} ${them} al bol!`,
-    speech: `Per a ${i.dish} necessito ${a} més ${b} ${i.many}.${flavour} ${them} al bol!`,
+    text: `${forDish(i.dish)}: ${a} + ${b} ${i.many}.${flavour} ${them} al bol!`,
+    speech: `${forDish(i.dish)} necessito ${a} més ${b} ${i.many}.${flavour} ${them} al bol!`,
   }
 }

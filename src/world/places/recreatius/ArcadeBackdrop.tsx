@@ -6,7 +6,7 @@ const KEYFRAMES =
 /** A neon sign of the room (the lights going out dims it). */
 function Neon({ lit }: { lit: boolean }) {
   return (
-    <svg viewBox="0 0 420 70" className="absolute left-1/2 top-[84px] h-12 -translate-x-1/2 sm:top-[88px] sm:h-14" aria-hidden="true">
+    <svg viewBox="0 0 420 70" className="absolute left-1/2 top-[11%] h-10 -translate-x-1/2 sm:h-12" aria-hidden="true">
       <rect x={4} y={4} width={412} height={62} rx={31} fill={P.carbo.base} opacity={0.88} />
       <text
         x={210}
@@ -29,7 +29,7 @@ function Neon({ lit }: { lit: boolean }) {
  * The arcade's room: dark-blue walls with confetti-star wallpaper, a carpet in squares, a neon sign.
  * Decorative only. With the lights off it gets darker (cabinets keep glowing).
  */
-export function ArcadeBackdrop({ lit }: { lit: boolean }) {
+export function ArcadeBackdrop({ lit, floorTop = 0.74 }: { lit: boolean; floorTop?: number }) {
   const wall = lit ? '#5B4C9E' : '#2F2A5A'
   const wall2 = lit ? '#5445A0' : '#2A2552'
   const carpet = lit ? '#8E6BD4' : '#4A3C80'
@@ -56,7 +56,7 @@ export function ArcadeBackdrop({ lit }: { lit: boolean }) {
         </defs>
         <rect width="100%" height="100%" fill="url(#arcade-wall)" />
       </svg>
-      <div className="absolute inset-x-0 bottom-0 h-[26%]">
+      <div className="absolute inset-x-0 bottom-0" style={{ top: `${floorTop * 100}%` }}>
         <div className="absolute inset-x-0 -top-3 h-3" style={{ background: P.carbo.base }} />
         <svg className="h-full w-full">
           <rect width="100%" height="100%" fill="url(#arcade-carpet)" />

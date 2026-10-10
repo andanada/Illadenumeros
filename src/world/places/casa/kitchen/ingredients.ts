@@ -1,6 +1,6 @@
 /** Countable ingredients of the home kitchen (drawn in ./IngredientArt). */
 export interface Ingredient {
-  id: 'maduixa' | 'nabiu' | 'galeta' | 'ou'
+  id: 'maduixa' | 'nabiu' | 'galeta' | 'ou' | 'tovallola' | 'croqueta'
   one: string
   many: string
   gender: 'f' | 'm'
@@ -22,3 +22,13 @@ export const ingredientFor = (seed: string): Ingredient => INGREDIENTS[hash(seed
 
 /** "la maduixa", "el nabiu", "l’ou". */
 export const withArticle = (i: Ingredient): string => (/^[aeiouàèéíòóú]/i.test(i.one) ? `l’${i.one}` : `${i.gender === 'f' ? 'la' : 'el'} ${i.one}`)
+
+/** What each family member asks for (the same bowl, another thing to count): strawberries for the grandma, towels for the bath, kibble for the pet. */
+export const THEME_INGREDIENTS = {
+  maduixa: { id: 'maduixa', one: 'maduixa', many: 'maduixes', gender: 'f', dish: 'el batut' },
+  galeta: { id: 'galeta', one: 'galeta', many: 'galetes', gender: 'f', dish: 'el pastís' },
+  tovallola: { id: 'tovallola', one: 'tovallola', many: 'tovalloles', gender: 'f', dish: 'l’hora del bany' },
+  croqueta: { id: 'croqueta', one: 'croqueta', many: 'croquetes', gender: 'f', dish: 'el pinso de la mascota' },
+} as const satisfies Readonly<Record<string, Ingredient>>
+
+export type ThemeId = keyof typeof THEME_INGREDIENTS

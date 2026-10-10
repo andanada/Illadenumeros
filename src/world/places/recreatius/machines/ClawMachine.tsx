@@ -12,7 +12,7 @@ const pad =
   'grid min-h-14 place-items-center rounded-2xl text-3xl font-bold shadow-[var(--world-shadow-lift)] active:translate-y-0.5 disabled:opacity-40'
 
 /** The claw machine toy: slide the claw, drop it, take a prize. Free play, no coins; the toys react to taps. */
-export function ClawMachine({ lit, compact }: { lit: boolean; compact: boolean }) {
+export function ClawMachine({ lit, compact, onPrize }: { lit: boolean; compact: boolean; onPrize?: () => void }) {
   const reduced = useWorldReducedMotion()
   const [claw, setClaw] = useState<ClawState>(initialClaw)
   const busy = claw.phase === 'dropping' || claw.phase === 'lifting'
@@ -24,7 +24,10 @@ export function ClawMachine({ lit, compact }: { lit: boolean; compact: boolean }
       () => {
         if (claw.phase === 'dropping') {
           const next = grabToy(claw)
-          if (next.result === 'won') arcadeSfx.prize()
+          if (next.result === 'won') {
+            arcadeSfx.prize()
+            onPrize?.()
+          }
           else arcadeSfx.slip()
           setClaw(next)
         } else setClaw(refill(liftDone(claw)))
@@ -32,6 +35,8 @@ export function ClawMachine({ lit, compact }: { lit: boolean; compact: boolean }
       reduced ? 0 : TRAVEL_MS,
     )
     return () => clearTimeout(t)
+    // `onPrize` only reports; it never decides what happens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [claw, reduced])
 
   const move = (step: -1 | 1): void => {
