@@ -8,14 +8,16 @@ import type { AvatarSpec } from '../model/types'
 import { Avatar } from '../scene/art'
 import { worldSfx } from '../scene/worldSfx'
 import { CoinCounter } from './CoinCounter'
+import type { JarProgress } from './jarMessage'
+import { StarJar } from './StarJar'
 
 export interface HudProps {
   avatar: AvatarSpec
   coins: number
-  pendingErrands: number
+  /** Today's maths as a jar of stars (passive). */
+  jar: JarProgress
   /** The avatar bubble: opens the wardrobe (slot for the wardrobe screen). */
   onWardrobe: () => void
-  onErrands: () => void
 }
 
 const round = 'grid size-16 shrink-0 place-items-center rounded-full bg-white text-3xl shadow-[var(--world-shadow-lift)] active:translate-y-0.5 active:shadow-[var(--world-shadow-press)]'
@@ -77,8 +79,8 @@ function AlbumButton() {
   )
 }
 
-/** Always-visible town HUD: avatar (wardrobe), coins, sticker album, errands board, sound and the parents' lock. */
-export function Hud({ avatar, coins, pendingErrands, onWardrobe, onErrands }: HudProps) {
+/** Always-visible town HUD: avatar (wardrobe), coins, sticker album, the jar of stars, sound and the parents' lock. */
+export function Hud({ avatar, coins, jar, onWardrobe }: HudProps) {
   return (
     <header className="pointer-events-none absolute inset-x-0 top-0 z-50 flex items-start justify-between gap-2 p-2 sm:p-3 [&>*]:pointer-events-auto">
       <div className="flex items-center gap-2">
@@ -99,23 +101,7 @@ export function Hud({ avatar, coins, pendingErrands, onWardrobe, onErrands }: Hu
       </div>
       <div className="ml-auto flex items-center gap-2">
         <AlbumButton />
-        <button
-          type="button"
-          aria-label={pendingErrands > 0 ? `Encàrrecs: ${pendingErrands} per fer` : 'Encàrrecs'}
-          onClick={() => {
-            unlockAudio()
-            worldSfx.squish()
-            onErrands()
-          }}
-          className={`${round} relative`}
-        >
-          <span aria-hidden="true">📋</span>
-          {pendingErrands > 0 && (
-            <span aria-hidden="true" className="absolute -right-1 -top-1 grid size-7 place-items-center rounded-full bg-[var(--world-coral,#ff6b5b)] text-base font-bold text-white">
-              {pendingErrands}
-            </span>
-          )}
-        </button>
+        <StarJar jar={jar} />
         {/* Phones: sound and parents' lock wait in the bottom-right corner, so the top row fits. */}
         <div className="pointer-events-auto fixed bottom-3 right-3 flex items-center gap-2 sm:static">
           <MuteButton />

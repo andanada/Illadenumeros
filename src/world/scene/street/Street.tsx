@@ -1,14 +1,18 @@
 import { motion, useTransform } from 'motion/react'
-import { useEffect, useMemo, useRef, useState, type ComponentType } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react'
 import { unlockAudio } from '../../../core/audio/sfx'
 import { speak } from '../../../core/audio/speech'
 import type { AvatarSpec, SceneId } from '../../model/types'
-import { Avatar, Grain, PropArt } from '../art'
+import { Grain, PropArt } from '../art'
 import { useWorldReducedMotion } from '../useReducedMotion'
 import { worldSfx } from '../worldSfx'
+import { StreetArrow } from './StreetArrow'
+import { StreetAvatar } from './StreetAvatar'
 import { ClosedOverlay, FutureLot, Hills } from './StreetArt'
 import { centreOf, layoutStreet, type LaidSpot } from './streetLayout'
 import { useStreetPan, watchSize } from './useStreetPan'
+import { useStreetWalk } from './useStreetWalk'
+import { atDoor, cameraFor, followOffset, streetXAt, walkBounds } from './walkLogic'
 
 /** One lot of the street as the town shell sees it. */
 export interface StreetSpot {
@@ -23,19 +27,20 @@ export interface StreetSpot {
 export interface StreetProps {
   avatar: AvatarSpec
   spots: readonly StreetSpot[]
+  /** She reached an open door (or tapped it while standing there): go in. `from` is the door's box. */
   onEnter: (place: SceneId, from: DOMRect) => void
-  /** Street offset to start at (remembered when coming back out of a place). */
+  /** Camera offset to start at (remembered when coming back out of a place): she stands in the middle of the screen. */
   initialOffset?: number
   onOffsetChange?: (offset: number) => void
   /** «Vés-hi!» from the errand board: walk to that place, then go in. A new nonce = a new walk. */
   walkTo?: { id: SceneId; nonce: number }
   /** Speech bubble over her avatar («Hola, Laia!»), until she starts walking. */
   greeting?: string
+  /** What she carries, as SVG content for her hand (centred on 0,0, ~44 px wide): it stays with her through doors. */
+  carrying?: ReactNode
 }
 
 const BUILDING_UNITS_H = 340
-/** Time the walk takes before the door opens (none with reduced motion). */
-export const WALK_MS = 650
 
 /** Building scale from the available height: big on tablets, still whole on a phone. */
 const scaleFor = (height: number, width: number): number => Math.max(0.55, Math.min(1.15, (height * 0.55) / BUILDING_UNITS_H, width > 0 ? width / 400 : 1.15))
@@ -54,20 +59,38 @@ function Facade({ spot, box, scale, tint }: { spot: StreetSpot; box: LaidSpot; s
   )
 }
 
-export function Street({ avatar, spots, onEnter, initialOffset, onOffsetChange, walkTo, greeting }: StreetProps) {
+/** The street she walks: tap the ground or a door, hold an arrow, or use the arrow keys. The camera follows her. */
+export function Street({ avatar, spots, onEnter, initialOffset, onOffsetChange, walkTo, greeting, carrying }: StreetProps) {
   const reduced = useWorldReducedMotion()
   const [size, setSize] = useState({ w: 0, h: 640 })
   const layout = useMemo(() => layoutStreet(spots.map((s) => s.id)), [spots])
   const scale = scaleFor(size.h, size.w)
   const width = layout.length * scale
   const shop = layout.spots.find((s) => s.id === 'botiga') ?? layout.spots[0]
-  const firstCentre = shop ? centreOf(shop) * scale : 0
+  const shopCentre = shop ? centreOf(shop) : 150
+  const bounds = walkBounds(layout.length)
   const pan = useStreetPan(width, reduced, initialOffset ?? 0)
   const back = useTransform(pan.x, (v) => v * 0.45)
   const front = useTransform(pan.x, (v) => v * 1.2)
-  const first = useRef(initialOffset === undefined)
   const doors = useRef(new Map<SceneId, HTMLElement>())
+  const [entering, setEntering] = useState(false)
   const [greet, setGreet] = useState(greeting !== undefined)
+
+  // The camera glides after her (it only moves while she walks, so dragging the street around still works).
+  const view = useRef({ scale, viewport: pan.viewport, min: pan.min })
+  useEffect(() => {
+    view.current = { scale, viewport: pan.viewport, min: pan.min }
+  })
+  const follow = useCallback(
+    (x: number, dtMs: number) => {
+      const v = view.current
+      if (v.viewport === 0) return
+      const target = cameraFor(x, v.scale, v.viewport, v.min)
+      pan.x.set(Number.isFinite(dtMs) ? followOffset(pan.x.get(), target, dtMs) : target)
+    },
+    [pan.x],
+  )
+  const walk = useStreetWalk({ initial: shopCentre, min: bounds.min, max: bounds.max, reduced, follow })
 
   useEffect(() => {
     const el = pan.viewportRef.current
@@ -77,61 +100,102 @@ export function Street({ avatar, spots, onEnter, initialOffset, onOffsetChange, 
     return watchSize(el, measure)
   }, [pan.viewportRef])
 
-  // First visit: the shop in the middle of the screen.
+  // First frame with a real size: she stands where the camera was (coming back out of a place) or by the shop (first visit).
+  const placed = useRef(false)
   useEffect(() => {
-    if (!first.current || pan.viewport === 0 || size.w === 0) return
-    first.current = false
-    pan.x.set(Math.max(pan.min, Math.min(0, pan.viewport / 2 - firstCentre)))
-  }, [pan, firstCentre, size.w])
+    if (placed.current || pan.viewport === 0 || size.w === 0) return
+    placed.current = true
+    if (initialOffset !== undefined) walk.x.set(Math.min(bounds.max, Math.max(bounds.min, (pan.viewport / 2 - initialOffset) / scale)))
+    else pan.x.set(cameraFor(shopCentre, scale, pan.viewport, pan.min))
+  }, [pan, walk.x, size.w, initialOffset, scale, shopCentre, bounds.min, bounds.max])
 
   useEffect(() => (onOffsetChange ? pan.x.on('change', onOffsetChange) : undefined), [pan.x, onOffsetChange])
-  // The greeting stays until she walks (the street's own first centring on the shop does not count).
-  const arrived = useRef(Date.now())
-  useEffect(() => {
-    if (!greet) return
-    return pan.x.on('change', () => {
-      if (Date.now() - arrived.current > 1200) setGreet(false)
-    })
-  }, [pan.x, greet])
 
-  // «Vés-hi!»: walk to the place, then knock. Latest values in a ref so re-renders mid-walk never cancel it.
-  const latest = useRef({ layout, scale, centreOn: pan.centreOn, onEnter, reduced })
+  // The greeting stays until she walks.
   useEffect(() => {
-    latest.current = { layout, scale, centreOn: pan.centreOn, onEnter, reduced }
+    if (walk.moves > 0) setGreet(false)
+  }, [walk.moves])
+
+  const goIn = useCallback(
+    (spot: StreetSpot): void => {
+      const el = doors.current.get(spot.id)
+      worldSfx.doorbell()
+      setEntering(true)
+      onEnter(spot.id, el ? el.getBoundingClientRect() : new DOMRect(window.innerWidth / 2, window.innerHeight / 2, 0, 0))
+    },
+    [onEnter],
+  )
+
+  const visit = useCallback(
+    (spot: StreetSpot): void => {
+      const box = layout.spots.find((s) => s.id === spot.id)
+      if (!box) return
+      const door = centreOf(box)
+      if (atDoor(walk.x.get(), door, box.w)) goIn(spot)
+      else walk.walkTo(door, () => goIn(spot))
+    },
+    [layout.spots, walk, goIn],
+  )
+
+  // «Vés-hi!»: walk to the place, then go in. The latest `visit` lives in a ref so re-renders mid-walk never cancel it.
+  const latest = useRef({ spots, visit })
+  useEffect(() => {
+    latest.current = { spots, visit }
   })
   useEffect(() => {
     if (!walkTo) return
-    const now = latest.current
-    const box = now.layout.spots.find((s) => s.id === walkTo.id)
-    if (!box) return
-    now.centreOn(centreOf(box) * now.scale)
-    const timer = setTimeout(() => {
-      const el = doors.current.get(walkTo.id)
-      worldSfx.doorbell()
-      latest.current.onEnter(walkTo.id, el ? el.getBoundingClientRect() : new DOMRect(window.innerWidth / 2, window.innerHeight / 2, 0, 0))
-    }, now.reduced ? 0 : WALK_MS)
+    const spot = latest.current.spots.find((s) => s.id === walkTo.id)
+    if (!spot?.open) return
+    // A beat first, so even when she already stands there the child sees her about to knock.
+    const timer = setTimeout(() => latest.current.visit(spot), reduced ? 0 : 400)
     return () => clearTimeout(timer)
+    // A new nonce is a new walk; `reduced` is read at that moment.
   }, [walkTo])
 
-  const tapSpot = (spot: StreetSpot, el: HTMLElement): void => {
+  const tapSpot = (spot: StreetSpot): void => {
     unlockAudio()
-    if (spot.open) {
-      worldSfx.doorbell()
-      onEnter(spot.id, el.getBoundingClientRect())
-      return
-    }
+    if (spot.open) return visit(spot)
     worldSfx.boing()
     speak('Obrim aviat!')
   }
 
   const { viewportRef, handlers } = pan
+  const tapGround = (e: React.MouseEvent<HTMLDivElement>): void => {
+    if ((e.target as HTMLElement).closest('button')) return
+    unlockAudio()
+    const left = e.currentTarget.getBoundingClientRect().left
+    walk.walkTo(streetXAt(e.clientX, left, pan.x.get(), scale))
+  }
+
+  const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>): void => {
+    if (e.target !== e.currentTarget || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return
+    e.preventDefault()
+    if (!e.repeat) walk.hold(e.key === 'ArrowRight' ? 1 : -1)
+  }
+  const onKeyUp = (e: React.KeyboardEvent<HTMLDivElement>): void => {
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') walk.stop()
+  }
+
+  /** A stride from where the camera is looking, so the arrows work like the old street arrows. */
+  const stride = (dir: 1 | -1): void => walk.walkTo((pan.viewport / 2 - pan.x.get()) / scale + (dir * pan.viewport * 0.7) / scale)
+
   const avatarSize = Math.round(170 * scale)
   return (
     <div
       ref={viewportRef}
       {...handlers}
+      onPointerDown={(e) => {
+        walk.stop()
+        handlers.onPointerDown(e)
+      }}
+      onClick={tapGround}
+      onKeyDown={onKeyDown}
+      onKeyUp={onKeyUp}
+      tabIndex={0}
+      role="group"
+      aria-label="El carrer. Toca el terra o fes servir les fletxes per caminar."
       data-testid="street"
-      className="relative h-full w-full touch-pan-y overflow-hidden"
+      className="relative h-full w-full touch-pan-y overflow-hidden outline-none focus-visible:outline-8 focus-visible:-outline-offset-8 focus-visible:outline-[var(--world-focus,#4da6ec)]"
       style={{ background: 'linear-gradient(var(--world-sky-top, #8fd3ff), var(--world-sky-bottom, #d7f0ff))' }}
     >
       <div aria-hidden="true" className="pointer-events-none absolute right-[10%] top-[14%]">
@@ -165,8 +229,7 @@ export function Street({ avatar, spots, onEnter, initialOffset, onOffsetChange, 
                 data-place={spot.id}
                 data-open={spot.open}
                 whileTap={reduced ? undefined : { scale: 0.96 }}
-                onFocus={() => pan.centreOn(centreOf(box) * scale)}
-                onClick={(e) => tapSpot(spot, e.currentTarget)}
+                onClick={() => tapSpot(spot)}
                 className="relative block h-full w-full rounded-[2rem] focus-visible:outline-8"
               >
                 <Facade spot={spot} box={box} scale={scale} tint={i} />
@@ -186,43 +249,23 @@ export function Street({ avatar, spots, onEnter, initialOffset, onOffsetChange, 
           <span key={i} className="block h-8 w-24 rounded-full" style={{ background: 'var(--world-grass, #a8d143)' }} />
         ))}
       </motion.div>
-      <div className="pointer-events-none absolute bottom-[4%] left-1/2 flex -translate-x-1/2 flex-col items-center">
-        {greet && greeting && (
-          <motion.p
-            initial={reduced ? false : { scale: 0.6, opacity: 0, y: 8 }}
-            animate={{ scale: 1, opacity: 1, y: 0 }}
-            transition={{ type: 'spring', stiffness: 380, damping: 18, delay: reduced ? 0 : 0.35 }}
-            className="relative mb-1 whitespace-nowrap rounded-[1.4rem] bg-white px-4 py-2 text-2xl font-bold text-[var(--world-ink,#2b2440)] shadow-[var(--world-shadow-soft)]"
-          >
-            {greeting}
-            <span aria-hidden="true" className="absolute -bottom-2 left-1/2 size-4 -translate-x-1/2 rotate-45 rounded-sm bg-white" />
-          </motion.p>
-        )}
-        <div aria-hidden="true">
-          <Avatar spec={avatar} pose={greet && greeting ? 'wave' : 'idle'} look={{ x: pan.direction, y: 0 }} size={avatarSize} />
-        </div>
-      </div>
-      <ArrowButton side="left" disabled={pan.atStart} onClick={() => pan.step(-1)} />
-      <ArrowButton side="right" disabled={pan.atEnd} onClick={() => pan.step(1)} />
+      <motion.div style={{ x: pan.x, width }} className="pointer-events-none absolute bottom-[6%] left-0 h-0">
+        <StreetAvatar
+          avatar={avatar}
+          x={walk.x}
+          scale={scale}
+          size={avatarSize}
+          walking={walk.walking}
+          facing={walk.facing}
+          entering={entering}
+          reduced={reduced}
+          greeting={greet ? greeting : undefined}
+          holding={carrying}
+        />
+      </motion.div>
+      <StreetArrow side="left" disabled={pan.atStart} onStep={() => stride(-1)} onHold={() => walk.hold(-1)} onRelease={walk.stop} />
+      <StreetArrow side="right" disabled={pan.atEnd} onStep={() => stride(1)} onHold={() => walk.hold(1)} onRelease={walk.stop} />
       <Grain />
     </div>
-  )
-}
-
-function ArrowButton({ side, disabled, onClick }: { side: 'left' | 'right'; disabled: boolean; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      aria-label={side === 'left' ? 'Camina cap a l’esquerra' : 'Camina cap a la dreta'}
-      disabled={disabled}
-      onClick={() => {
-        unlockAudio()
-        worldSfx.whoosh()
-        onClick()
-      }}
-      className={`absolute top-1/2 z-40 grid size-16 -translate-y-1/2 place-items-center rounded-full bg-white/90 text-3xl font-bold text-[var(--world-ink,#2b2440)] shadow-[var(--world-shadow-lift)] transition-opacity active:scale-95 disabled:opacity-0 ${side === 'left' ? 'left-3' : 'right-3'}`}
-    >
-      <span aria-hidden="true">{side === 'left' ? '‹' : '›'}</span>
-    </button>
   )
 }

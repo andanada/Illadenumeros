@@ -7,10 +7,10 @@ import { todayKey, useProgress } from '../core/progress/store'
 import type { MatesDb } from '../core/storage/db'
 import { activateTestPlayer } from '../test/playerDb'
 import { BOARD_ERRANDS } from './board/boardPlan'
-import { resetBoardStoreForTest } from './board/boardStore'
 import { defaultAvatar } from './characters'
 import { defaultWorld, useWorldStore } from './data'
 import { place as botiga } from './places/botiga'
+import { resetRequestStoreForTest } from './requests/requestStore'
 import type { PlaceModule, PlaceProps } from './places/types'
 import { Street, type StreetSpot } from './scene/street/Street'
 import TownPage from './TownPage'
@@ -43,7 +43,7 @@ const perruqueria: PlaceModule = { ...casa, id: 'perruqueria', title: 'La Perruq
 
 beforeEach(() => {
   db = activateTestPlayer()
-  resetBoardStoreForTest()
+  resetRequestStoreForTest()
   useProgress.setState({ profile: PROFILE })
 })
 
@@ -156,40 +156,39 @@ describe('TownPage', () => {
     expect(await screen.findByTestId('street')).toBeInTheDocument()
   })
 
-  it('the board lists today’s errands; «Vés-hi!» takes her there and the errands tick off', async () => {
+  it('a waiting character’s bubble hangs over the façade; tapping it goes in and the character is already there; solving fills the jar', async () => {
     await chosenAvatar()
     renderTown()
-    const hud = await screen.findByRole('button', { name: `Encàrrecs: ${BOARD_ERRANDS} per fer` })
-    await userEvent.click(hud)
-    const board = screen.getByRole('dialog', { name: 'El tauler d’encàrrecs' })
-    const cards = within(board).getAllByRole('listitem')
-    expect(cards.length).toBeGreaterThan(0)
-    expect(cards.reduce((n, c) => n + Number(c.dataset.count), 0)).toBe(BOARD_ERRANDS)
-    expect(within(board).getByText('Quan els acabis tots, hi haurà una sorpresa!')).toBeInTheDocument()
-    const atHome = cards.find((c) => c.dataset.place === 'casa')
-    if (!atHome) throw new Error('La casa no és al tauler')
-    const count = Number(atHome.dataset.count)
+    const bubble = await screen.findByTestId('street-hint-casa')
+    expect(bubble).toHaveAttribute('data-waiting', '1')
+    expect(screen.queryByTestId('street-hint-perruqueria')).toBeNull()
+    expect(screen.queryByRole('button', { name: /^Encàrrecs/ })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Tarro d’estrelles: 0 %' })).toBeInTheDocument()
 
-    await userEvent.click(within(atHome).getByRole('button', { name: 'Vés-hi: La Casa' }))
+    await userEvent.click(within(bubble).getByText('🍳'))
     expect(await screen.findByRole('region', { name: 'La Casa de prova' }, { timeout: 3000 })).toBeInTheDocument()
-    expect(screen.getByText(`Pendents: ${count}`)).toBeInTheDocument()
+    expect(screen.getByText('Pendents: 1')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Resol' }))
-    await waitFor(() => expect(screen.getByText(`Pendents: ${count - 1}`)).toBeInTheDocument())
-    expect(screen.getByRole('button', { name: `Encàrrecs: ${BOARD_ERRANDS - 1} per fer` })).toBeInTheDocument()
-
-    // «Vés-hi!» to the place she is in rings for the next neighbour.
-    await userEvent.click(screen.getByRole('button', { name: `Encàrrecs: ${BOARD_ERRANDS - 1} per fer` }))
-    await userEvent.click(screen.getByRole('button', { name: 'Vés-hi: La Casa' }))
-    expect(screen.getByText('Timbre: 1')).toBeInTheDocument()
-    expect(screen.queryByRole('dialog', { name: 'El tauler d’encàrrecs' })).toBeNull()
+    await waitFor(() => expect(screen.getByText('Pendents: 0')).toBeInTheDocument())
+    expect(screen.getByRole('button', { name: 'Tarro d’estrelles: 10 %' })).toBeInTheDocument()
+    expect(useProgress.getState().rewards.missionsDone).not.toContain(todayKey())
   })
 
-  it('finishing the board: a surprise gift, free, in her wardrobe; the day counts as done', async () => {
+  it('ignoring a bubble costs nothing: entering the building by its door works the same', async () => {
+    await chosenAvatar()
+    renderTown()
+    await screen.findByTestId('street-hint-casa')
+    await userEvent.click(screen.getByRole('button', { name: 'Entra a la Casa' }))
+    expect(await screen.findByRole('region', { name: 'La Casa de prova' }, { timeout: 3000 })).toBeInTheDocument()
+    expect(screen.getByText('Pendents: 1')).toBeInTheDocument()
+  })
+
+  it('filling the jar: a surprise gift, free, in her wardrobe; the day counts as done', async () => {
     await chosenAvatar()
     renderTown({ places: [casa] })
     await userEvent.click(await screen.findByRole('button', { name: 'Entra a la Casa' }))
     await screen.findByRole('region', { name: 'La Casa de prova' }, { timeout: 3000 })
-    await waitFor(() => expect(screen.getByText(`Pendents: ${BOARD_ERRANDS}`)).toBeInTheDocument())
+    await screen.findByText('Pendents: 1')
     for (let i = 0; i < BOARD_ERRANDS; i++) await userEvent.click(screen.getByRole('button', { name: 'Resol' }))
 
     const reveal = await screen.findByRole('dialog', { name: 'Sorpresa!' })
@@ -201,7 +200,7 @@ describe('TownPage', () => {
     expect(useProgress.getState().rewards.missionsDone).toContain(todayKey())
     await userEvent.click(within(reveal).getByRole('button', { name: 'Que bé!' }))
     expect(screen.queryByRole('dialog', { name: 'Sorpresa!' })).toBeNull()
-    expect(screen.getByRole('button', { name: 'Encàrrecs' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Tarro d’estrelles: 100 %' })).toBeInTheDocument()
   })
 
   it('the avatar bubble opens L’armari, which closes again; the slot can be overridden', async () => {

@@ -77,7 +77,7 @@ const rotate = <T,>(items: readonly T[], seed: number): T[] => {
 const stepSkills = (plan: readonly MissionStep[], id: MissionStep['id']): readonly string[] | undefined => plan.find((s) => s.id === id)?.skillIds
 
 /** Skill groups of the day, from the daily mission's plan. */
-function skillGroups(input: BoardInput, seed: number): { core: ReadonlySet<string>; review: ReadonlySet<string>; available: ReadonlySet<string> } {
+export function skillGroups(input: BoardInput, seed: number): { core: ReadonlySet<string>; review: ReadonlySet<string>; available: ReadonlySet<string> } {
   const mission = buildMissionPlan(input.skills, input.states, seed, input.factStates ?? {})
   const available = new Set(stepSkills(mission, 'lliure') ?? input.skills.map((s) => s.id))
   const op = coreOperation(input.skills, input.states)

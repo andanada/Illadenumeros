@@ -54,6 +54,8 @@ export const worldSfx = {
   meow: () => tones([{ freq: 700, to: 1100, duration: 0.18, type: 'triangle', volume: 0.08 }, { freq: 1100, to: 650, at: 0.17, duration: 0.3, type: 'triangle', volume: 0.07 }]),
   purr: () => tones(Array.from({ length: 6 }, (_, i) => ({ freq: 55, to: 70, at: i * 0.09, duration: 0.08, type: 'sawtooth' as const, volume: 0.04 }))),
   whoosh: () => tones([{ freq: 200, to: 900, duration: 0.25, type: 'sine', volume: 0.06 }]),
+  /** A soft footstep while walking. */
+  step: () => tones([{ freq: 210, to: 150, duration: 0.05, type: 'triangle', volume: 0.035 }]),
   doorbell: () => tones([{ freq: 988, duration: 0.35, type: 'sine' }, { freq: 784, at: 0.3, duration: 0.5, type: 'sine' }]),
   /** Errand solved: the app's own happy sounds, so the town feels like the same app. */
   happy: () => sfx.star(),

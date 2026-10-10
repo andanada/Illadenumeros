@@ -2,20 +2,21 @@ import { AnimatePresence, motion } from 'motion/react'
 import { lazy, Suspense, useCallback, useMemo, useRef, useState } from 'react'
 import { PageLoader } from '../app/PageLoader'
 import { useProgress } from '../core/progress/store'
-import { ErrandBoard, type BoardCard } from './board/ErrandBoard'
 import { GiftReveal } from './board/GiftReveal'
 import { AvatarCreator } from './characters'
 import { useWorld } from './data'
 import { Hud } from './hud/Hud'
 import type { SceneId } from './model/types'
 import { PLACES } from './places/registry'
-import { capitalised } from './places/streetPlan'
+import { waitingAt } from './requests/dayState'
+import { StreetHintsProvider, type StreetHint } from './requests/StreetHints'
+import { withStreetHint } from './requests/withStreetHint'
+import { useRequestEngine } from './requests/useRequestEngine'
 import type { PlaceModule } from './places/types'
 import { Street } from './scene/street/Street'
 import { useWorldReducedMotion } from './scene/useReducedMotion'
 import { worldSfx } from './scene/worldSfx'
 import { PlayerChip } from './town/PlayerChip'
-import { useBoard } from './town/useBoard'
 import { useTownPlaces } from './town/useTownPlaces'
 import { wardrobeOwned } from './wardrobe/wardrobeLogic'
 
@@ -28,11 +29,11 @@ export interface TownPageProps {
   onWardrobe?: () => void
   /** The places of the town (tests); default: the registry. */
   places?: readonly PlaceModule[]
-  /** The clock that decides «today» for the errand board (tests). */
+  /** The clock that decides «today» and paces the requests (tests). */
   now?: () => number
 }
 
-/** «El Poble dels Números»: the street, the places behind its doors, the errand board and the HUD on top. */
+/** «El Poble dels Números»: the street, the places behind its doors, the ambient requests and the HUD (with the jar of stars) on top. */
 export default function TownPage({ onWardrobe, places = PLACES, now = Date.now }: TownPageProps) {
   const { avatar, coins, owned, ready, avatarUpdatedAt, setAvatar } = useWorld()
   const name = useProgress((s) => s.profile?.name)
@@ -40,12 +41,10 @@ export default function TownPage({ onWardrobe, places = PLACES, now = Date.now }
   const [created, setCreated] = useState(false)
   const reduced = useWorldReducedMotion()
   const town = useTownPlaces(places)
-  const board = useBoard(now, town.open)
+  const requests = useRequestEngine(now, town.open)
   const [where, setWhere] = useState<Where>({ at: 'street' })
   const [callSignal, setCallSignal] = useState(0)
   const [wardrobe, setWardrobe] = useState(false)
-  const [showBoard, setShowBoard] = useState(false)
-  const [walk, setWalk] = useState<{ id: SceneId; nonce: number } | undefined>(undefined)
   const streetOffset = useRef<number | undefined>(undefined)
   /** Where the street was when the child went in, so she comes out at the same door. */
   const [savedOffset, setSavedOffset] = useState<number | undefined>(undefined)
@@ -57,9 +56,10 @@ export default function TownPage({ onWardrobe, places = PLACES, now = Date.now }
       const origin = from ? { x: from.left + from.width / 2, y: from.top + from.height / 2 } : { x: window.innerWidth / 2, y: window.innerHeight / 2 }
       setSavedOffset(streetOffset.current)
       setGreeted(true)
+      requests.wake(id)
       setWhere({ at: id, origin })
     },
-    [town],
+    [town, requests],
   )
 
   const exit = useCallback(() => setWhere({ at: 'street' }), [])
@@ -67,28 +67,29 @@ export default function TownPage({ onWardrobe, places = PLACES, now = Date.now }
     streetOffset.current = v
   }, [])
 
-  /** «Vés-hi!»: already there = call the next neighbour; elsewhere = walk the street to it. */
-  const goTo = (id: SceneId): void => {
-    setShowBoard(false)
-    if (where.at === id) {
-      worldSfx.doorbell()
+  /** She tapped a character's bubble on the street: in she goes, and the character comes to the counter. */
+  const tapBubble = useCallback(
+    (id: SceneId, from: DOMRect) => {
       setCallSignal((n) => n + 1)
-      return
-    }
-    setWhere({ at: 'street' })
-    setWalk((w) => ({ id, nonce: (w?.nonce ?? 0) + 1 }))
-  }
-
-  const cards = useMemo<BoardCard[]>(
-    () =>
-      (board.board?.tasks ?? []).map((t) => {
-        const lot = town.byId(t.place)
-        return { ...t, title: capitalised(lot?.name ?? t.place), done: board.board?.done[t.place] ?? 0, facade: lot?.place?.facade }
-      }),
-    [board.board, town],
+      enter(id, from)
+    },
+    [enter],
   )
 
-  const spots = useMemo(() => town.lots.map((l) => ({ id: l.id, name: l.name, open: l.open, facade: l.place?.facade })), [town.lots])
+  const hints = useMemo<Readonly<Partial<Record<SceneId, StreetHint>>>>(() => {
+    const out: Partial<Record<SceneId, StreetHint>> = {}
+    const at = now()
+    for (const lot of town.lots) {
+      const waiting = requests.day && lot.open ? waitingAt(requests.day, lot.id, at) : []
+      const first = waiting[0]
+      if (first) out[lot.id] = { count: waiting.length, kind: first.kind }
+    }
+    return out
+    // `now` is a stable clock; the day changes whenever a request appears or goes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requests.day, requests.pending, town.lots])
+
+  const spots = useMemo(() => town.lots.map((l) => ({ id: l.id, name: l.name, open: l.open, facade: l.open ? withStreetHint(l.id, l.place?.facade) : l.place?.facade })), [town.lots])
 
   if (!ready) return <PageLoader />
   if (avatarUpdatedAt === 0 && !created) {
@@ -127,15 +128,16 @@ export default function TownPage({ onWardrobe, places = PLACES, now = Date.now }
             transition={zoom}
             style={{ transformOrigin: origin }}
           >
-            <Street
-              avatar={avatar}
-              spots={spots}
-              onEnter={enter}
-              onOffsetChange={rememberOffset}
-              {...(savedOffset !== undefined ? { initialOffset: savedOffset } : {})}
-              {...(walk ? { walkTo: walk } : {})}
-              {...(name && !greeted ? { greeting: `Hola, ${name}!` } : {})}
-            />
+            <StreetHintsProvider value={{ hints, onTap: tapBubble }}>
+              <Street
+                avatar={avatar}
+                spots={spots}
+                onEnter={enter}
+                onOffsetChange={rememberOffset}
+                {...(savedOffset !== undefined ? { initialOffset: savedOffset } : {})}
+                {...(name && !greeted ? { greeting: `Hola, ${name}!` } : {})}
+              />
+            </StreetHintsProvider>
           </motion.main>
         ) : (
           <motion.main
@@ -148,7 +150,7 @@ export default function TownPage({ onWardrobe, places = PLACES, now = Date.now }
             style={{ transformOrigin: origin }}
           >
             <Suspense fallback={<PageLoader />}>
-              <Place pending={board.pendingAt(inside.id)} callSignal={callSignal} onSolved={() => board.solved(inside.id)} onExit={exit} />
+              <Place pending={requests.pendingAt(inside.id)} callSignal={callSignal} onSolved={(coins) => requests.resolve(inside.id, coins)} onExit={exit} />
             </Suspense>
           </motion.main>
         )}
@@ -156,16 +158,11 @@ export default function TownPage({ onWardrobe, places = PLACES, now = Date.now }
       <Hud
         avatar={avatar}
         coins={coins}
-        pendingErrands={board.pending}
+        jar={requests.jar}
         onWardrobe={() => (onWardrobe ? onWardrobe() : setWardrobe(true))}
-        onErrands={() => {
-          worldSfx.doorbell()
-          setShowBoard(true)
-        }}
       />
       {where.at === 'street' && <PlayerChip avatar={avatar} />}
-      {showBoard && <ErrandBoard cards={cards} onGo={goTo} onClose={() => setShowBoard(false)} />}
-      {board.reveal && <GiftReveal reveal={board.reveal} avatar={avatar} onWear={(spec) => void setAvatar(spec)} onClose={board.dismiss} />}
+      {requests.reveal && <GiftReveal reveal={requests.reveal} avatar={avatar} onWear={(spec) => void setAvatar(spec)} onClose={requests.dismiss} />}
       {wardrobe && (
         <Suspense fallback={null}>
           <Wardrobe onClose={() => setWardrobe(false)} />

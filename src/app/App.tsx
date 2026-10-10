@@ -25,6 +25,8 @@ const PlayerPickerPage = lazy(() => import('../features/players/PlayerPickerPage
 const AccountPage = lazy(() => import('../features/account/AccountPage'))
 const PrivacyPage = lazy(() => import('../features/privacy/PrivacyPage'))
 const TownPage = lazy(() => import('../world/TownPage'))
+/** Sandbox demo room for the town's primitives: development builds only. */
+const SandboxPage = import.meta.env.DEV ? lazy(() => import('../world/sandbox/Playground').then((m) => ({ default: m.Playground }))) : undefined
 
 function Home() {
   const profile = useProgress((s) => s.profile)
@@ -131,6 +133,7 @@ export default function App() {
                 </RequireProfile>
               }
             />
+            {SandboxPage && <Route path="/sandbox" element={<SandboxPage />} />}
             <Route path="*" element={<Home />} />
           </Routes>
         </Suspense>

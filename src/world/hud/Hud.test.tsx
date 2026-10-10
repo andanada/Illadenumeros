@@ -6,29 +6,29 @@ import { isMuted, setMuted } from '../../core/audio/speech'
 import { defaultAvatar } from '../characters'
 import { CoinCounter } from './CoinCounter'
 import { Hud } from './Hud'
+import { jarMessage } from './jarMessage'
+import { StarJar } from './StarJar'
 
 function renderHud(props: Partial<React.ComponentProps<typeof Hud>> = {}) {
   const onWardrobe = vi.fn()
-  const onErrands = vi.fn()
   render(
     <MemoryRouter initialEntries={['/poble']}>
       <Routes>
-        <Route path="/poble" element={<Hud avatar={defaultAvatar('nyx', 'rosa')} coins={12} pendingErrands={3} onWardrobe={onWardrobe} onErrands={onErrands} {...props} />} />
+        <Route path="/poble" element={<Hud avatar={defaultAvatar('nyx', 'rosa')} coins={12} jar={{ level: 0.3, minutesLeft: 8, done: false }} onWardrobe={onWardrobe} {...props} />} />
         <Route path="/familia" element={<p>Pàgina de família</p>} />
         <Route path="/album" element={<p>Àlbum</p>} />
       </Routes>
     </MemoryRouter>,
   )
-  return { onWardrobe, onErrands }
+  return { onWardrobe }
 }
 
 describe('Hud', () => {
-  it('shows coins, the errand badge, and calls the wardrobe and board', async () => {
-    const { onWardrobe, onErrands } = renderHud()
+  it('shows the coins and opens the wardrobe; there is no errand board button any more', async () => {
+    const { onWardrobe } = renderHud()
     expect(screen.getByLabelText('12 monedes')).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: 'Encàrrecs: 3 per fer' }))
+    expect(screen.queryByRole('button', { name: /^Encàrrecs/ })).toBeNull()
     await userEvent.click(screen.getByRole('button', { name: 'El meu armari' }))
-    expect(onErrands).toHaveBeenCalledOnce()
     expect(onWardrobe).toHaveBeenCalledOnce()
   })
 
@@ -38,9 +38,25 @@ describe('Hud', () => {
     expect(screen.getByText('Àlbum')).toBeInTheDocument()
   })
 
-  it('without errands the board has a plain name', () => {
-    renderHud({ pendingErrands: 0 })
-    expect(screen.getByRole('button', { name: 'Encàrrecs' })).toBeInTheDocument()
+  it('the jar of stars shows today’s progress and a friendly note, not a task list', async () => {
+    renderHud()
+    const jar = screen.getByRole('button', { name: 'Tarro d’estrelles: 30 %' })
+    expect(screen.queryByRole('status')).toBeNull()
+    await userEvent.click(jar)
+    expect(screen.getByRole('status')).toHaveTextContent('Al tarro li falten uns 8 minuts d’estrelles. Ajuda els veïns quan vulguis, sense pressa!')
+    expect(screen.queryByRole('list')).toBeNull()
+    await userEvent.keyboard('{Escape}')
+    expect(screen.queryByRole('status')).toBeNull()
+  })
+
+  it('lights stars in proportion, and says so kindly when it is full or nearly', async () => {
+    const { container } = render(<StarJar jar={{ level: 0.5, minutesLeft: 6, done: false }} />)
+    expect(container.querySelectorAll('[data-lit="true"]')).toHaveLength(4)
+    expect(jarMessage({ done: false, minutesLeft: 1 })).toMatch(/miqueta/)
+    expect(jarMessage({ done: true, minutesLeft: 0 })).toMatch(/El tarro és ple/)
+    await userEvent.click(screen.getByRole('button', { name: /Tarro/ }))
+    await userEvent.click(document.body)
+    expect(screen.queryByRole('status')).toBeNull()
   })
 
   it('the speaker toggles the shared mute', async () => {

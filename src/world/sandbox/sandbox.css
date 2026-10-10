@@ -1,0 +1,114 @@
+/* Sandbox motion: walk cycle, squish, bubbles, poof. All of it stops with prefers-reduced-motion. */
+.sb-walk {
+  transform-origin: 50% 100%;
+  animation: sb-walk 0.46s ease-in-out infinite;
+}
+.sb-pet-walk {
+  transform-origin: 50% 100%;
+  animation: sb-pet 0.34s ease-in-out infinite;
+}
+@keyframes sb-walk {
+  0%, 100% { transform: translateY(0) rotate(-3.5deg) scale(1.02, 0.97); }
+  25% { transform: translateY(-7%) rotate(0deg) scale(0.98, 1.03); }
+  50% { transform: translateY(0) rotate(3.5deg) scale(1.02, 0.97); }
+  75% { transform: translateY(-7%) rotate(0deg) scale(0.98, 1.03); }
+}
+@keyframes sb-pet {
+  0%, 100% { transform: translateY(0) scale(1.04, 0.95); }
+  50% { transform: translateY(-12%) scale(0.97, 1.05); }
+}
+.sb-select {
+  animation: sb-select 0.55s var(--world-bounce, cubic-bezier(0.34, 1.56, 0.64, 1));
+}
+@keyframes sb-select {
+  0% { transform: translateY(0) scale(1, 1); }
+  30% { transform: translateY(0) scale(1.08, 0.88); }
+  60% { transform: translateY(-9%) scale(0.94, 1.1); }
+  100% { transform: translateY(0) scale(1, 1); }
+}
+.sb-ring {
+  animation: sb-ring 1.4s ease-in-out infinite;
+}
+@keyframes sb-ring {
+  0%, 100% { transform: scale(1); opacity: 0.95; }
+  50% { transform: scale(1.07); opacity: 0.7; }
+}
+.sb-emote {
+  animation: sb-emote 1.7s var(--world-bounce, cubic-bezier(0.34, 1.56, 0.64, 1)) both;
+}
+@keyframes sb-emote {
+  0% { transform: translateY(14px) scale(0.2); opacity: 0; }
+  18% { transform: translateY(0) scale(1.25); opacity: 1; }
+  30% { transform: translateY(-2px) scale(0.95); }
+  80% { transform: translateY(-14px) scale(1); opacity: 1; }
+  100% { transform: translateY(-22px) scale(0.9); opacity: 0; }
+}
+.sb-poof {
+  animation: sb-poof 0.45s ease-out both;
+}
+@keyframes sb-poof {
+  0% { transform: scale(0.3); opacity: 0.9; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+.sb-squish {
+  animation: sb-squish 0.42s var(--world-bounce, cubic-bezier(0.34, 1.56, 0.64, 1));
+}
+@keyframes sb-squish {
+  0% { transform: scale(1, 1); }
+  25% { transform: scale(1.18, 0.78); }
+  55% { transform: scale(0.9, 1.16); }
+  80% { transform: scale(1.04, 0.97); }
+  100% { transform: scale(1, 1); }
+}
+.sb-bubble-bob {
+  animation: sb-bubble-bob 2.6s ease-in-out infinite;
+}
+@keyframes sb-bubble-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+.sb-bubble-wait {
+  animation: sb-bubble-wait 1.9s ease-in-out infinite;
+}
+@keyframes sb-bubble-wait {
+  0%, 100% { transform: translateY(0) rotate(-1.5deg); }
+  50% { transform: translateY(-7px) rotate(1.5deg); }
+}
+.sb-wobble {
+  animation: sb-wobble 0.5s ease-in-out infinite;
+}
+@keyframes sb-wobble {
+  0%, 100% { transform: rotate(-5deg); }
+  50% { transform: rotate(5deg); }
+}
+.sb-pop {
+  animation: sb-pop 0.5s var(--world-bounce, cubic-bezier(0.34, 1.56, 0.64, 1)) both;
+}
+@keyframes sb-pop {
+  0% { transform: scale(0) rotate(-20deg); opacity: 0; }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+/* Arriving: a little squash and overshoot, like a toy put down. */
+.sb-settle { transform-origin: 50% 100%; animation: sb-settle 0.42s var(--world-bounce, cubic-bezier(0.34, 1.56, 0.64, 1)); }
+@keyframes sb-settle {
+  0% { transform: scale(1.1, 0.86); }
+  45% { transform: scale(0.95, 1.08); }
+  100% { transform: scale(1, 1); }
+}
+.sb-hand-pop { transform-origin: 0 0; animation: sb-hand-pop 0.4s var(--world-bounce, cubic-bezier(0.34, 1.56, 0.64, 1)) both; }
+@keyframes sb-hand-pop {
+  0% { transform: scale(0.2) rotate(-25deg); }
+  100% { transform: scale(1) rotate(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sb-settle, .sb-hand-pop { animation: none !important; }
+  .sb-walk, .sb-pet-walk, .sb-select, .sb-ring, .sb-emote, .sb-poof, .sb-squish, .sb-bubble-bob, .sb-bubble-wait, .sb-wobble, .sb-pop {
+    animation: none !important;
+  }
+  .sb-emote { opacity: 1; }
+}
+
+/* Characters are only tappable where they are painted: the empty corners of their box never block what is behind. */
+.sb-hit { pointer-events: none; }
+.sb-hit svg { pointer-events: none; }
+.sb-hit svg * { pointer-events: visiblePainted; }

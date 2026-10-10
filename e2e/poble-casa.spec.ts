@@ -76,6 +76,8 @@ async function seedBoard(page: Page, tasks: readonly Record<string, unknown>[]):
       })
       const tx = database.transaction('meta', 'readwrite')
       tx.objectStore('meta').put({ key: 'errandBoard', value })
+      // The day opened by the first visit is forgotten: the next load migrates this board.
+      tx.objectStore('meta').delete('dailyRequests')
       await new Promise<void>((resolve, reject) => {
         tx.oncomplete = () => resolve()
         tx.onerror = () => reject(tx.error)
@@ -187,7 +189,7 @@ test.describe('Casa i Perruqueria', () => {
     await enterTown(page, [{ place: 'casa', count: 3, kind: 'repte', neighbour: 'senyora-pilar' }])
     await enterPlace(page, /^Entra a (la )?Casa$/i)
     await expect(page.getByRole('region', { name: 'La Casa', exact: true })).toBeVisible()
-    await expect(page.getByTestId('door-queue')).toHaveAttribute('data-waiting', '2')
+    await expect(page.getByTestId('door-queue')).toHaveAttribute('data-waiting', '0')
     const start = await coins(page)
 
     await serveOne(page, 'drag', solveBowl, {
@@ -216,8 +218,8 @@ test.describe('Casa i Perruqueria', () => {
     await expect.poll(() => coins(page)).toBeGreaterThan(afterDrag)
     expect(await hasHorizontalScroll(page)).toBe(false)
 
-    // The last neighbour goes away; free play in the living room.
-    await page.getByRole('button', { name: 'Ara no' }).click()
+    // Nobody is forced to stay: with no request waiting the place goes quiet and the bell is there; free play in the living room.
+    await expect(page.getByRole('button', { name: /Fes passar un veí/ })).toBeVisible()
     await page.getByRole('button', { name: 'La sala' }).click()
     await shot(page, 'casa-sala', project)
     await page.getByRole('button', { name: 'Mobles', exact: true }).click()
@@ -276,7 +278,7 @@ test.describe('Casa i Perruqueria', () => {
     await enterTown(page, [{ place: 'perruqueria', count: 3, kind: 'repte', neighbour: 'la-nuria' }])
     await enterPlace(page, /^Entra a (la )?Perruqueria$/i)
     await expect(page.getByRole('region', { name: 'La Perruqueria', exact: true })).toBeVisible()
-    await expect(page.getByTestId('door-queue')).toHaveAttribute('data-waiting', '2')
+    await expect(page.getByTestId('door-queue')).toHaveAttribute('data-waiting', '0')
     const start = await coins(page)
 
     await serveOne(page, 'drag', solveClips, {
@@ -303,7 +305,8 @@ test.describe('Casa i Perruqueria', () => {
       },
     })
     await expect.poll(() => coins(page)).toBeGreaterThan(afterDrag)
-    await page.getByRole('button', { name: 'Ara no' }).click()
+    // Nobody is forced to stay: with no request waiting the salon goes quiet and the bell is there.
+    await expect(page.getByRole('button', { name: /Fes passar un client/ })).toBeVisible()
 
     // Free play: drag the scissors, then the spray, onto the customer.
     const customer = page.locator('[data-zone-id="client-perruqueria"]')

@@ -6,7 +6,7 @@ import type { AvatarSpec } from '../model/types'
 import { Avatar, PropArt } from '../scene/art'
 import { useWorldReducedMotion } from '../scene/useReducedMotion'
 import { worldSfx } from '../scene/worldSfx'
-import type { BoardReveal } from './boardStore'
+import type { DayReveal as BoardReveal } from '../requests/requestStore'
 import { GiftBox } from './GiftBox'
 import { isWearable, wearGift } from './wearGift'
 
