@@ -22,7 +22,7 @@ export function carrierFor(actorId: string, requestId: string): string {
 export function farmSeeds(avatar: AvatarSpec, name: string | undefined): ActorSeed[] {
   const at = (x: number, y: number) => ({ x, y })
   return [
-    { id: AVATAR, kind: 'avatar', name: name ? `en ${name}` : 'tu', at: at(0.3, 0.8), avatar },
+    { id: AVATAR, kind: 'avatar', name: name ? `en ${name}` : 'tu', at: at(0.7, 0.8), avatar },
     { id: FARMER, kind: 'neighbour', name: 'l’avi Ramon', at: at(0.5, 0.62), neighbour: FARMER, facing: -1, loves: ['gra', 'planta'] },
     ...ASKERS.slice(1).map((id, i) => ({ id, kind: 'neighbour' as const, name: NEIGHBOURS_BY_ID[id]?.name ?? 'un veí', at: at(0.6 + i * 0.1, 0.7), neighbour: id })),
     ...ANIMALS.corral.map((id, i) => ({ id, kind: 'pet' as const, name: ANIMAL_NAMES[id] ?? id, at: at(0.4 + i * 0.1, 0.85), pet: id, loves: ['gra'] })),
@@ -35,10 +35,18 @@ export const START: Readonly<Record<string, { room: string; at: { x: number; y: 
   [FARMER]: { room: ROOM.hort, at: { x: 0.52, y: 0.58 } },
   'la-fatima': { room: ROOM.hort, at: { x: 0.8, y: 0.74 } },
   'en-kofi': { room: ROOM.hort, at: { x: 0.6, y: 0.9 } },
-  'la-mei': { room: ROOM.corral, at: { x: 0.55, y: 0.7 } },
-  blau: { room: ROOM.corral, at: { x: 0.45, y: 0.9 } },
-  nuvol: { room: ROOM.corral, at: { x: 0.72, y: 0.92 } },
-  mixa: { room: ROOM.corral, at: { x: 0.86, y: 0.7 } },
+  'la-mei': { room: ROOM.corral, at: { x: 0.8, y: 0.78 } },
+  blau: { room: ROOM.corral, at: { x: 0.4, y: 0.93 } },
+  nuvol: { room: ROOM.corral, at: { x: 0.7, y: 0.93 } },
+  mixa: { room: ROOM.corral, at: { x: 0.92, y: 0.9 } },
   nyx: { room: ROOM.hort, at: { x: 0.9, y: 0.92 } },
   melo: { room: ROOM.hort, at: { x: 0.4, y: 0.76 } },
+}
+
+/** While a request is on, everybody who does not ask steps aside from the plot and the bowls, so nobody stands in the way of her hands. */
+export const STEP_ASIDE: Readonly<Record<string, { x: number; y: number }>> = {
+  'la-fatima': { x: 0.45, y: 0.585 },
+  'en-kofi': { x: 0.2, y: 0.585 },
+  nyx: { x: 0.78, y: 0.59 },
+  melo: { x: 0.58, y: 0.585 },
 }

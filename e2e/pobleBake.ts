@@ -87,12 +87,17 @@ async function handsOn(page: Page): Promise<number> {
  * and plays it. `opened` runs just after the request opens (screenshots). Returns the kind.
  */
 export async function playByHand(page: Page, place: 'fleca' | 'pizzeria', how: 'tap' | 'keyboard', opened?: (kind: string) => Promise<void>, max = 14): Promise<string> {
-  for (let tries = 0; tries < 30; tries++) {
+  // Which item comes is the engine's choice (random per run): only a share of the items is played by hand and small
+  // enough, so the search is generous. Each miss costs about a second; every step waits for its condition.
+  for (let tries = 0; tries < 120; tries++) {
+    await expect(bubbleOf(page)).toBeVisible({ timeout: 20_000 })
     await bubbleOf(page).dispatchEvent('click')
+    await expect(page.locator('[data-errand-kind]')).toBeVisible()
     const kind = (await page.locator('[data-errand-kind]').getAttribute('data-errand-kind')) ?? ''
     const n = await handsOn(page)
     if (n === 0 || n > max) {
       await page.getByRole('button', { name: 'Ara no' }).click()
+      await expect(page.locator('[data-errand-kind]')).toHaveCount(0)
       continue
     }
     await opened?.(kind)
@@ -100,5 +105,5 @@ export async function playByHand(page: Page, place: 'fleca' | 'pizzeria', how: '
     else await solvePizzaRequest(page, how)
     return kind
   }
-  throw new Error('Cap encàrrec jugable amb les mans en 30 intents')
+  throw new Error('Cap encàrrec jugable amb les mans en 120 intents')
 }

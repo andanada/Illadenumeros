@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test'
 import { expect, hasHorizontalScroll, smallButtons } from './helpers'
 import { solveFarmRequest, solveMarketRequest } from './pobleSolve'
-import { actor, enterStreetPlace, FIFTH_GRADE, MULTIPLYING, seedBoard, seedSkills, shot, townTest as test } from './pobleWorld'
+import { actor, coveredObjects, enterStreetPlace, FIFTH_GRADE, MULTIPLYING, seedBoard, seedSkills, shot, townTest as test } from './pobleWorld'
 
 test.describe.configure({ timeout: 300_000 })
 
@@ -17,6 +17,13 @@ async function enterFarm(page: Page): Promise<void> {
 }
 
 const bubble = (page: Page) => page.getByRole('button', { name: /toca per ajudar/ })
+
+/**
+ * The bubble bobs, so a pointer click never sees it «stable», and a forced click lands on stale coordinates while the
+ * stage is still laying its people out (it then hits whoever stands there). The tap handler is fired on the button itself;
+ * the reduced-motion tests (no bobbing) tap it with a real pointer click.
+ */
+const tapBubble = (page: Page) => bubble(page).dispatchEvent('click')
 
 test.describe('Poble: Granja', () => {
   test('free play: walk, carry a seed into the plot, water it, grow it, go to the farmyard', async ({ page }, testInfo) => {
@@ -49,17 +56,25 @@ test.describe('Poble: Granja', () => {
     await page.emulateMedia({ reducedMotion: 'reduce' })
     await enterFarm(page)
     const before = await coins(page)
-    await bubble(page).click({ force: true })
+    await bubble(page).click()
     await shot(page, 'granja-peticio', testInfo.project.name)
     await page.getByRole('button', { name: 'Ara no' }).click()
     expect(await coins(page)).toBe(before)
 
-    await bubble(page).click({ force: true })
+    await bubble(page).click()
     const kind = await solveFarmRequest(page)
     await shot(page, `granja-${kind || 'fitxes'}-fet`, testInfo.project.name)
     await expect(page.getByTestId('errand-request')).toContainText(/Moltes gràcies|Quasi|Mira|ho tornem/i, { timeout: 15_000 }).catch(() => undefined)
     expect(await smallButtons(page, 44)).toEqual([])
     expect(await hasHorizontalScroll(page)).toBe(false)
+  })
+
+  test('every free object can be tapped where it lies, in the garden and in the farmyard', async ({ page }) => {
+    await enterFarm(page)
+    expect(await coveredObjects(page)).toEqual([])
+    await page.locator('[data-door="porta-corral"]').click()
+    await expect(page.getByRole('region', { name: 'El corral' })).toBeVisible({ timeout: 30_000 })
+    expect(await coveredObjects(page)).toEqual([])
   })
 
   test('keyboard only: carry a seed to the plot with Enter', async ({ page }) => {
@@ -78,7 +93,7 @@ test.describe('Poble: Granja', () => {
   test('reduced motion: the farm still plays and nobody loops', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' })
     await enterFarm(page)
-    await bubble(page).click({ force: true })
+    await bubble(page).click()
     await expect(page.getByTestId('errand-request')).toBeVisible()
     const kind = await solveFarmRequest(page)
     expect(kind.length).toBeGreaterThan(0)
@@ -103,7 +118,7 @@ test.describe('Poble: Mercat', () => {
     await page.getByRole('button', { name: 'Deixa-ho a la bàscula' }).click()
     await expect(page.getByRole('status', { name: 'Bàscula: 0,15 kg' })).toBeVisible({ timeout: 20_000 })
     await shot(page, 'mercat-pesat', testInfo.project.name)
-    await page.locator('[data-uid="taronja-2"]').click()
+    await page.locator('[data-uid="taronja-1"]').click()
     await expect(actor(page, 'laia')).toHaveAccessibleName(/porta la taronja/, { timeout: 25_000 })
     await page.getByRole('button', { name: 'Accions' }).click()
     await page.locator('[data-ring-item="llanca"]').click()
@@ -113,15 +128,20 @@ test.describe('Poble: Mercat', () => {
   test('a request played in the square pays coins; «Ara no» costs nothing', async ({ page }, testInfo) => {
     await enterMarket(page)
     const before = await coins(page)
-    await bubble(page).click({ force: true })
+    await tapBubble(page)
     await shot(page, 'mercat-peticio', testInfo.project.name)
     await page.getByRole('button', { name: 'Ara no' }).click()
     expect(await coins(page)).toBe(before)
-    await bubble(page).click({ force: true })
+    await tapBubble(page)
     const kind = await solveMarketRequest(page)
     await shot(page, `mercat-${kind || 'fitxes'}-fet`, testInfo.project.name)
     expect(await smallButtons(page, 44)).toEqual([])
     expect(await hasHorizontalScroll(page)).toBe(false)
+  })
+
+  test('every free object can be tapped where it lies', async ({ page }) => {
+    await enterMarket(page)
+    expect(await coveredObjects(page)).toEqual([])
   })
 
   test('keyboard only: carry an apple to the scale with Enter', async ({ page }) => {
@@ -137,7 +157,7 @@ test.describe('Poble: Mercat', () => {
   test('reduced motion: the market still plays', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' })
     await enterMarket(page)
-    await bubble(page).click({ force: true })
+    await bubble(page).click()
     expect((await solveMarketRequest(page)).length).toBeGreaterThan(0)
   })
 })

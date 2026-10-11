@@ -31,6 +31,8 @@ export function useSalonLife({ carrier, keep, onLeft }: SalonLifeOptions): void 
   const inside = useRef<Presence>({})
   const lastEnter = useRef(-Infinity)
   const clock = useRef(0)
+  // The customer who was already in chair 1 when the salon opened (her seat is not in the state yet during the first render).
+  const first = useRef<string | undefined>(undefined)
 
   useLayoutEffect(() => {
     api.current = cast
@@ -44,8 +46,8 @@ export function useSalonLife({ carrier, keep, onLeft }: SalonLifeOptions): void 
     return FREE_ORDER.find((s) => !taken.has(s)) ?? 'sofa-2'
   }
 
-  const sitDown = (id: string): void => {
-    const seat = SEATS.find((s) => s.id === seatFor(id))
+  const sitDown = (id: string, only?: string): void => {
+    const seat = SEATS.find((s) => s.id === (only ?? seatFor(id)))
     if (!seat) return
     api.current.walkTo(id, seat.at, () => api.current.sit(id, seat.id, seat.at, seat.facing))
   }
@@ -71,13 +73,14 @@ export function useSalonLife({ carrier, keep, onLeft }: SalonLifeOptions): void 
   useLayoutEffect(() => {
     const c = api.current
     for (const id of CUSTOMERS) c.enterRoom(id, STREET, { x: 0.5, y: 0.7 })
-    const first = opts.current.carrier
-    if (first) {
-      inside.current = { [first]: 0 }
+    const starter = opts.current.carrier
+    if (starter) {
+      first.current = starter
+      inside.current = { [starter]: 0 }
       const seat = SEATS.find((s) => s.id === 'cadira-1')
       if (seat) {
-        c.enterRoom(first, ROOM, seat.at)
-        c.sit(first, seat.id, seat.at, seat.facing)
+        c.enterRoom(starter, ROOM, seat.at)
+        c.sit(starter, seat.id, seat.at, seat.facing)
       }
     }
     // Once, at the start.
@@ -85,8 +88,21 @@ export function useSalonLife({ carrier, keep, onLeft }: SalonLifeOptions): void 
   }, [])
 
   useEffect(() => {
-    if (!carrier || inside.current[carrier] !== undefined) return
-    enter(carrier, clock.current)
+    if (!carrier) return
+    if (inside.current[carrier] === undefined) return enter(carrier, clock.current)
+    // She was already inside (on the sofa): her wish is done on chair 1, so she moves there; whoever sat in it makes room.
+    const c = api.current
+    const actors = c.state.actors
+    const holder = Object.entries(actors).find(([, a]) => a.seat === 'cadira-1')?.[0]
+    const starter = first.current === carrier
+    first.current = undefined
+    if (holder === carrier || starter) return
+    if (holder) {
+      c.stand(holder)
+      sitDown(holder)
+    }
+    if (actors[carrier]?.seat) c.stand(carrier)
+    sitDown(carrier, 'cadira-1')
     // A new wish brings its customer in.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [carrier])

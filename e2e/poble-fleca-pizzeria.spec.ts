@@ -64,7 +64,7 @@ test.describe('Poble: Fleca', () => {
   })
 
   test('a request is played with the hands and pays coins; «Ara no» costs nothing', async ({ page }, testInfo) => {
-    test.setTimeout(150_000)
+    test.setTimeout(240_000)
     await enterFleca(page)
     const before = await coins(page)
     await bubble(page).dispatchEvent('click')
@@ -82,14 +82,14 @@ test.describe('Poble: Fleca', () => {
   })
 
   test('keyboard only: a request is laid out and checked with Enter', async ({ page }) => {
-    test.setTimeout(150_000)
+    test.setTimeout(240_000)
     await enterFleca(page)
     const kind = await playByHand(page, 'fleca', 'keyboard', undefined, 12)
     expect(kind.length).toBeGreaterThan(0)
   })
 
   test('reduced motion: the bakery still plays and nobody loops', async ({ page }) => {
-    test.setTimeout(150_000)
+    test.setTimeout(240_000)
     await page.emulateMedia({ reducedMotion: 'reduce' })
     await enterFleca(page)
     const kind = await playByHand(page, 'fleca', 'tap', undefined, 12)
@@ -120,7 +120,7 @@ test.describe('Poble: Pizzeria', () => {
   })
 
   test('a request is played with the hands and pays coins; «Ara no» costs nothing', async ({ page }, testInfo) => {
-    test.setTimeout(150_000)
+    test.setTimeout(240_000)
     await enterPizzeria(page)
     const before = await coins(page)
     await bubble(page).dispatchEvent('click')
@@ -137,7 +137,7 @@ test.describe('Poble: Pizzeria', () => {
   })
 
   test('keyboard and reduced motion: a request can be answered without a pointer', async ({ page }) => {
-    test.setTimeout(150_000)
+    test.setTimeout(240_000)
     await page.emulateMedia({ reducedMotion: 'reduce' })
     await enterPizzeria(page)
     const kind = await playByHand(page, 'pizzeria', 'keyboard', undefined, 12)

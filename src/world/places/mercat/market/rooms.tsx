@@ -19,7 +19,7 @@ export const SURFACES: readonly SurfaceDef[] = STALLS.flatMap((s) =>
 
 export const BLOCKS: readonly Block[] = STALLS.map((s) => ({ x: s.x - 0.09, y: 0.46, w: 0.18, h: 0.13 }))
 
-export const SEATS: readonly SeatDef[] = [{ id: 'banc-placa', label: 'el banc de la plaça', at: { x: 0.5, y: 0.7 }, facing: -1 }]
+export const SEATS: readonly SeatDef[] = [{ id: 'banc-placa', label: 'el banc de la plaça', at: { x: 0.45, y: 0.7 }, facing: -1 }]
 
 export const DOORS: readonly DoorDef[] = [{ id: 'porta-fora', label: 'Sortida al carrer', at: { x: 0.04, y: 0.62 }, to: STREET, arrive: { x: 0.5, y: 0.7 }, box: { w: 0.075, h: 0.26 } }]
 
@@ -46,16 +46,18 @@ export function bagsZone(task: ScaleTask): ZoneDef {
 
 const f = (uid: string, def: string, x: number, y: number): StartItem => ({ uid, def, room: ROOM, at: { x, y } })
 
+/**
+ * Two things on each counter, a thumb apart even on a phone (a touch area is at least 44 px wide, so on a 390 px screen
+ * two goods need about 0.115 of the width between them). The rest of the floor stays free for the scale, the tray and
+ * the heap of a request; freeObjects.test.ts keeps it that way on every screen.
+ */
 export const MARKET_START: readonly StartItem[] = [
-  f('poma-1', 'poma', 0.08, 0.585),
-  f('taronja-1', 'taronja', 0.18, 0.585),
-  f('formatge-1', 'formatge', 0.33, 0.585),
-  f('formatge-2', 'formatge', 0.43, 0.585),
-  f('flor-1', 'flor', 0.58, 0.585),
-  f('flor-2', 'flor', 0.68, 0.585),
-  f('camisa-1', 'camisa', 0.83, 0.585),
-  f('camisa-2', 'camisa', 0.93, 0.585),
-  f('bossa-1', 'bossa', 0.3, 0.9),
-  f('bossa-2', 'bossa', 0.4, 0.93),
-  f('taronja-2', 'taronja', 0.7, 0.92),
+  f('poma-1', 'poma', 0.1, 0.585),
+  f('taronja-1', 'taronja', 0.215, 0.585),
+  f('formatge-1', 'formatge', 0.335, 0.585),
+  f('formatge-2', 'formatge', 0.45, 0.585),
+  f('flor-1', 'flor', 0.585, 0.585),
+  f('flor-2', 'flor', 0.7, 0.585),
+  f('camisa-1', 'camisa', 0.825, 0.585),
+  f('camisa-2', 'camisa', 0.94, 0.585),
 ]

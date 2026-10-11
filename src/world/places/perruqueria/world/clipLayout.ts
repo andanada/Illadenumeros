@@ -32,10 +32,10 @@ export function headFrames(seat: { x: number; y: number }, stage: Px, floorTop: 
   return [frame('esq', x - half - GAP_PX - wPx), frame('dre', x + half + GAP_PX)]
 }
 
-/** The box of clips lies on the floor at the left, above the exit button and clear of the chairs and the tools. */
-export const CLIP_PILE: Area = { x0: 0.1, x1: 0.3, y0: 0.76, y1: 0.87 }
+/** The box of clips lies on the floor at the left, above the tools (their touch boxes reach up to the pieces otherwise) and the exit button. */
+export const CLIP_PILE: Area = { x0: 0.1, x1: 0.3, y0: 0.64, y1: 0.78 }
 
 /** On a narrow screen the box would be a few pixels wide: it spreads over the whole width of the floor, in front of the chairs. */
-export const CLIP_PILE_COMPACT: Area = { x0: 0.04, x1: 0.96, y0: 0.78, y1: 0.86 }
+export const CLIP_PILE_COMPACT: Area = { x0: 0.04, x1: 0.96, y0: 0.62, y1: 0.76 }
 
 export const clipPileArea = (compact: boolean): Area => (compact ? CLIP_PILE_COMPACT : CLIP_PILE)

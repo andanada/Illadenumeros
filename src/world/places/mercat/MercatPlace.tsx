@@ -17,7 +17,7 @@ import { RoomSwitcher } from '../shared/RoomSwitcher'
 import type { PlaceProps } from '../types'
 import { MERCAT_ADAPTERS as ADAPTERS, marketModeOf } from './errands/mercatAdapters'
 import { MERCAT_GAME_ID, MERCAT_SKILLS } from './mercatSkills'
-import { AVATAR, carrierFor, marketSeeds, SHOPPERS } from './market/cast'
+import { ASKER_AT, AVATAR, carrierFor, marketSeeds, SHOPPERS, STEP_ASIDE } from './market/cast'
 import { MarketSheet, ScaleCard, TrayCard } from './market/MarketCards'
 import { BagArt, MARKET_DEFS } from './market/items'
 import { ScaleReadout } from './market/ScaleReadout'
@@ -65,11 +65,12 @@ function MarketStage({ carrier, icon, number, state, label, onTap }: BubbleProps
 
 /** The market as a living place: stalls to arrange, scales, a cashier tray, shoppers; maths in ignorable bubbles. */
 function MarketWorld({ pending, onSolved, onExit, forced, open, setOpen }: WorldProps) {
+  const cast = useCast()
   const errand = useErrand({ gameId: MERCAT_GAME_ID, skillIds: MERCAT_SKILLS, adapters: ADAPTERS, onSolved, ...(forced ? { forced } : {}) })
   const live = useRequests('mercat')
   const first = live.requests[0]
   const carrier = first ? carrierFor(first.actorId, first.id) : pending > 0 || forced ? SHOPPERS[0] : undefined
-  useMarketLife(open)
+  useMarketLife(open, carrier)
   const mode = marketModeOf(errand.item)
   const name = (carrier && NEIGHBOURS_BY_ID[carrier]?.name) ?? 'un veí'
   const calm = first?.status === 'calm'
@@ -85,6 +86,10 @@ function MarketWorld({ pending, onSolved, onExit, forced, open, setOpen }: World
   const tapBubble = (): void => {
     worldSfx.doorbell()
     if (calm) live.wakeRequests()
+    if (mode.kind !== 'sheet') {
+      for (const [id, spot] of Object.entries(STEP_ASIDE)) if (id !== carrier) cast.teleport(id, spot)
+      if (carrier) cast.teleport(carrier, ASKER_AT)
+    }
     setOpen(true)
   }
   const close = (): void => {

@@ -14,7 +14,7 @@ import type { DoorDef } from '../../sandbox/types'
 import type { PlaceProps } from '../types'
 import { GRANJA_ADAPTERS, farmModeOf } from './errands/granjaAdapters'
 import { GRANJA_GAME_ID, GRANJA_SKILLS } from './granjaSkills'
-import { AVATAR, carrierFor, farmSeeds, FARMER } from './farm/cast'
+import { AVATAR, carrierFor, farmSeeds, FARMER, STEP_ASIDE } from './farm/cast'
 import { FarmRooms } from './farm/FarmRooms'
 import { PlantCard, ShareCard } from './farm/FarmTask'
 import { EggArt, GrainArt, Mini, SeedArt } from './farm/itemArt'
@@ -59,6 +59,9 @@ function FarmWorld({ pending, onSolved, onExit, forced, open, setOpen }: WorldPr
       // The plot is in the garden: she and whoever asks go there.
       cast.enterRoom(AVATAR, ROOM.hort, { x: 0.22, y: 0.7 })
       if (carrier) cast.enterRoom(carrier, ROOM.hort, { x: 0.1, y: 0.62 })
+      for (const [id, spot] of Object.entries(STEP_ASIDE)) {
+        if (id !== carrier && (cast.state.actors[id]?.room ?? cast.defaultRoom) === ROOM.hort) cast.teleport(id, spot)
+      }
       cast.select(AVATAR)
     }
     setOpen(true)

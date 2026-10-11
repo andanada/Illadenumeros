@@ -57,14 +57,14 @@ const inside = (uid: string, def: string, box: string, room: string): StartItem 
 const L = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'] as const
 
 export const FARM_START: readonly StartItem[] = [
-  f('sac-llavors', 'sac-llavors', ROOM.hort, 0.27, 0.68),
+  f('sac-llavors', 'sac-llavors', ROOM.hort, 0.35, 0.66),
   ...L.slice(0, 6).map((n) => inside(`planta-${n}`, 'planta', 'sac-llavors', ROOM.hort)),
-  f('regadora', 'regadora', ROOM.hort, 0.12, 0.68),
-  f('adob', 'adob', ROOM.hort, 0.19, 0.68),
+  f('regadora', 'regadora', ROOM.hort, 0.09, 0.66),
+  f('adob', 'adob', ROOM.hort, 0.205, 0.66),
   f('sac-gra', 'sac-gra', ROOM.corral, 0.62, 0.72),
   ...L.slice(0, 6).map((n) => inside(`gra-${n}`, 'gra', 'sac-gra', ROOM.corral)),
   f('niu-1', 'niu', ROOM.corral, 0.33, 0.6),
   ...L.slice(0, 4).map((n) => inside(`ou-${n}`, 'ou', 'niu-1', ROOM.corral)),
-  f('gallina-1', 'gallina', ROOM.corral, 0.3, 0.7),
-  f('gallina-2', 'gallina', ROOM.corral, 0.26, 0.78),
+  f('gallina-1', 'gallina', ROOM.corral, 0.3, 0.76),
+  f('gallina-2', 'gallina', ROOM.corral, 0.46, 0.76),
 ]

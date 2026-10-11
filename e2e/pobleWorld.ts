@@ -141,3 +141,22 @@ export async function seedBoard(page: Page, tasks: readonly Record<string, unkno
     { name: dbName, list: tasks },
   )
 }
+
+/**
+ * Objects lying free on this stage whose centre is covered by something else (another object, a person, a door, a drop
+ * zone): nothing she can see may be impossible to tap. Empty when every one answers at its own centre.
+ */
+export function coveredObjects(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const out: string[] = []
+    for (const el of Array.from(document.querySelectorAll<HTMLElement>('[data-uid]'))) {
+      if (el.hasAttribute('data-in')) continue
+      const r = el.getBoundingClientRect()
+      const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)
+      if (hit && el.contains(hit)) continue
+      const who = hit?.closest<HTMLElement>('[data-uid],[data-actor],[data-door],[data-zone-drop]')
+      out.push(`${el.dataset.uid} está tapat per ${who ? (who.dataset.uid ?? who.dataset.actor ?? who.dataset.door ?? who.dataset.zoneDrop ?? '?') : (hit?.tagName ?? 'res')}`)
+    }
+    return out
+  })
+}

@@ -91,7 +91,7 @@ async function expectPileTouchable(page: Page, selector: string): Promise<void> 
       const r = el.getBoundingClientRect()
       const hit = document.elementFromPoint(r.left + r.width / 2, r.bottom - 22)
       // A character standing over a piece passes the tap on to it.
-      return hit?.closest('[data-uid]') === el || hit?.closest('[data-actor]') ? [] : [el.getAttribute('data-uid')]
+      return hit?.closest('[data-uid]') === el || hit?.closest('[data-actor]') ? [] : [`${el.getAttribute('data-uid')} <- ${(hit as HTMLElement | null)?.closest('[data-uid],[data-surface],[data-seat],[data-door],[data-zone-drop],[data-actor]')?.outerHTML.slice(0, 110) ?? hit?.tagName}`]
     })
   }, selector)
   expect(hidden).toEqual([])
