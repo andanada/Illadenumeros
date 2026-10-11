@@ -3,24 +3,31 @@ import { useProgress } from '../../../core/progress/store'
 import { NEIGHBOURS_BY_ID } from '../../characters'
 import { PropArt } from '../../art/props'
 import { useWorld } from '../../data'
-import { SandboxErrandPanel } from '../../errands/SandboxErrandPanel'
 import { useErrand } from '../../errands/useErrand'
 import { useRequests } from '../../requests/useRequests'
 import { Anchor } from '../../sandbox/Anchor'
 import { CastProvider, useCast } from '../../sandbox/CastContext'
 import { ItemsProvider } from '../../sandbox/ItemsContext'
+import type { ZoneDef } from '../../sandbox/zoneTypes'
 import { Stage } from '../../sandbox/Stage'
 import { Grain } from '../../scene/art'
 import { Scene } from '../../scene/Scene'
 import { worldSfx } from '../../scene/worldSfx'
 import { carrierFor } from '../botiga/shop/requestMap'
+import { useBox } from '../shared/doing/useBox'
 import { RoomSwitcher } from '../shared/RoomSwitcher'
 import type { PlaceProps } from '../types'
 import { ClipArt } from './errands/ClipArt'
 import { PERRUQUERIA_ADAPTERS } from './errands/perruqueriaAdapters'
 import { BLOCKS, FLOOR_TOP, ROOM, SEATS, STATIONS, STREET_DOOR, SURFACES, TOOL_DEFS, TOOL_START } from './salon/layout'
+import { CLIP_DEFS } from './world/clipDefs'
+import { headFrames } from './world/clipLayout'
+import { ClipMats } from './world/ClipMats'
+import { clipPlayOf, CLIP, WORN, zoneIdOf } from './world/clipTask'
+import { ClipRequest } from './world/ClipRequest'
 import { SalonBackdrop } from './salon/SalonBackdrop'
 import { SalonMirror } from './salon/SalonMirror'
+import { seatedKeepers } from './salon/keepers'
 import { CUSTOMERS, STYLIST, useSalonLife } from './salon/useSalonLife'
 import { useRestyle } from './salon/useRestyle'
 import { PERRUQUERIA_GAME_ID, PERRUQUERIA_SKILLS } from './perruqueriaSkills'
@@ -29,6 +36,9 @@ import { wishOf } from './styling/wish'
 import '../../sandbox/sandbox.css'
 
 const AVATAR = 'laia'
+const DEFS = [...TOOL_DEFS, ...CLIP_DEFS]
+const SIDE_LABEL = { esq: 'el costat esquerre', dre: 'el costat dret' } as const
+const takesClips = (d: string): boolean => d === CLIP || d === WORN
 
 const baseOf = (id: string) => NEIGHBOURS_BY_ID[id]?.spec
 
@@ -62,6 +72,7 @@ function SalonRoom({ look, carrier, wish, state, label, onBubble, progress, setP
           onActivate={onBubble}
         />
       )}
+      <ClipMats />
       <RoomSwitcher />
     </Stage>
   )
@@ -80,7 +91,10 @@ function SalonWorld({ pending, onSolved, onExit, forced, open, setOpen, progress
   const live = useRequests('perruqueria')
   const first = live.requests[0]
   const carrier = first ? carrierFor(first.actorId, first.id, CUSTOMERS) : pending > 0 ? CUSTOMERS[0] : undefined
-  useSalonLife({ carrier, keep: inProgress(progress), onLeft: forget })
+  const cast = useCast()
+  // Nobody who sits in a chair leaves while a tool is on its way to them (or a restyle is half done).
+  const seated = seatedKeepers(cast.state.actors, CUSTOMERS, STATIONS.map((st) => st.seat))
+  useSalonLife({ carrier, keep: [...inProgress(progress), ...seated], onLeft: forget })
   const [who, setWho] = useState(carrier)
   if (carrier && carrier !== who) setWho(carrier)
   const name = (carrier && NEIGHBOURS_BY_ID[carrier]?.name) ?? 'una clienta'
@@ -92,11 +106,22 @@ function SalonWorld({ pending, onSolved, onExit, forced, open, setOpen, progress
     const base = baseOf(id)
     return base ? restyle(base, stageOf(progress, id), CUSTOMERS.indexOf(id as (typeof CUSTOMERS)[number]) + 1) : undefined
   }
+  const [boxRef, box] = useBox()
+  const play = useMemo(() => clipPlayOf(errand.item), [errand.item])
+  const itemId = errand.item.id
+  const chair = SEATS[0]?.at ?? { x: 0.36, y: 0.72 }
+  const zones = useMemo<readonly ZoneDef[]>(
+    () => (open && play ? headFrames(chair, box, FLOOR_TOP).map((f) => ({ id: zoneIdOf(f.side), room: ROOM, rect: f.rect, cols: f.cols, capacity: 10, label: SIDE_LABEL[f.side], accepts: takesClips })) : []),
+    // The frames follow the request (it has clips to place) and the size of the room.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [open, play !== undefined, itemId, box, chair.x, chair.y],
+  )
+  const close = (): void => setOpen(false)
   return (
     <>
       <div className="absolute inset-x-0 bottom-0 top-[84px] flex items-center portrait:items-end portrait:pb-[88px]">
-        <div className="relative mx-auto h-full max-h-[150vw] w-full">
-          <ItemsProvider defs={TOOL_DEFS} start={TOOL_START} floorTop={FLOOR_TOP} onEnter={(door, who) => door.to !== ROOM && who === AVATAR && onExit()}>
+        <div ref={boxRef} className="relative mx-auto h-full max-h-[150vw] w-full">
+          <ItemsProvider defs={DEFS} start={TOOL_START} floorTop={FLOOR_TOP} zones={zones} onEnter={(door, who) => door.to !== ROOM && who === AVATAR && onExit()}>
             <SalonRoom
               progress={progress}
               setProgress={setProgress}
@@ -111,10 +136,10 @@ function SalonWorld({ pending, onSolved, onExit, forced, open, setOpen, progress
                 setOpen(true)
               }}
             />
+            <ClipRequest errand={errand} play={play} open={open} carrier={carrier} who={shown} stage={box} onClose={close} />
           </ItemsProvider>
         </div>
       </div>
-      {open && <SandboxErrandPanel errand={errand} who={shown} label={`Encàrrec a la Perruqueria: ${shown}`} onClose={() => setOpen(false)} />}
     </>
   )
 }

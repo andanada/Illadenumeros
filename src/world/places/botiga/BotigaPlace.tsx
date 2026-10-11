@@ -1,22 +1,29 @@
 import { useMemo, useState } from 'react'
+import type { ZoneDef } from '../../sandbox/zoneTypes'
 import { useProgress } from '../../../core/progress/store'
 import { NEIGHBOURS_BY_ID } from '../../characters'
 import { useWorld } from '../../data'
 import { SandboxErrandPanel } from '../../errands/SandboxErrandPanel'
 import { useErrand } from '../../errands/useErrand'
 import { useRequests } from '../../requests/useRequests'
-import { CastProvider } from '../../sandbox/CastContext'
+import { CastProvider, useCast } from '../../sandbox/CastContext'
 import { ItemsProvider } from '../../sandbox/ItemsContext'
 import { Grain } from '../../scene/art'
 import { Scene } from '../../scene/Scene'
 import { worldSfx } from '../../scene/worldSfx'
 import type { DoorDef } from '../../sandbox/types'
+import { useCompactStage } from '../shared/doing/useCompactStage'
 import type { PlaceProps } from '../types'
 import { BOTIGA_GAME_ID, BOTIGA_SKILLS } from './botigaSkills'
+import { basketZones } from './basket/basketSpec'
+import { changeZone } from './change/changeSpec'
 import { BOTIGA_ADAPTERS } from './errands/botigaAdapters'
+import { botigaModeOf } from './errands/botigaMode'
 import { SHOP_DEFS } from './shop/items'
+import { RequestProps } from './shop/RequestProps'
 import { bubbleOf, carrierFor } from './shop/requestMap'
 import { ROOM, SHOP_START } from './shop/rooms'
+import { ShopFooter } from './shop/ShopFooter'
 import { ShopRooms } from './shop/ShopRooms'
 import { CAT, COURIER, CUSTOMERS, KEEPER, useShopLife } from './shop/useShopLife'
 import '../../sandbox/sandbox.css'
@@ -44,8 +51,12 @@ interface WorldProps extends PlaceProps {
   setOpen: (open: boolean) => void
 }
 
+const NO_ZONES: readonly ZoneDef[] = []
+
 /** The shop as a living place: rooms, people, things to carry, and the customers' wishes as bubbles. */
 function ShopWorld({ pending, onSolved, onExit, forced, open, setOpen }: WorldProps) {
+  const cast = useCast()
+  const compact = useCompactStage()
   const errand = useErrand({ gameId: BOTIGA_GAME_ID, skillIds: BOTIGA_SKILLS, adapters: BOTIGA_ADAPTERS, onSolved, ...(forced ? { forced } : {}) })
   const live = useRequests('botiga')
   const first = live.requests[0]
@@ -56,33 +67,54 @@ function ShopWorld({ pending, onSolved, onExit, forced, open, setOpen }: WorldPr
   const name = (carrier && NEIGHBOURS_BY_ID[carrier]?.name) ?? 'un veí'
   const shown = (who && NEIGHBOURS_BY_ID[who]?.name) ?? name
   const bubble = bubbleOf(errand.item)
+  const mode = useMemo(() => botigaModeOf(errand.item), [errand.item])
   const calm = first?.status === 'calm'
   const state = errand.phase === 'thanks' ? 'done' : calm ? 'calm' : 'waiting'
   const wish = bubble.number === undefined ? '' : ` (${bubble.number})`
 
+  const zones = useMemo(() => {
+    if (!open) return NO_ZONES
+    if (mode.kind === 'basket') return basketZones(mode.task, compact)
+    return mode.kind === 'change' ? [changeZone(mode.task, compact)] : NO_ZONES
+  }, [open, mode, compact])
+
   const tapBubble = (): void => {
     worldSfx.doorbell()
     if (calm) live.wakeRequests()
+    // The goods and the till are on the shop floor: she comes there, and the customer is already at the counter.
+    if (mode.kind !== 'sheet' && (cast.state.actors[AVATAR]?.room ?? cast.defaultRoom) !== ROOM.floor) cast.enterRoom(AVATAR, ROOM.floor, { x: 0.3, y: 0.8 })
+    if (mode.kind !== 'sheet') cast.select(AVATAR)
     setOpen(true)
   }
+  const close = (): void => setOpen(false)
 
   return (
     <>
-      <div className="absolute inset-x-0 bottom-0 top-[84px] flex items-center portrait:items-end portrait:pb-[88px]">
-        <div className="relative mx-auto h-full max-h-[150vw] w-full">
-          <ItemsProvider
-            defs={SHOP_DEFS}
-            start={SHOP_START}
-            floorTop={0.46}
-            onEnter={(door: DoorDef, who: string) => {
-              if (door.to === ROOM.street && who === AVATAR) onExit()
-            }}
-          >
-            <ShopRooms avatarId={AVATAR} carrier={carrier} bubble={carrier ? bubble : undefined} bubbleState={state} bubbleLabel={`${name} espera${wish}: toca per atendre`} onBubble={tapBubble} />
-          </ItemsProvider>
+      <ItemsProvider
+        defs={SHOP_DEFS}
+        start={SHOP_START}
+        floorTop={0.46}
+        zones={zones}
+        onEnter={(door: DoorDef, who: string) => {
+          if (door.to === ROOM.street && who === AVATAR) onExit()
+        }}
+      >
+        <div className="absolute inset-x-0 bottom-0 top-[84px] flex flex-col portrait:bottom-[88px] portrait:justify-end">
+          <div className="relative min-h-0 flex-1 portrait:max-h-[150vw]">
+            <ShopRooms
+              avatarId={AVATAR}
+              carrier={carrier}
+              bubble={carrier ? bubble : undefined}
+              bubbleState={state}
+              bubbleLabel={`${name} espera${wish}: toca per atendre`}
+              onBubble={tapBubble}
+              extras={open ? <RequestProps mode={mode} compact={compact} /> : undefined}
+            />
+          </div>
+          <ShopFooter errand={errand} mode={mode} open={open} carrier={carrier} compact={compact} onClose={close} onExit={onExit} />
         </div>
-      </div>
-      {open && <SandboxErrandPanel errand={errand} who={shown} label={`Encàrrec a la Botiga: ${shown}`} onClose={() => setOpen(false)} />}
+      </ItemsProvider>
+      {open && mode.kind === 'sheet' && <SandboxErrandPanel errand={errand} who={shown} label={`Encàrrec a la Botiga: ${shown}`} onClose={() => setOpen(false)} />}
     </>
   )
 }
@@ -93,7 +125,7 @@ function ShopWorld({ pending, onSolved, onExit, forced, open, setOpen }: WorldPr
  * ignorable bubbles that open the usual errand (basket, change, price tags) when she answers them.
  */
 export default function BotigaPlace(props: PlaceProps) {
-  const { callSignal, onExit } = props
+  const { callSignal } = props
   const seeds = useSeeds()
   const [open, setOpen] = useState(false)
   const [seen, setSeen] = useState(callSignal)
@@ -104,21 +136,11 @@ export default function BotigaPlace(props: PlaceProps) {
   return (
     <Scene label="La Botiga" className="h-full min-h-[34rem] w-full">
       <div data-world="nit" className="relative h-full w-full overflow-hidden" style={{ background: '#ffd9a0' }}>
-        <div aria-hidden="true" className="absolute inset-x-0 bottom-0 hidden h-[100px] portrait:block" style={{ background: '#c98f63' }} />
+        <div aria-hidden="true" className="absolute inset-x-0 bottom-0 hidden h-[88px] portrait:block" style={{ background: '#c98f63' }} />
         <h1 className="sr-only">La Botiga</h1>
         <CastProvider seeds={seeds} initialSelected={AVATAR} defaultRoom={ROOM.floor}>
           <ShopWorld {...props} open={open} setOpen={setOpen} />
         </CastProvider>
-        <button
-          type="button"
-          onClick={() => {
-            worldSfx.doorClose()
-            onExit()
-          }}
-          className="absolute bottom-3 left-3 z-[4100] flex min-h-16 items-center gap-2 rounded-full bg-white px-5 text-xl font-bold text-[var(--world-ink,#2b2440)] shadow-[var(--world-shadow-lift)]"
-        >
-          <span aria-hidden="true">🚪</span>Surt al carrer
-        </button>
         <Grain />
       </div>
     </Scene>

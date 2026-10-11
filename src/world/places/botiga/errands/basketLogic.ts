@@ -1,5 +1,6 @@
 import type { Item } from '../../../../core/ambit/types'
 import { isInteger } from '../../../errands/adapters'
+import { parseMissing } from '../../../errands/missingNumber'
 import { countWord } from '../../../errands/requestText'
 import { productFor, type Product } from '../products'
 
@@ -24,9 +25,15 @@ export interface BasketTask {
 }
 
 export function basketFromItem(item: Item): BasketTask | undefined {
-  const ops = item.operands
-  if (!ops || !isInteger(item.answer)) return undefined
+  if (!isInteger(item.answer)) return undefined
   const answer = Number(item.answer)
+  const ops = item.operands
+  if (!ops) {
+    // A3 / A10 write the missing addend in the text only: «10 = 8 + ?», «6 + ? = 10».
+    const m = parseMissing(item.text)
+    if (!m || m.unknown !== 'second' || m.b !== answer || m.t > BASKET_MAX) return undefined
+    return { mode: 'missing', product: productFor(item.id), a: m.a, b: m.b, start: m.a }
+  }
   const { a, b, op } = ops
   if (a < 0 || b < 0) return undefined
   const product = productFor(item.id)

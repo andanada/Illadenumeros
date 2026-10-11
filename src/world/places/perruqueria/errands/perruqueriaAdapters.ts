@@ -1,7 +1,9 @@
 import { erase } from '../../../errands/adapters'
 import type { AnyErrandAdapter, ErrandAdapter } from '../../../errands/types'
 import { clipFromItem, clipRequest, type ClipTask as ClipModel } from './clipLogic'
-import { ClipTask } from './ClipTask'
+
+/** The hands do the task on the customer's head, so the adapter's own component is never drawn. */
+const Nothing = (): null => null
 
 export const clipAdapter: ErrandAdapter<ClipModel> = {
   id: 'pinces',
@@ -12,7 +14,7 @@ export const clipAdapter: ErrandAdapter<ClipModel> = {
     return task
   },
   request: (task) => clipRequest(task),
-  Component: ClipTask,
+  Component: Nothing,
 }
 
 /** Anything the clips cannot play falls back to the answers as tags in the customer's hand. */

@@ -16,10 +16,12 @@ export interface ShopRoomsProps {
   bubbleState: AnchorState
   bubbleLabel: string
   onBubble: () => void
+  /** The decor of the open request (crate, basket, drawer…): drawn on the shop floor only. */
+  extras?: React.ReactNode
 }
 
 /** The room where the character the child moves is. Customers outside (the street) are not drawn. */
-export function ShopRooms({ avatarId, carrier, bubble, bubbleState, bubbleLabel, onBubble }: ShopRoomsProps) {
+export function ShopRooms({ avatarId, carrier, bubble, bubbleState, bubbleLabel, onBubble, extras }: ShopRoomsProps) {
   const cast = useCast()
   const mover = cast.state.actors[cast.state.selected]
   const roomId = mover?.room ?? cast.defaultRoom
@@ -37,6 +39,7 @@ export function ShopRooms({ avatarId, carrier, bubble, bubbleState, bubbleLabel,
   return (
     <Stage key={shown.id} label={shown.label} room={shown.id} floorTop={shown.floorTop} backdrop={shown.backdrop} blocks={shown.blocks} seats={shown.seats} doors={shown.doors} surfaces={shown.surfaces} switcher={false}>
       {isFloor && <Readouts />}
+      {isFloor && extras}
       {isFloor && carrier && bubble && (
         <Anchor
           actorId={carrier}

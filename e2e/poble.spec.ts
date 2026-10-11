@@ -4,7 +4,7 @@ import { CHILD, completeDiagnostic, createProfile, expect, hasHorizontalScroll, 
 /** Screenshots for the design review go here (outside the repo when POBLE_SHOTS is set). */
 const SHOTS = process.env.POBLE_SHOTS
 
-type Method = 'drag' | 'tap'
+type Method = 'keys' | 'tap'
 
 async function shot(page: Page, name: string, project: string): Promise<void> {
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/${project}-${name}.png`, fullPage: false })
@@ -14,24 +14,23 @@ async function coins(page: Page): Promise<number> {
   return Number(await page.getByTestId('coins').getAttribute('data-coins'))
 }
 
-/** Drag with real pointer events, in small steps like a finger. */
-async function drag(page: Page, from: Locator, to: Locator): Promise<void> {
-  const a = await from.boundingBox()
-  const b = await to.boundingBox()
-  if (!a || !b) throw new Error('Element sense caixa per arrossegar')
-  await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2)
-  await page.mouse.down()
-  await page.mouse.move(a.x + a.width / 2 + 12, a.y + a.height / 2 + 4, { steps: 3 })
-  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 8 })
-  await page.mouse.up()
+/** Carries one thing into a zone and waits until her hands are free: tap it and tap the place, or the keyboard path. */
+async function moveThing(page: Page, method: Method, thing: Locator, zoneName: string | RegExp): Promise<void> {
+  const drop = page.getByRole('button', { name: zoneName })
+  if (method === 'tap') {
+    await thing.click()
+    await drop.click()
+  } else {
+    await thing.focus()
+    await page.keyboard.press('Enter')
+    await drop.focus()
+    await page.keyboard.press('Enter')
+  }
+  await expect(page.locator('[data-actor="laia"]')).not.toHaveAccessibleName(/porta/, { timeout: 30_000 })
 }
 
-/** Move one prop to a zone: drag it, or tap it and then tap the place. */
-async function moveProp(page: Page, method: Method, prop: Locator, zone: Locator): Promise<void> {
-  if (method === 'drag') return drag(page, prop, zone)
-  await prop.click()
-  await zone.click()
-}
+/** The next loose thing of the shop's request (goods spilled from the crate, or a coin of the drawer). */
+const loose = (page: Page, def: string): Locator => page.locator(`[data-def="${def}"]:not([data-in])`).last()
 
 const euros = (text: string): number => {
   const m = /(\d+)(?:,(\d{2}))?\s*€/.exec(text)
@@ -45,8 +44,6 @@ function greedy(cents: number): number[] {
   return out
 }
 
-const pieceName = (c: number): RegExp => new RegExp(`^(la moneda|el bitllet) de ${c < 100 ? `${c} cts` : `${c / 100} €`}$`)
-
 /** Solves the errand on the counter. Returns false when it cannot read it (the neighbour is sent away). */
 async function solveErrand(page: Page, method: Method): Promise<boolean> {
   const stage = page.locator('[data-errand-kind]')
@@ -54,22 +51,21 @@ async function solveErrand(page: Page, method: Method): Promise<boolean> {
   const kind = await stage.getAttribute('data-errand-kind')
   const request = (await page.getByTestId('errand-request').innerText()).replace(/\s+/g, ' ')
   if (kind === 'cistella') {
-    const crate = page.locator('[data-prop-kind="producte-caixa"]')
-    const basket = page.locator('[data-zone-id="cistella"]')
     const sum = /Vull (\d+) \+ (\d+)/.exec(request)
     const missing = /Tinc (\d+) .*en vull (\d+)/.exec(request)
     const take = /^(\d+) − (\d+):/.exec(request)
-    if (sum) for (let i = 0; i < Number(sum[1]) + Number(sum[2]); i++) await moveProp(page, method, crate, basket)
-    else if (missing) for (let i = 0; i < Number(missing[2]) - Number(missing[1]); i++) await moveProp(page, method, crate, basket)
-    else if (take) for (let i = 0; i < Number(take[2]); i++) await moveProp(page, method, page.locator('[data-prop-kind="producte-cistella"]'), page.locator('[data-zone-id="caixa"]'))
+    const goods = (await page.locator('[data-def$="-peticio"]').first().getAttribute('data-def')) ?? ''
+    if (sum) for (let i = 0; i < Number(sum[1]) + Number(sum[2]); i++) await moveThing(page, method, loose(page, goods), 'Deixa-ho a la cistella')
+    else if (missing) for (let i = 0; i < Number(missing[2]) - Number(missing[1]); i++) await moveThing(page, method, loose(page, goods), 'Deixa-ho a la cistella')
+    else if (take) for (let i = 0; i < Number(take[2]); i++) await moveThing(page, method, page.locator('[data-in="cistella"]').last(), 'Deixa-ho a la caixa de les que sobren')
     else return false
-    await page.getByRole('button', { name: 'Ja està!' }).click()
+    await page.getByRole('button', { name: 'Dona la cistella' }).click()
     return true
   }
   if (kind === 'canvi') {
     const m = /costa (.+?) i et pago amb (.+?)\./.exec(request)
     if (!m?.[1] || !m[2]) return false
-    for (const c of greedy(euros(m[2]) - euros(m[1]))) await moveProp(page, method, page.getByRole('list', { name: 'Calaix de la caixa' }).getByRole('button', { name: pieceName(c) }).first(), page.locator('[data-zone-id="safata"]'))
+    for (const c of greedy(euros(m[2]) - euros(m[1]))) await moveThing(page, method, loose(page, `peca-${c}`), 'Deixa-ho a la mà del client')
     await page.getByRole('button', { name: 'Dona el canvi' }).click()
     return true
   }
@@ -77,7 +73,10 @@ async function solveErrand(page: Page, method: Method): Promise<boolean> {
   if (value === undefined) return false
   const tag = page.getByRole('button', { name: `Resposta ${value}`, exact: true })
   if (method === 'tap') await tag.click()
-  else await drag(page, tag, page.locator('[data-zone-id="ma-veina"]'))
+  else {
+    await tag.focus()
+    await page.keyboard.press('Enter')
+  }
   return true
 }
 
@@ -201,7 +200,7 @@ async function expectErrandFits(page: Page): Promise<void> {
   await expect(page.getByTestId('errand-request')).toBeInViewport()
   await expect(page.getByRole('button', { name: 'Ara no' })).toBeInViewport()
   await expect(page.getByRole('button', { name: 'Ajuda' })).toBeInViewport()
-  const submit = page.getByRole('button', { name: /^(Ja està!|Dona el canvi)$/ })
+  const submit = page.getByRole('button', { name: /^(Dona la cistella|Dona el canvi)$/ })
   if ((await submit.count()) > 0) await expect(submit).toBeInViewport()
   if (!isLandscape(page)) return
   const overflow = await page.evaluate(() => {
@@ -212,7 +211,8 @@ async function expectErrandFits(page: Page): Promise<void> {
 }
 
 test.describe('El Poble dels Números', () => {
-  test('pan the street, enter the shop, the neighbour asks at the counter, solve by drag and by tapping', async ({ page, consoleErrors }, testInfo) => {
+  test('pan the street, enter the shop, the neighbour asks at the counter, solve by keyboard and by tapping', async ({ page, consoleErrors }, testInfo) => {
+    test.setTimeout(300_000)
     const project = testInfo.project.name
     await page.clock.install({ time: new Date(2026, 9, 9, 12, 0, 0) })
     await enterTown(page)
@@ -241,7 +241,7 @@ test.describe('El Poble dels Números', () => {
     await shot(page, 'botiga-joc', project)
     const start = await coins(page)
 
-    await serveOne(page, 'drag', {
+    await serveOne(page, 'keys', {
       asking: async () => {
         await expectCustomerVisible(page)
         await expectErrandFits(page)

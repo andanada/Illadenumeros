@@ -75,6 +75,9 @@ export const arrived = (t: RoadTask, jumps: readonly Jump[]): boolean => positio
 /** Stops driven so far (each +1/−1 is one stop, each ±10 is ten). */
 export const stopsDriven = (t: RoadTask, jumps: readonly Jump[]): number => Math.abs(positionAfter(t.start, jumps) - t.start)
 
+/** What opening the doors at `stop` answers: the stop itself («go»), or the stops driven from the start («count»). */
+export const roadValue = (t: RoadTask, stop: number): number => (t.mode === 'count' ? stop - t.start : stop)
+
 /** The fewest jumps that drive from `from` to `to` (tens first): the solution drawn after the last try. */
 export function solutionJumps(from: number, to: number): Jump[] {
   const d = to - from
@@ -101,8 +104,8 @@ export function roadRequest(t: RoadTask): { text: string; speech: string } {
     }
     case 'count':
       return {
-        text: `Som a la parada ${t.start} i m’espera la meva amiga a la ${t.target}: ${t.start} + ? = ${t.target}. Quantes parades hi ha fins a la ${t.target}?`,
-        speech: `Som a la parada ${t.start} i m’espera la meva amiga a la ${t.target}. Quantes parades hi ha fins a la ${t.target}?`,
+        text: `Som a la parada ${t.start} i m’espera la meva amiga a la ${t.target}: ${t.start} + ? = ${t.target}. Quantes parades hi ha fins a la ${t.target}? Condueix-hi i obre les portes!`,
+        speech: `Som a la parada ${t.start} i m’espera la meva amiga a la ${t.target}. Quantes parades hi ha fins a la ${t.target}? Condueix-hi i obre les portes!`,
       }
     case 'read':
       return {

@@ -4,6 +4,7 @@ import type { Errand } from '../../../errands/useErrand'
 import type { PlaceRequest } from '../../../requests/useRequests'
 import { useCast } from '../../../sandbox/CastContext'
 import { worldSfx } from '../../../scene/worldSfx'
+import type { RoadTask } from '../errands/roadLogic'
 import { RequestCard } from '../../shared/RequestCard'
 import { RoomSwitcher } from '../../shared/RoomSwitcher'
 import { BusLookContext, type BusLook } from '../interior/busLook'
@@ -15,6 +16,12 @@ import { BUS_ROOM, CHILD_ID, STOP_ROOM } from './riders'
 import { useBusRequests } from './useBusRequests'
 import { useBusStart } from './useBusStart'
 import { useBusTrip } from './useBusTrip'
+
+/** The friend who waits at the stop («quantes parades»), or the flag that helps «go» when she asks for it. */
+function markOf(task: RoadTask, hintLevel: number): { at: number; icon: string; label: string } | undefined {
+  if (task.mode === 'count') return { at: task.target, icon: '🙋', label: 'La teva amiga espera a la parada' }
+  return task.mode === 'go' && hintLevel >= 1 ? { at: task.target, icon: '🏁', label: 'La bandera és a la parada' } : undefined
+}
 
 const pill = 'min-h-16 rounded-full px-5 text-xl font-bold shadow-[var(--world-shadow-lift)] active:translate-y-0.5 disabled:opacity-50'
 
@@ -74,6 +81,7 @@ export function BusWorld({ errand, requests, pending, callSignal, onExit }: BusW
     />
   )
   const roadCard = req.mode.kind === 'road'
+  const roadMark = busy && req.mode.kind === 'road' ? markOf(req.mode.task, errand.hintLevel) : undefined
   const cardBody =
     req.mode.kind === 'seats' ? (
       <>
@@ -106,7 +114,7 @@ export function BusWorld({ errand, requests, pending, callSignal, onExit }: BusW
           <BusRooms view={view} trip={trip} req={req} errand={errand} onPole={hold} />
         </div>
         <div className="flex flex-col items-center gap-2 px-2 pb-2 pt-2">
-          {view === BUS_ROOM && <RouteStrip stop={trip.bus.stop} driving={trip.bus.driving} />}
+          {view === BUS_ROOM && <RouteStrip stop={trip.bus.stop} driving={trip.bus.driving} {...(roadMark ? { mark: roadMark } : {})} />}
           {!busy && view === BUS_ROOM ? dock : null}
           {panel ? null : card}
           <div className="flex w-full flex-wrap items-center justify-between gap-2">

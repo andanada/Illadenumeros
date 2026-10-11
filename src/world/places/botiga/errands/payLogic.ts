@@ -1,11 +1,11 @@
 import type { Choice, Item } from '../../../../core/ambit/types'
 import { wrongValueFor } from '../../../../games/botiga-pluja/shopLogic'
-import { formatEuros, parseEuros, purseFor, sumCents } from '../../../../ui/visual/moneyLogic'
+import { formatEuros, parseEuros, purseFor } from '../../../../ui/visual/moneyLogic'
 
-/** Change errands: the neighbour paid, the child hands the change over with coins on the counter tray. */
+/** Change errands: the neighbour paid, the child hands the change over with coins from the till drawer. */
 export interface PayTask {
   target: number
-  /** Pieces in the till drawer (each can be used once). */
+  /** Pieces in the till drawer: the exact change and a few spare (each can be used once). */
   drawer: readonly number[]
 }
 
@@ -18,24 +18,7 @@ export function payFromItem(item: Item): PayTask | undefined {
   return { target, drawer: purseFor(target) }
 }
 
-/** Index-keyed pieces so two equal coins stay two separate props. */
-export interface Piece {
-  key: string
-  cents: number
-}
-
-export const drawerPieces = (task: PayTask): Piece[] => task.drawer.map((cents, i) => ({ key: `m${i}`, cents }))
-
-/** Moves a piece between drawer and tray (new arrays, order kept). */
-export function movePiece(from: readonly Piece[], to: readonly Piece[], key: string): { from: Piece[]; to: Piece[] } {
-  const piece = from.find((p) => p.key === key)
-  if (!piece) return { from: [...from], to: [...to] }
-  return { from: from.filter((p) => p.key !== key), to: [...to, piece] }
-}
-
-export const trayTotal = (tray: readonly Piece[]): number => sumCents(tray.map((p) => p.cents))
-
-/** The choice the tray stands for: the answer when exact, else the matching wrong choice (with its misconception) or the plain amount. */
+/** The choice the customer's hand stands for: the answer when exact, else the matching wrong choice (with its misconception) or the plain amount. */
 export function payChoice(total: number, item: Item): Choice {
   if (total === parseEuros(item.answer)) return { value: item.answer }
   const value = wrongValueFor(total, item.answer, item.choices)

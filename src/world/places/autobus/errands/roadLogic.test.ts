@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Item } from '../../../../core/ambit/types'
-import { arrived, canDrive, roadFromItem, roadRequest, roadWindow, solutionJumps, stopsDriven } from './roadLogic'
+import { arrived, canDrive, roadFromItem, roadRequest, roadValue, roadWindow, solutionJumps, stopsDriven } from './roadLogic'
 
 const base: Item = {
   id: 'x',
@@ -38,6 +38,16 @@ describe('road: the bus line is a number line', () => {
       start: 3,
       target: 11,
     })
+  })
+
+  it('opening the doors answers with the stop («go») or with the stops driven («count»)', () => {
+    const go = roadFromItem(base)
+    const count = roadFromItem({ ...base, text: '30 + ? = 47', answer: '17', operands: { a: 30, b: 17, op: '+' } })
+    if (!go || !count) throw new Error('sense tasca')
+    expect(roadValue(go, 33)).toBe(33)
+    expect(roadValue(count, 47)).toBe(17)
+    // Stopping short is a plain wrong number, never the answer.
+    expect(roadValue(count, 40)).toBe(10)
   })
 
   it('? + b = t drives back to where she got on', () => {

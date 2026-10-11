@@ -1,9 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { PetId } from '../../../characters'
 import type { PropInfo } from '../../../scene/SceneContext'
 import { worldSfx } from '../../../scene/worldSfx'
 import { useCast } from '../../../sandbox/CastContext'
 import { ItemsProvider } from '../../../sandbox/ItemsContext'
+import type { ZoneDef } from '../../../sandbox/zoneTypes'
+import { useBox } from '../../shared/doing/useBox'
+import { HomeMat, type HomeMats } from '../world/HomeMat'
+import { HOME_TASK_DEFS } from '../world/homeDefs'
+import { HomeRequest } from '../world/HomeRequest'
 import { FURNITURE_BY_ID } from '../furniture/catalog'
 import { Catalogue, CATALOGUE_KIND, itemOfProp } from '../home/Catalogue'
 import { PieceToolbar } from '../home/PieceToolbar'
@@ -11,9 +16,9 @@ import { uidOfProp } from '../home/placedProps'
 import { CasaToolbar } from './CasaToolbar'
 import { dropSpot } from './dropSpot'
 import { HOUSE_DEFS, HOUSE_START } from './items'
+import { houseLayout } from './layout'
 import { HouseView } from './HouseView'
 import { RequestAnchors } from './RequestAnchors'
-import { RequestSheet } from './RequestSheet'
 import { stairById, STREET } from './stairs'
 import { useCasaRequests } from './useCasaRequests'
 import { useHouse } from './useHouse'
@@ -51,14 +56,17 @@ export function HouseWorld(props: HouseWorldProps) {
     },
     [onExit],
   )
+  const [zones, setZones] = useState<readonly ZoneDef[]>([])
   return (
-    <ItemsProvider defs={HOUSE_DEFS} start={HOUSE_START} floorTop={FLOOR_TOP} onEnter={onEnter}>
-      <Inside {...props} />
+    <ItemsProvider defs={ALL_DEFS} start={HOUSE_START} floorTop={FLOOR_TOP} zones={zones} onEnter={onEnter}>
+      <Inside {...props} setZones={setZones} />
     </ItemsProvider>
   )
 }
 
-function Inside({ pet, callSignal, onSolved, onExit, forced }: HouseWorldProps) {
+const ALL_DEFS = [...HOUSE_DEFS, ...HOME_TASK_DEFS]
+
+function Inside({ pet, callSignal, onSolved, onExit, forced, setZones }: HouseWorldProps & { setZones: (zones: readonly ZoneDef[]) => void }) {
   const cast = useCast()
   const house = useHouse()
   const track = useLastPointer()
@@ -72,6 +80,9 @@ function Inside({ pet, callSignal, onSolved, onExit, forced }: HouseWorldProps) 
       setFloors((prev) => (prev && prev.go === go && prev.scrolls === scrolls ? prev : { go, scrolls })),
     [],
   )
+  const [mats, setMats] = useState<HomeMats | undefined>(undefined)
+  const [boxRef, box] = useBox()
+  const stage = useMemo(() => ({ w: box.w, h: houseLayout(box.w, box.h).floorH }), [box.w, box.h])
   const portrait = typeof window !== 'undefined' && window.innerHeight > window.innerWidth * 1.05
 
   const me = cast.state.actors[cast.state.selected]
@@ -108,7 +119,7 @@ function Inside({ pet, callSignal, onSolved, onExit, forced }: HouseWorldProps) 
 
   const selected = house.selected
   return (
-    <div data-world={house.night ? 'nit' : 'dia'} className="relative h-full min-h-[30rem] w-full overflow-hidden">
+    <div ref={boxRef} data-world={house.night ? 'nit' : 'dia'} className="relative h-full min-h-[30rem] w-full overflow-hidden">
       <HouseView
         house={house}
         decorating={decorating}
@@ -118,6 +129,7 @@ function Inside({ pet, callSignal, onSolved, onExit, forced }: HouseWorldProps) 
         onReady={ready}
       >
         <RequestAnchors bubbles={requests.bubbles} onTap={requests.tap} />
+        <HomeMat mats={mats} />
       </HouseView>
 
       {!shopping && (
@@ -179,13 +191,15 @@ function Inside({ pet, callSignal, onSolved, onExit, forced }: HouseWorldProps) 
       )}
 
       {requests.open && (
-        <RequestSheet
+        <HomeRequest
           key={requests.open.request.id}
           request={requests.open.request}
           askerId={requests.open.askerId}
-          pet={pet}
           onSolved={onSolved}
           onClose={requests.close}
+          stage={stage}
+          setZones={setZones}
+          setMats={setMats}
           {...(forced ? { forced } : {})}
         />
       )}

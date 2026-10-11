@@ -16,8 +16,11 @@ export const tripMs = (jump: Jump, reduced: boolean): number => (reduced ? 0 : M
 /** The seats task can be played with real people: everyone fits among the twelve riders. */
 export const seatsInWorld = (t: SeatsTask): boolean => t.start + t.waiting <= RIDER_IDS.length
 
-/** The road task is played by driving the bus when it is «go» and its stops are on the line (always true by construction). */
-export const roadInWorld = (t: RoadTask): boolean => t.mode === 'go'
+/**
+ * The road task is played by driving the bus: «go» (open the doors at the stop) and «count» (open them at the friend's
+ * stop: the stops driven are the answer). Only «read» (an unnumbered stop on the line) keeps the number-line sheet.
+ */
+export const roadInWorld = (t: RoadTask): boolean => t.mode === 'go' || t.mode === 'count'
 
 /**
  * Sets the stage for a passengers request: `start` people aboard, `waiting` at the stop, the rest away.

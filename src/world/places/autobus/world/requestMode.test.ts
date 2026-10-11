@@ -18,6 +18,17 @@ describe('requestMode', () => {
     expect(bubbleFacts(go)).toEqual({ icon: '🚌', number: '+3' })
   })
 
+  it('plays «quantes parades» by driving to the friend and opening the doors there', () => {
+    const count = item({ text: '34 + ? = 40', answer: '6', operands: { a: 34, b: 6, op: '+' } })
+    expect(modeOf(count)).toMatchObject({ kind: 'road', task: { mode: 'count', start: 34, target: 40 } })
+    expect(bubbleFacts(count).number).toBe('?')
+  })
+
+  it('reading an unnumbered stop keeps the number-line sheet', () => {
+    const read = item({ text: 'Quin número assenyala la fletxa?', answer: '19', visual: { kind: 'numberLine', from: 10, to: 30, start: 10, target: 19 } })
+    expect(modeOf(read).kind).toBe('panel')
+  })
+
   it('anything else uses the existing task panel and shows a question mark', () => {
     const other = item({ text: 'Quant fa 6 × 7?', answer: '42' })
     expect(modeOf(other).kind).toBe('panel')

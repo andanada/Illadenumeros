@@ -9,6 +9,9 @@ import { useItems } from '../../../sandbox/ItemsContext'
 import { worldSfx } from '../../../scene/worldSfx'
 import { RequestCard } from '../../shared/RequestCard'
 import { RoomSwitcher } from '../../shared/RoomSwitcher'
+import { useCompactStage } from '../../shared/doing/useCompactStage'
+import { PrizeCard } from '../prizes/PrizeCard'
+import type { PrizeTask } from '../prizes/prizeLogic'
 import { ArcadeBackdrop } from '../ArcadeBackdrop'
 import { arcadeSfx, useArcadeMusic } from '../arcadeSfx'
 import { cabinetById, type CabinetId } from '../cabinets/cabinetDefs'
@@ -30,13 +33,19 @@ export interface ArcadeWorldProps {
   callSignal: number
   onSolved: (coins: number) => void
   onExit: () => void
+  /** The clerk's request is open (lifted: the tray zone depends on it). */
+  clerkOpen: boolean
+  setClerkOpen: (open: boolean) => void
+  /** The prize task of the clerk's item; undefined when it is played with the price tags. */
+  prize: PrizeTask | undefined
 }
 
 type Screen = 'claw' | 'photo' | undefined
 
 /** Everything of the arcade inside the providers: the room, the screens she opens, the bubbles and the dock. */
-export function ArcadeWorld({ errand, requests, pending, callSignal, onSolved, onExit }: ArcadeWorldProps) {
+export function ArcadeWorld({ errand, requests, pending, callSignal, onSolved, onExit, clerkOpen, setClerkOpen, prize }: ArcadeWorldProps) {
   const cast = useCast()
+  const compact = useCompactStage()
   const items = useItems()
   const [open, setOpen] = useState<CabinetId | undefined>(undefined)
   const [screen, setScreen] = useState<Screen>(undefined)
@@ -44,7 +53,6 @@ export function ArcadeWorld({ errand, requests, pending, callSignal, onSolved, o
   const [music, setMusic] = useState(false)
   const [plays, setPlays] = useState(0)
   const [wins, setWins] = useState(0)
-  const [clerkOpen, setClerkOpen] = useState(false)
   useArcadeMusic(music && open === undefined)
   useArcadeLife()
 
@@ -139,7 +147,7 @@ export function ArcadeWorld({ errand, requests, pending, callSignal, onSolved, o
           />
         )}
         {screen === 'photo' && <PhotoOverlay actorId={cast.state.selected} onClose={() => setScreen(undefined)} />}
-        {clerkOpen && (
+        {clerkOpen && !prize && (
           <div className="absolute inset-x-0 bottom-0 z-[3500] p-2">
             <RequestCard errand={errand} placeName="els Recreatius" onClose={closeClerk}>
               <ErrandTaskArea errand={errand} />
@@ -147,6 +155,11 @@ export function ArcadeWorld({ errand, requests, pending, callSignal, onSolved, o
           </div>
         )}
       </div>
+      {clerkOpen && prize && (
+        <div className="w-full shrink-0 px-2 pt-1">
+          <PrizeCard errand={errand} task={prize} clerk={CLERK_ID} compact={compact} onClose={() => setClerkOpen(false)} />
+        </div>
+      )}
       <div className="flex w-full flex-wrap items-center justify-between gap-2 px-2 pb-2 pt-2">
         <RoomSwitcher room="sala" className="!pointer-events-auto !static" />
         <RoomControls lit={lit} music={music} onLit={setLit} onMusic={setMusic} />

@@ -3,6 +3,7 @@ import { choiceForValue } from '../../../errands/adapters'
 import type { Errand } from '../../../errands/useErrand'
 import type { PlaceRequest } from '../../../requests/useRequests'
 import { useCast } from '../../../sandbox/CastContext'
+import { roadValue } from '../errands/roadLogic'
 import { seatsValue } from '../errands/seatsLogic'
 import { bubbleFacts, modeOf, type BubbleFacts, type RequestMode } from './requestMode'
 import { seatsSetup } from './route'
@@ -88,7 +89,7 @@ export function useBusRequests(errand: Errand, trip: BusTrip, requests: readonly
 
   const handOver = (): void => {
     if (mode.kind === 'seats') void errand.submit(choiceForValue(String(seatsValue(mode.task, aboard)), errand.item))
-    else if (mode.kind === 'road') void errand.submit(choiceForValue(String(trip.bus.stop), errand.item))
+    else if (mode.kind === 'road') void errand.submit(choiceForValue(String(roadValue(mode.task, trip.bus.stop)), errand.item))
   }
   const close = (): void => {
     errand.next()

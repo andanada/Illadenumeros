@@ -7,8 +7,9 @@ import { positionAfter } from '../../../../games/cursa-recta/jumpLogic'
 import { choiceForValue, pickAdapter } from '../../../errands/adapters'
 import { AUTOBUS_SKILLS } from '../autobusSkills'
 import { AUTOBUS_ADAPTERS, roadAdapter, seatsAdapter } from './autobusAdapters'
-import { canDrive, roadFromItem, solutionJumps } from './roadLogic'
-import { SEATS, seatsFromItem, seatsValue, solutionOnBoard } from './seatsLogic'
+import { roadInWorld, seatsInWorld } from '../world/route'
+import { canDrive, roadFromItem, roadValue, solutionJumps } from './roadLogic'
+import { EXTRA_WAITING, SEATS, seatsFromItem, seatsValue, solutionOnBoard } from './seatsLogic'
 
 const item = (skillId: string, seed: string, stage: (typeof CPA_STAGES)[number] = 'concret'): Item => {
   const gen = matesAmbit.generators[skillId]
@@ -42,7 +43,13 @@ describe('autobús skills', () => {
             expect(String(seatsValue(task, solutionOnBoard(task)))).toBe(it.answer)
             expect(solutionOnBoard(task)).toBeLessThanOrEqual(SEATS)
             // Enough people wait at the stop for the solution, plus some more so she has to count.
-            if (task.mode !== 'off') expect(task.start + task.waiting).toBeGreaterThan(solutionOnBoard(task))
+            // (A nearly full bus has no spare people: everybody who fits waits.)
+            if (task.mode !== 'off') {
+              expect(task.start + task.waiting).toBeGreaterThanOrEqual(solutionOnBoard(task))
+              if (solutionOnBoard(task) + EXTRA_WAITING <= SEATS) expect(task.start + task.waiting).toBeGreaterThan(solutionOnBoard(task))
+            }
+            // …and they all fit among the riders, so the seats are always played with real people.
+            expect(seatsInWorld(task)).toBe(true)
           } else {
             const task = roadFromItem(it)
             if (!task) throw new Error('adaptat sense tasca')
@@ -53,7 +60,9 @@ describe('autobús skills', () => {
               expect(canDrive(task, at, j)).toBe(true)
               return at + j
             }, task.start)
-            if (task.mode === 'go') expect(choiceForValue(String(task.target), it).value).toBe(it.answer)
+            // Opening the doors at the target stop answers right: «go» with the stop, «count» with the stops driven.
+            if (task.mode !== 'read') expect(choiceForValue(String(roadValue(task, task.target)), it).value).toBe(it.answer)
+            expect(roadInWorld(task)).toBe(task.mode !== 'read')
           }
         },
       ),

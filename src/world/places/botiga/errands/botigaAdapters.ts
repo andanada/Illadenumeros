@@ -1,9 +1,14 @@
 import { erase } from '../../../errands/adapters'
 import type { AnyErrandAdapter, ErrandAdapter } from '../../../errands/types'
 import { basketFromItem, basketRequest, type BasketTask as BasketModel } from './basketLogic'
-import { BasketTask } from './BasketTask'
 import { payFromItem, payRequest, type PayTask as PayModel } from './payLogic'
-import { PayTask } from './PayTask'
+
+/**
+ * The shop's tasks live in the shop itself (apples carried into the basket, coins into the customer's hand): the
+ * adapters only say which items can be played that way and what the customer says. The component is never drawn;
+ * every other item (big numbers, price tags) is played on the sheet.
+ */
+const nothing = (): null => null
 
 export const basketAdapter: ErrandAdapter<BasketModel> = {
   id: 'cistella',
@@ -14,7 +19,7 @@ export const basketAdapter: ErrandAdapter<BasketModel> = {
     return task
   },
   request: (task) => basketRequest(task),
-  Component: BasketTask,
+  Component: nothing,
 }
 
 export const payAdapter: ErrandAdapter<PayModel> = {
@@ -26,7 +31,7 @@ export const payAdapter: ErrandAdapter<PayModel> = {
     return task
   },
   request: (_task, item) => payRequest(item),
-  Component: PayTask,
+  Component: nothing,
 }
 
 /** Order matters: the first adapter that takes an item plays it; the rest go to the price-tag fallback. */

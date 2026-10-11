@@ -8,7 +8,11 @@ import { choiceForValue, pickAdapter } from '../../../errands/adapters'
 import { BOTIGA_SKILLS } from '../botigaSkills'
 import { addOne, BASKET_MAX, basketFromItem, basketRequest, basketValue, solutionCount, takeOne } from './basketLogic'
 import { BOTIGA_ADAPTERS, basketAdapter, payAdapter } from './botigaAdapters'
-import { drawerPieces, movePiece, payChoice, payFromItem, payRequest, trayTotal } from './payLogic'
+import { basketLayout, basketSpec, basketZones } from '../basket/basketSpec'
+import { changeSpec, changeZone } from '../change/changeSpec'
+import { solutionMoves } from '../../shared/doing/pileTask'
+import { botigaModeOf } from './botigaMode'
+import { payChoice, payFromItem, payRequest } from './payLogic'
 
 const item = (skillId: string, seed: string, stage: (typeof CPA_STAGES)[number] = 'concret'): Item => {
   const gen = matesAmbit.generators[skillId]
@@ -51,6 +55,75 @@ describe('botiga skills', () => {
       }),
       { numRuns: 400 },
     )
+  })
+})
+
+describe('botiga in the world', () => {
+
+  it('every item of every skill, in every CPA stage: the solution laid in the zone is exactly the answer, and the world has the things for it', () => {
+    const modes = new Set<string>()
+    fc.assert(
+      fc.property(fc.constantFrom(...BOTIGA_SKILLS), fc.string({ minLength: 1, maxLength: 8 }), fc.constantFrom(...CPA_STAGES), (skillId, seed, stage) => {
+        const it = item(skillId, seed, stage)
+        const mode = botigaModeOf(it)
+        modes.add(mode.kind)
+        if (mode.kind === 'sheet') {
+          // Only what the world cannot do: the price tags hold the answer.
+          expect(it.choices.map((c) => c.value)).toContain(it.answer)
+          return
+        }
+        const spec = mode.kind === 'basket' ? basketSpec(mode.task, it, true) : changeSpec(mode.task, it, true)
+        // Laying the solution in the zone answers right…
+        expect(spec.choose(spec.solution)?.value).toBe(it.answer)
+        // …she has the things to do it (or already has them in the basket)…
+        const things = (defs: readonly string[], tag: string) => defs.map((def, i) => ({ uid: `${tag}${i}`, def }))
+        const moves = solutionMoves(things(spec.start, 's'), things(spec.loose, 'l'), spec.solution)
+        expect(moves.make).toEqual([])
+        // …the zone has room for every thing she can put in it…
+        const zone = mode.kind === 'basket' ? basketZones(mode.task)[0] : changeZone(mode.task)
+        expect(zone?.capacity ?? 0).toBeGreaterThanOrEqual(spec.start.length + spec.loose.length)
+        // …and the start (what she was given) is never taken for an answer unless it already is one.
+        const untouched = spec.choose(spec.start)
+        if (untouched) expect(untouched.value).toBe(it.answer)
+        // One thing more or less than the solution is never right.
+        const more = spec.choose([...spec.solution, spec.solution[0] ?? spec.loose[0] ?? ''])
+        expect(more?.value).not.toBe(it.answer)
+      }),
+      { numRuns: 500 },
+    )
+    // The world takes baskets and change; the sheet only the big numbers and the rest.
+    expect(modes.has('basket')).toBe(true)
+    expect(modes.has('change')).toBe(true)
+  })
+
+  it('A3 and A10 write the missing addend in the text only: they become a basket too', () => {
+    const missing = botigaModeOf({ ...base, text: '10 = 8 + ?', answer: '2', operands: undefined })
+    expect(missing).toMatchObject({ kind: 'basket', task: { mode: 'missing', a: 8, b: 2, start: 8 } })
+    // «? + 3 = 4» hides the start: that one stays on the sheet.
+    expect(botigaModeOf({ ...base, text: '? + 3 = 4', answer: '1', operands: undefined }).kind).toBe('sheet')
+  })
+
+  it('lays out the right amount: sum and missing bring two spare, take brings nothing loose', () => {
+    const sum = basketFromItem(base)
+    const take = basketFromItem({ ...base, text: '12 − 5 = ?', answer: '7', operands: { a: 12, b: 5, op: '-' } })
+    if (!sum || !take) throw new Error('sense tasca')
+    expect(basketLayout(sum)).toMatchObject({ loose: 14, slots: 15, offSlots: 0 })
+    expect(basketLayout(take)).toMatchObject({ loose: 0, slots: 15, offSlots: 15 })
+    expect(basketZones(take).map((z) => z.id)).toEqual(['cistella', 'sobrants'])
+    expect(basketZones(sum)).toHaveLength(1)
+  })
+
+  it('the basket only takes its own goods, the hand only coins and notes', () => {
+    const sum = basketFromItem(base)
+    if (!sum) throw new Error('sense tasca')
+    const zone = basketZones(sum)[0]
+    expect(zone?.accepts?.(`${sum.product.id}-peticio`)).toBe(true)
+    expect(zone?.accepts?.(sum.product.id)).toBe(false)
+    expect(zone?.accepts?.('peca-50')).toBe(false)
+    const pay = payFromItem({ ...base, text: 'Quant canvi?', answer: '1,50 €' })
+    if (!pay) throw new Error('sense tasca')
+    expect(changeZone(pay).accepts?.('peca-50')).toBe(true)
+    expect(changeZone(pay).accepts?.('poma')).toBe(false)
   })
 })
 
@@ -100,17 +173,6 @@ describe('pay adapter', () => {
     expect(payRequest(changeItem).text).toMatch(/costa .* i et pago amb .*Quant canvi em tornes/)
     expect(payRequest({ ...changeItem, operands: undefined }).text).toMatch(/Dona el canvi amb monedes!$/)
     expect(() => payAdapter.toTask(base)).toThrow()
-  })
-
-  it('moves pieces between drawer and tray without losing any', () => {
-    const task = payAdapter.toTask(changeItem)
-    const drawer = drawerPieces(task)
-    const first = drawer[0]
-    if (!first) throw new Error('calaix buit')
-    const moved = movePiece(drawer, [], first.key)
-    expect(moved.from).toHaveLength(drawer.length - 1)
-    expect(trayTotal(moved.to)).toBe(first.cents)
-    expect(movePiece(drawer, [], 'cap')).toEqual({ from: drawer, to: [] })
   })
 
   it('maps a wrong total to a wrong choice, never to the answer', () => {

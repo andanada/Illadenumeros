@@ -31,7 +31,7 @@ const test = base.extend<object, { townState: StorageState }>({
 /** Screenshots for the design review go here (outside the repo when POBLE_SHOTS is set). */
 const SHOTS = process.env.POBLE_SHOTS
 
-type Method = 'drag' | 'tap'
+type Method = 'keyboard' | 'tap'
 
 async function shot(page: Page, name: string, project: string): Promise<void> {
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/${project}-${name}.png`, fullPage: false })
@@ -55,11 +55,40 @@ async function dragToPoint(page: Page, from: Locator, to: { x: number; y: number
   await page.mouse.up()
 }
 
-/** Moves one prop to a zone: drag it, or tap it and then tap the place. */
-async function moveProp(page: Page, method: Method, prop: Locator, zone: Locator): Promise<void> {
-  if (method === 'drag') return dragToPoint(page, prop, await centre(zone))
-  await prop.click()
-  await zone.click()
+/** The middle of every piece of the pile answers to its own touch (no neighbour hides it), when the pile is of a usual size. */
+async function expectPileTouchable(page: Page, selector: string): Promise<void> {
+  const hidden = await page.evaluate((sel) => {
+    const pieces = Array.from(document.querySelectorAll<HTMLElement>(sel))
+    if (pieces.length > 10) return []
+    return pieces.flatMap((el) => {
+      const r = el.getBoundingClientRect()
+      const hit = document.elementFromPoint(r.left + r.width / 2, r.bottom - 22)
+      // A character standing over a piece passes the tap on to it.
+      return hit?.closest('[data-uid]') === el || hit?.closest('[data-actor]') ? [] : [el.getAttribute('data-uid')]
+    })
+  }, selector)
+  expect(hidden).toEqual([])
+}
+
+/** Puts one thing of the pile into a zone: tap it and tap the place, or reach both with the keyboard (Tab / Enter). */
+async function carryOne(page: Page, method: Method, zoneId: string): Promise<void> {
+  const zone = page.locator(`[data-zone="${zoneId}"]`)
+  const before = Number(await zone.getAttribute('data-count'))
+  // The pieces of a pile overlap a little: the tap goes straight to the first one.
+  const piece = page.locator('[data-def^="casa-"]:not([data-in]):not([data-def$="-ja"])').first()
+  const drop = page.locator(`[data-zone-drop="${zoneId}"]`)
+  if (method === 'keyboard') {
+    await piece.focus()
+    await page.keyboard.press('Enter')
+    await expect(drop).toBeAttached()
+    await drop.focus()
+    await page.keyboard.press('Enter')
+  } else {
+    await piece.dispatchEvent('click')
+    await expect(drop).toBeAttached()
+    await drop.dispatchEvent('click')
+  }
+  await expect(zone).toHaveAttribute('data-count', String(before + 1), { timeout: 15_000 })
 }
 
 /** Writes today's errand board straight into the player's database (a fixed, tiny board). */
@@ -110,11 +139,6 @@ async function enterPlace(page: Page, name: RegExp): Promise<void> {
   await door.click()
 }
 
-/** Puts `n` items from `source` into `zone`. */
-async function repeatMove(page: Page, method: Method, n: number, source: () => Locator, zone: () => Locator): Promise<void> {
-  for (let i = 0; i < n; i++) await moveProp(page, method, source(), zone())
-}
-
 type Solver = (page: Page, method: Method, request: string) => Promise<boolean>
 
 const solveBowl: Solver = async (page, method, request) => {
@@ -122,13 +146,13 @@ const solveBowl: Solver = async (page, method, request) => {
   const fill = /ja n’hi ha (\d+): .* = (\d+)\./.exec(request)
   const n = sum ? Number(sum[1]) + Number(sum[2]) : fill ? Number(fill[2]) - Number(fill[1]) : undefined
   if (n === undefined) return false
-  await repeatMove(page, method, n, () => page.locator('[data-prop-kind="ingredient-pot"]'), () => page.locator('[data-zone-id="bol"]'))
-  await page.getByRole('button', { name: 'Ja està!' }).click()
+  for (let i = 0; i < n; i++) await carryOne(page, method, 'peticio-casa')
+  await page.getByRole('button', { name: /^Dóna-ho a / }).click()
   return true
 }
 
 test.describe('Casa', () => {
-  test('walk up the stairs carrying fruit, answer a family request by drag and by tap, decorate and keep it', async ({ page, consoleErrors }, testInfo) => {
+  test('walk up the stairs carrying fruit, answer a family request by keyboard and by tap, in the house, decorate and keep it', async ({ page, consoleErrors }, testInfo) => {
     test.setTimeout(150_000)
     const project = testInfo.project.name
     await enterTown(page, [{ place: 'casa', count: 3, kind: 'repte', neighbour: 'senyora-pilar' }])
@@ -162,7 +186,7 @@ test.describe('Casa', () => {
     await page.getByRole('button', { name: 'Ara no' }).click()
     await expect(sheet).toHaveCount(0)
 
-    for (const method of ['drag', 'tap'] as const) {
+    for (const method of ['keyboard', 'tap'] as const) {
       const before = await coins(page)
       // The next request comes when the day's pacing says so (a few seconds).
       await expect(page.locator('[data-anchor="waiting"]').first()).toBeAttached({ timeout: 45_000 })
@@ -173,6 +197,8 @@ test.describe('Casa', () => {
         await expect(page.getByTestId('errand-hint')).toBeVisible()
         await shot(page, 'casa-peticio-ajuda', project)
       } else await shot(page, 'casa-peticio', project)
+      await expect(page.locator('[data-home-pile]').first()).toBeAttached()
+      await expectPileTouchable(page, '[data-def^="casa-"]:not([data-in]):not([data-def$="-ja"])')
       const text = (await page.getByTestId('errand-request').innerText()).replace(/\s+/g, ' ')
       if (!(await solveBowl(page, method, text))) {
         await page.getByRole('button', { name: 'Ara no' }).click()

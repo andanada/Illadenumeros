@@ -234,6 +234,21 @@ test.describe('Poble: peticions ambientals del transport', () => {
         await page.getByRole('button', { name: 'Ara no' }).click()
         return
       }
+    } else if (kind === 'parades') {
+      // «go»: drive the stops with the pedals and open the doors there; «count»: the same, the stops driven are the answer.
+      const go = /parada (\d+)\. Vull baixar (\d+) parades (endavant|enrere)/.exec(text)
+      const count = /parada (\d+) i m’espera la meva amiga a la (\d+)/.exec(text)
+      const steps = go ? Number(go[2]) : count ? Number(count[2]) - Number(count[1]) : undefined
+      const forward = go ? go[3] === 'endavant' : true
+      if (steps === undefined) {
+        await page.getByRole('button', { name: 'Ara no' }).click()
+        return
+      }
+      for (let i = 0; i < steps; i++) {
+        await page.getByRole('button', { name: forward ? 'Endavant 1 parada' : 'Endarrere 1 parada' }).click()
+        await expect(page.getByTestId('road-bus')).toHaveAttribute('data-driving', 'false', { timeout: 10_000 })
+      }
+      await page.getByRole('button', { name: /Obre les portes/ }).click()
     } else if (kind === 'fichas') {
       const value = solve(text)
       if (value === undefined) return

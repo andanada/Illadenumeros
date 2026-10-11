@@ -2,7 +2,9 @@ import { PALETTE as P } from '../../../art/palette'
 import { PROPS_BY_ID } from '../../../art/props'
 import type { InteractableDef } from '../../../sandbox/defs'
 import { BallArt, Contact } from '../../../sandbox/art/foodArt'
-import { PRODUCTS } from '../products'
+import { BASKET_PRODUCTS, PRODUCTS, withArticle } from '../products'
+import { requestDef } from '../basket/basketSpec'
+import { COIN_DEFS } from './coins'
 
 /** A library prop drawn inside the 100-wide art box of a sandbox object (feet at the bottom). */
 function Prop({ id }: { id: string }) {
@@ -24,6 +26,17 @@ const productDefs: readonly InteractableDef[] = PRODUCTS.map((p) => ({
   label: `${p.gender === 'f' ? 'la' : 'el'} ${p.one}`,
   height: HEIGHT[p.id] ?? 0.1,
   pickup: true,
+  art: () => <Prop id={p.id} />,
+}))
+
+/** The goods of a basket request: as the shelf goods, but their own defs, so the basket only holds what the crate spilled. */
+const requestDefs: readonly InteractableDef[] = BASKET_PRODUCTS.map((p) => ({
+  id: requestDef(p.id),
+  label: withArticle(p),
+  single: `${p.gender === 'f' ? 'una' : 'un'} ${p.one}`,
+  height: HEIGHT[p.id] ?? 0.1,
+  pickup: true,
+  minHit: 64,
   art: () => <Prop id={p.id} />,
 }))
 
@@ -71,6 +84,8 @@ function ParcelArt() {
 
 export const SHOP_DEFS: readonly InteractableDef[] = [
   ...productDefs,
+  ...requestDefs,
+  ...COIN_DEFS,
   { id: 'caixa-pomes', label: 'la caixa de pomes', aspect: 1, height: 0.2, container: true, art: (s) => <CrateArt open={s.open} tint={P.coral.base} /> },
   { id: 'caixa-fruita', label: 'la caixa de fruita', aspect: 1, height: 0.2, container: true, art: (s) => <CrateArt open={s.open} tint={P.mango.base} /> },
   { id: 'caixa-fred', label: 'la caixa del fred', aspect: 1, height: 0.2, container: true, art: (s) => <CrateArt open={s.open} tint={P.cel.light} /> },

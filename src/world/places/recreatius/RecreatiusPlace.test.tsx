@@ -62,7 +62,7 @@ const item = (uid: string): HTMLElement => {
   return el
 }
 
-function renderRoom(pending: number, onSolved = vi.fn(), callSignal = 0, forced?: { skillId: string }) {
+function renderRoom(pending: number, onSolved = vi.fn(), callSignal = 0, forced?: { skillId: string; factKey?: string }) {
   const ui = (signal: number) => (
     <MemoryRouter>
       <RecreatiusPlace pending={pending} callSignal={signal} onSolved={onSolved} onExit={vi.fn()} {...(forced ? { forced } : {})} />
@@ -222,38 +222,103 @@ describe('RecreatiusPlace: playing a cabinet', () => {
   })
 })
 
-/** Solves the facts the duel can ask at the start: "3 + 5 = ?", "8 + ? = 10", "10 − 4 = ?". */
-function solve(text: string): string {
-  const missing = /^(\d+) \+ \? = (\d+)$/.exec(text)
-  if (missing) return String(Number(missing[2]) - Number(missing[1]))
-  const m = /^(\d+) ([+−]) (\d+) = \?$/.exec(text)
-  if (!m) throw new Error(`Pregunta inesperada: ${text}`)
-  return String(m[2] === '+' ? Number(m[1]) + Number(m[3]) : Number(m[1]) - Number(m[3]))
+const zone = (id: string): HTMLElement => {
+  const el = document.querySelector<HTMLElement>(`[data-zone="${id}"]`)
+  if (!el) throw new Error(`Sense zona ${id}`)
+  return el
+}
+/** The def of the toys the clerk's request spilled on the counter. */
+const toyDef = (): string => document.querySelector<HTMLElement>('[data-def^="joguina-"]')?.getAttribute('data-def') ?? ''
+
+async function carryToy(def: string): Promise<void> {
+  const piece = Array.from(document.querySelectorAll<HTMLElement>(`[data-def="${def}"]`)).filter((e) => !e.hasAttribute('data-in')).at(-1)
+  if (!piece) throw new Error(`Sense ${def} solt`)
+  await userEvent.click(piece)
+  await userEvent.click(screen.getByRole('button', { name: 'Deixa-ho a la safata d’en Kofi' }))
+  await waitFor(() => expect(actor('laia')).not.toHaveAccessibleName(/porta/))
+}
+
+async function openClerk(skillId: string, factKey?: string) {
+  const r = renderRoom(2, vi.fn(), 0, { skillId, ...(factKey ? { factKey } : {}) })
+  await userEvent.click(screen.getByRole('button', { name: /^En Kofi necessita ajuda amb els premis/ }))
+  await screen.findByTestId('errand-request')
+  return r
 }
 
 describe('RecreatiusPlace: the clerk counts prizes (ignorable maths)', () => {
-  it('a second need is the clerk\'s bubble; answering with the price tags gives coins and a clean attempt', async () => {
+  it('sum: she carries the toys from the counter shelf onto the tray and hands it over', async () => {
     seedLearningAddition()
-    const { onSolved } = renderRoom(2, vi.fn(), 0, { skillId: 'A4' })
+    const { onSolved } = await openClerk('A4', 'add:5+7')
     expect(screen.getByRole('button', { name: 'Escalfament al Duel Llampec: toca per jugar' })).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: /^En Kofi necessita ajuda amb els premis/ }))
-    const request = (await screen.findByTestId('errand-request')).textContent ?? ''
-    expect(screen.getByRole('region', { name: /^Encàrrec a els Recreatius: / })).toHaveAttribute('data-errand-kind', 'fichas')
-    const tags = within(screen.getByRole('list', { name: 'Etiquetes de preu' }))
-    await userEvent.click(tags.getByRole('button', { name: `Resposta ${solve(request.trim())}` }))
+    expect(screen.getByRole('region', { name: /^Encàrrec a els Recreatius: / })).toHaveAttribute('data-errand-kind', 'premis')
+    const m = /Vull (\d+) \+ (\d+) /.exec(screen.getByTestId('errand-request').textContent ?? '')
+    if (!m) throw new Error('Encàrrec inesperat')
+    const total = Number(m[1]) + Number(m[2])
+    await waitFor(() => expect(toyDef()).not.toBe(''))
+    const def = toyDef()
+    expect(screen.getByRole('button', { name: 'Dona la safata' })).toBeDisabled()
+    for (let i = 0; i < total; i++) await carryToy(def)
+    expect(zone('safata-clerk')).toHaveAttribute('data-count', String(total))
+    await userEvent.click(screen.getByRole('button', { name: 'Dona la safata' }))
     await waitFor(() => expect(onSolved).toHaveBeenCalledWith(3))
     expect((await db.attempts.toArray())[0]).toMatchObject({ gameId: 'duel-llampec', correct: true, hintsUsed: 0 })
     expect(screen.getByTestId('errand-request')).toHaveTextContent(/Et dono 3 monedes/)
     await userEvent.click(screen.getByRole('button', { name: 'Adéu!' }))
     expect(screen.queryByTestId('errand-request')).toBeNull()
+    expect(document.querySelector('[data-def^="joguina-"]')).toBeNull()
   })
 
-  it('«Ara no» lets the clerk go without a record', async () => {
-    renderRoom(2, vi.fn(), 0, { skillId: 'A4' })
-    await userEvent.click(screen.getByRole('button', { name: /^En Kofi necessita ajuda/ }))
+  it('take away: she takes toys OUT of the tray into the box', async () => {
+    const { onSolved } = await openClerk('A6', 'sub:7-2')
+    const m = /^(\d+) − (\d+): tinc/.exec(screen.getByTestId('errand-request').textContent ?? '')
+    if (!m) throw new Error('Encàrrec inesperat')
+    const [a, b] = [Number(m[1]), Number(m[2])]
+    await waitFor(() => expect(zone('safata-clerk')).toHaveAttribute('data-count', String(a)))
+    for (let i = 0; i < b; i++) {
+      await userEvent.click(document.querySelector<HTMLElement>('[data-in="safata-clerk"]') as HTMLElement)
+      await waitFor(() => expect(actor('laia')).toHaveAccessibleName(/porta/))
+      await userEvent.click(screen.getByRole('button', { name: 'Deixa-ho a la caixa dels que sobren' }))
+      await waitFor(() => expect(actor('laia')).not.toHaveAccessibleName(/porta/))
+    }
+    await userEvent.click(screen.getByRole('button', { name: 'Dona la safata' }))
+    await waitFor(() => expect(onSolved).toHaveBeenCalledWith(3))
+  })
+
+  it('times: rows of the tray are the groups (a × b)', async () => {
+    const { onSolved } = await openClerk('C5', 'mul:3x4')
+    const m = /^(\d+) × (\d+): vull/.exec(screen.getByTestId('errand-request').textContent ?? '')
+    if (!m) throw new Error('Encàrrec inesperat')
+    const total = Number(m[1]) * Number(m[2])
+    await waitFor(() => expect(toyDef()).not.toBe(''))
+    const def = toyDef()
+    for (let i = 0; i < total; i++) await carryToy(def)
+    await userEvent.click(screen.getByRole('button', { name: 'Dona la safata' }))
+    await waitFor(() => expect(onSolved).toHaveBeenCalledWith(3))
+  })
+
+  it('a wrong count sends the toys back to the shelf with a hint, nothing turns red', async () => {
+    await openClerk('A4', 'add:5+7')
+    await waitFor(() => expect(toyDef()).not.toBe(''))
+    await carryToy(toyDef())
+    await userEvent.click(screen.getByRole('button', { name: 'Dona la safata' }))
+    await waitFor(() => expect(zone('safata-clerk')).toHaveAttribute('data-count', '0'))
+    expect(screen.queryByText(/✕|❌/)).toBeNull()
+    expect(await screen.findByTestId('errand-hint')).toBeInTheDocument()
+  })
+
+  it('a division keeps the price tags (it has no tray version) and a wrong tag only fades', async () => {
+    renderRoom(2, vi.fn(), 0, { skillId: 'C7', factKey: 'div:12:3' })
+    await userEvent.click(screen.getByRole('button', { name: /^En Kofi necessita ajuda amb els premis/ }))
+    expect(screen.getByRole('region', { name: /^Encàrrec a els Recreatius: / })).toHaveAttribute('data-errand-kind', 'fichas')
+    expect(within(screen.getByRole('list', { name: 'Etiquetes de preu' })).getAllByRole('button').length).toBeGreaterThan(1)
+  })
+
+  it('«Ara no» lets the clerk go without a record and tidies the counter', async () => {
+    await openClerk('A4', 'add:5+7')
     await userEvent.click(await screen.findByRole('button', { name: 'Ara no' }))
     expect(screen.queryByTestId('errand-request')).toBeNull()
     expect(await db.attempts.count()).toBe(0)
+    expect(document.querySelector('[data-def^="joguina-"]')).toBeNull()
   })
 })
 
@@ -262,7 +327,8 @@ describe('Recreatius module', () => {
     expect(place).toMatchObject({ id: 'recreatius', gameId: 'duel-llampec', unlock: 'always' })
     expect(place.skills).toEqual(expect.arrayContaining(['A4', 'A6', 'C4', 'D2']))
     expect(typeof place.facade).toBe('function')
-    expect(requestHost).toMatchObject({ placeId: 'recreatius', gameId: 'duel-llampec', adapters: [] })
+    expect(requestHost).toMatchObject({ placeId: 'recreatius', gameId: 'duel-llampec' })
+    expect(requestHost.adapters.map((x) => x.id)).toEqual(['premis'])
     expect(requestHost.anchors.map((a) => a.actorId)).toEqual(['duel', 'en-kofi'])
   })
 })

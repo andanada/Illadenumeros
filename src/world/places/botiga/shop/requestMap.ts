@@ -1,6 +1,5 @@
 import type { Item } from '../../../../core/ambit/types'
-import { formatEuros } from '../../../../ui/visual/moneyLogic'
-import { basketFromItem, solutionCount } from '../errands/basketLogic'
+import { basketFromItem } from '../errands/basketLogic'
 import { payFromItem } from '../errands/payLogic'
 
 /** What the bubble over a customer shows: a picture (prop id) and a number. */
@@ -9,13 +8,16 @@ export interface BubbleView {
   readonly number?: number | string
 }
 
-/** The bubble of the item the customer wants played: apples and a count, a coin and the money, or a price tag. */
+/**
+ * The bubble of the item the customer wants played: the goods and the sum to do («7+5», «12−5»), a coin for the
+ * change, or a price tag. Never the answer: the number is the question.
+ */
 export function bubbleOf(item: Item): BubbleView {
-  const pay = payFromItem(item)
-  if (pay) return { icon: 'moneda-poble', number: formatEuros(pay.target) }
+  if (payFromItem(item)) return { icon: 'moneda-poble' }
   const basket = basketFromItem(item)
-  if (basket) return { icon: basket.product.id, number: solutionCount(basket) }
-  return { icon: 'etiqueta-preu' }
+  if (!basket) return { icon: 'etiqueta-preu' }
+  const number = basket.mode === 'sum' ? `${basket.a}+${basket.b}` : basket.mode === 'missing' ? `${basket.a}+?` : `${basket.a}−${basket.b}`
+  return { icon: basket.product.id, number }
 }
 
 const hash = (text: string): number => [...text].reduce((h, c) => (h * 33 + c.charCodeAt(0)) >>> 0, 5381)

@@ -116,6 +116,6 @@ export const SHOP_START: readonly StartItem[] = [
   ...LETTERS.slice(0, 4).map((n) => inside(`llet-${n}`, 'llet', 'caixa-fred')),
   f('paquet-1', 'paquet', ROOM.bay, 0.3, 0.8),
   f('paquet-2', 'paquet', ROOM.bay, 0.2, 0.86),
-  f('ou-sorpresa', 'ou-sorpresa', ROOM.floor, 0.5, 0.86),
-  f('pilota', 'pilota', ROOM.floor, 0.3, 0.9),
+  f('ou-sorpresa', 'ou-sorpresa', ROOM.floor, 0.94, 0.72),
+  f('pilota', 'pilota', ROOM.floor, 0.47, 0.6),
 ]

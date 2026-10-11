@@ -85,32 +85,97 @@ describe('Perruqueria: free play', () => {
   })
 })
 
-describe('Perruqueria: the clips wish', () => {
-  it('two groups of clips, solved by tap-to-place: attempt recorded, coins', async () => {
+const clips = (): HTMLElement[] => Array.from(document.querySelectorAll<HTMLElement>('[data-def="pinca"]')).filter((e) => !e.hasAttribute('data-in'))
+const side = (zone: string): number => Number(q(`[data-zone="${zone}"]`).getAttribute('data-count'))
+
+/** Takes one clip from the box and puts it on a side of the head: tap the clip, then tap the side. */
+async function clipOn(zone: 'pinces-esq' | 'pinces-dre'): Promise<void> {
+  const piece = clips()[0]
+  if (!piece) throw new Error('La caixa és buida')
+  const before = side(zone)
+  await userEvent.click(piece)
+  await userEvent.click(await screen.findByRole('button', { name: zone === 'pinces-esq' ? 'Deixa-ho al costat esquerre' : 'Deixa-ho al costat dret' }))
+  await waitFor(() => expect(side(zone)).toBe(before + 1))
+}
+
+describe('Perruqueria: the clips wish, done on the customer’s head', () => {
+  it('two groups of clips from the box onto the two sides of her head, then «Ja està!»: attempt recorded, coins, hand-over', async () => {
     const onSolved = renderSalon({ skillId: 'A7' })
     await userEvent.click(await screen.findByRole('button', { name: /toca per atendre/ }))
-    const sheet = screen.getByRole('region', { name: /^Encàrrec a la Perruqueria: / })
-    expect(sheet).toHaveAttribute('data-errand-kind', 'pinces')
+    const card = screen.getByRole('region', { name: /^Encàrrec a la Perruqueria: / })
+    expect(card).toHaveAttribute('data-errand-kind', 'pinces')
     const m = /: (\d+) \+ (\d+)\./.exec(request())
     if (!m) throw new Error(`Encàrrec inesperat: ${request()}`)
-    const total = Number(m[1]) + Number(m[2])
-    for (let i = 0; i < total; i++) {
-      await userEvent.click(sheet.querySelector<HTMLElement>('[data-prop-kind="pinca-caixa"]') as HTMLElement)
-      await userEvent.click(screen.getByRole('button', { name: 'Posa-ho a la safata' }))
-    }
-    expect(screen.getByRole('img', { name: new RegExp(`^Safata: ${total} pinc`) })).toBeInTheDocument()
+    const [a, b] = [Number(m[1]), Number(m[2])]
+    await waitFor(() => expect(clips()).toHaveLength(a + b + 2))
+    expect(screen.getByRole('button', { name: 'Ja està!' })).toBeDisabled()
+    for (let i = 0; i < a; i++) await clipOn('pinces-esq')
+    for (let i = 0; i < b; i++) await clipOn('pinces-dre')
+    expect([side('pinces-esq'), side('pinces-dre')]).toEqual([a, b])
     await userEvent.click(screen.getByRole('button', { name: 'Ja està!' }))
     await waitFor(() => expect(onSolved).toHaveBeenCalledWith(3))
     expect(await db.attempts.toArray()).toHaveLength(1)
     expect(useProgress.getState().rewards.petals).toBe(3)
+    await waitFor(() => expect(document.querySelectorAll('[data-in^="pinces-"]')).toHaveLength(0))
     await userEvent.click(screen.getByRole('button', { name: 'Adéu!' }))
     expect(screen.queryByTestId('errand-request')).toBeNull()
   })
 
-  it('ignoring is fine: «Ara no» records nothing', async () => {
+  it('«ja porto 4 i en vull 8»: the clips she already wears are on her head and cannot be taken off; she adds the rest', async () => {
+    const onSolved = renderSalon({ skillId: 'A10' })
+    await userEvent.click(await screen.findByRole('button', { name: /toca per atendre/ }))
+    const m = /Ja porto (\d+) \S+ i en vull (\d+)/.exec(request())
+    if (!m) throw new Error(`Encàrrec inesperat: ${request()}`)
+    const worn = Number(m[1])
+    await waitFor(() => expect(document.querySelectorAll('[data-def="pinca-ja"]')).toHaveLength(worn))
+    await userEvent.click(q('[data-def="pinca-ja"]'))
+    expect(document.querySelectorAll('[data-def="pinca-ja"]')).toHaveLength(worn)
+    for (let i = 0; i < Number(m[2]) - worn; i++) await clipOn(i % 2 === 0 ? 'pinces-esq' : 'pinces-dre')
+    await userEvent.click(screen.getByRole('button', { name: 'Ja està!' }))
+    await waitFor(() => expect(onSolved).toHaveBeenCalledWith(3))
+  })
+
+  it('a wrong count sends the clips back to the box with a hint (no red), and a helped answer is not clean', async () => {
+    const onSolved = renderSalon({ skillId: 'A7' })
+    await userEvent.click(await screen.findByRole('button', { name: /toca per atendre/ }))
+    const m = /: (\d+) \+ (\d+)\./.exec(request())
+    if (!m) throw new Error(`Encàrrec inesperat: ${request()}`)
+    const total = Number(m[1]) + Number(m[2])
+    await waitFor(() => expect(clips()).toHaveLength(total + 2))
+    await clipOn('pinces-esq')
+    await userEvent.click(screen.getByRole('button', { name: 'Ja està!' }))
+    expect((await screen.findByTestId('errand-hint')).textContent?.length).toBeGreaterThan(0)
+    expect(screen.queryByText(/✕|❌/)).toBeNull()
+    await waitFor(() => expect(clips()).toHaveLength(total + 2))
+    expect(side('pinces-esq')).toBe(0)
+    for (let i = 0; i < total; i++) await clipOn(i % 2 === 0 ? 'pinces-esq' : 'pinces-dre')
+    await userEvent.click(screen.getByRole('button', { name: 'Ja està!' }))
+    await waitFor(() => expect(onSolved).toHaveBeenCalledWith(1))
+    expect((await db.attempts.toArray()).map((x) => x.correct).sort()).toEqual([false, true])
+  })
+
+  it('the keyboard puts a clip on her head (Enter on the clip, Enter on the side) and the pieces are big enough to touch', async () => {
     renderSalon({ skillId: 'A7' })
     await userEvent.click(await screen.findByRole('button', { name: /toca per atendre/ }))
+    await waitFor(() => expect(clips().length).toBeGreaterThan(0))
+    for (const c of clips()) expect(Number.parseFloat(c.style.width)).toBeGreaterThanOrEqual(64)
+    clips()[0]?.focus()
+    await userEvent.keyboard('{Enter}')
+    const drop = await screen.findByRole('button', { name: 'Deixa-ho al costat esquerre' })
+    drop.focus()
+    await userEvent.keyboard('{Enter}')
+    await waitFor(() => expect(side('pinces-esq')).toBe(1))
+    expect(Array.from(document.querySelectorAll('[role="status"]')).some((e) => /Has posat una pinça al costat esquerre: ara hi ha 1\./.test(e.textContent ?? ''))).toBe(true)
+  })
+
+  it('ignoring is fine: «Ara no» records nothing and the box is tidied away', async () => {
+    renderSalon({ skillId: 'A7' })
+    await userEvent.click(await screen.findByRole('button', { name: /toca per atendre/ }))
+    await waitFor(() => expect(clips().length).toBeGreaterThan(0))
+    await userEvent.click(screen.getByRole('button', { name: 'Ajuda' }))
+    expect((await screen.findByTestId('errand-hint')).textContent?.length).toBeGreaterThan(0)
     await userEvent.click(screen.getByRole('button', { name: 'Ara no' }))
     expect(await db.attempts.count()).toBe(0)
+    await waitFor(() => expect(document.querySelectorAll('[data-def^="pinca"]')).toHaveLength(0))
   })
 })

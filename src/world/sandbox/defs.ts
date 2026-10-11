@@ -41,6 +41,8 @@ export interface InteractableDef extends DefBehaviour {
   readonly stackable?: boolean
   /** Show the stack's quantity as a small badge when it is more than one (default off: a place asks). */
   readonly quantityBadge?: boolean
+  /** Smallest touch target in px for this object (default 44); small pile pieces ask for 64. */
+  readonly minHit?: number
   readonly surpriseTaps?: number
   readonly surpriseOptions?: readonly string[]
 }

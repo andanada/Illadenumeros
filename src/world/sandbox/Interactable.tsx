@@ -15,6 +15,8 @@ interface Sample {
 
 const FLICK_MIN_PX = 36
 const FLICK_MIN_SPEED = 0.9
+/** Smallest touch target of an object, unless its definition asks for more (`minHit`). */
+const DEFAULT_MIN_HIT = 44
 
 export interface InteractableProps {
   item: ItemState
@@ -39,6 +41,7 @@ export function Interactable({ item, at, flying = false }: InteractableProps) {
   const stageName = def.use ? (currentStage(def.use, item.chain).label ?? currentStage(def.use, item.chain).id) : ''
   const state = [(item.qty ?? 1) > 1 ? `${item.qty} unitats` : '', stageName, item.open ? 'obert' : '', item.surprise.revealed ? `amb ${item.surprise.revealed}` : ''].filter((x) => x !== '').join(', ')
   const aspect = def.aspect ?? 1
+  const minHit = def.minHit ?? DEFAULT_MIN_HIT
   const charged = def.surpriseTaps && item.surprise.taps > 0 && item.surprise.revealed === undefined
 
   const onPointerDown = (e: React.PointerEvent<HTMLButtonElement>): void => {
@@ -86,7 +89,7 @@ export function Interactable({ item, at, flying = false }: InteractableProps) {
         api.tapItem(item.uid)
       }}
       className="absolute m-0 cursor-pointer select-none border-0 bg-transparent p-0 outline-none focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-[var(--world-focus,#4da6ec)]"
-      style={{ left: `${at.x * 100}%`, top: `${at.y * 100}%`, width: Math.max(44, size * aspect), height: Math.max(44, size), transform: 'translate(-50%, -100%)', zIndex: stackOf(at.y) + (flying ? 400 : 80), touchAction: def.toss ? 'none' : 'manipulation' }}
+      style={{ left: `${at.x * 100}%`, top: `${at.y * 100}%`, width: Math.max(minHit, size * aspect), height: Math.max(minHit, size), transform: 'translate(-50%, -100%)', zIndex: stackOf(at.y) + (flying ? 400 : 80), touchAction: def.toss ? 'none' : 'manipulation' }}
     >
       <span key={item.pokes} className={`block h-full w-full ${item.pokes > 0 ? 'sb-squish' : ''}`} style={{ transformOrigin: '50% 100%' }}>
         <span className={`flex h-full w-full items-end justify-center ${charged ? 'sb-wobble' : ''}`} style={{ transformOrigin: '50% 100%' }}>

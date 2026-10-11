@@ -37,28 +37,6 @@ async function shot(page: Page, name: string, project: string): Promise<void> {
 
 const coins = async (page: Page): Promise<number> => Number(await page.getByTestId('coins').getAttribute('data-coins'))
 
-async function centre(el: Locator): Promise<{ x: number; y: number }> {
-  const box = await el.boundingBox()
-  if (!box) throw new Error('Element sense caixa')
-  return { x: box.x + box.width / 2, y: box.y + box.height / 2 }
-}
-
-/** Drag with real pointer events, in small steps like a finger. */
-async function dragToPoint(page: Page, from: Locator, to: { x: number; y: number }): Promise<void> {
-  const a = await centre(from)
-  await page.mouse.move(a.x, a.y)
-  await page.mouse.down()
-  await page.mouse.move(a.x + 12, a.y + 4, { steps: 3 })
-  await page.mouse.move(to.x, to.y, { steps: 8 })
-  await page.mouse.up()
-}
-
-async function moveProp(page: Page, method: 'drag' | 'tap', prop: Locator, zone: Locator): Promise<void> {
-  if (method === 'drag') return dragToPoint(page, prop, await centre(zone))
-  await prop.click()
-  await zone.click()
-}
-
 async function seedBoard(page: Page, tasks: readonly Record<string, unknown>[]): Promise<void> {
   const dbName = (await playerDbNames(page))[CHILD.name]
   if (!dbName) throw new Error('No hi ha base de dades del jugador')
@@ -104,19 +82,55 @@ async function enterSalon(page: Page): Promise<void> {
 
 const wish = (page: Page): Locator => page.getByRole('button', { name: /toca per atendre/ })
 
-/** Solves the clips errand: n clips from the box to the tray. Returns false when the request cannot be read. */
-async function solveClips(page: Page, method: 'drag' | 'tap'): Promise<boolean> {
+/** The middle of every piece of the pile answers to its own touch (no neighbour hides it), when the pile is of a usual size. */
+async function expectPileTouchable(page: Page, selector: string): Promise<void> {
+  const hidden = await page.evaluate((sel) => {
+    const pieces = Array.from(document.querySelectorAll<HTMLElement>(sel))
+    if (pieces.length > 10) return []
+    return pieces.flatMap((el) => {
+      const r = el.getBoundingClientRect()
+      const hit = document.elementFromPoint(r.left + r.width / 2, r.bottom - 22)
+      // A character standing over a piece passes the tap on to it.
+      return hit?.closest('[data-uid]') === el || hit?.closest('[data-actor]') ? [] : [el.getAttribute('data-uid')]
+    })
+  }, selector)
+  expect(hidden).toEqual([])
+}
+
+/** Puts one clip from the box on a side of the head: tap it and tap the side, or reach both with the keyboard. */
+async function clipOn(page: Page, method: 'keyboard' | 'tap', zoneId: string): Promise<void> {
+  const zone = page.locator(`[data-zone="${zoneId}"]`)
+  const before = Number(await zone.getAttribute('data-count'))
+  // The clips of the box overlap a little: the tap goes straight to the first one.
+  const piece = page.locator('[data-def="pinca"]:not([data-in])').first()
+  const drop = page.locator(`[data-zone-drop="${zoneId}"]`)
+  if (method === 'keyboard') {
+    await piece.focus()
+    await page.keyboard.press('Enter')
+    await expect(drop).toBeAttached()
+    await drop.focus()
+    await page.keyboard.press('Enter')
+  } else {
+    await piece.dispatchEvent('click')
+    await expect(drop).toBeAttached()
+    await drop.dispatchEvent('click')
+  }
+  await expect(zone).toHaveAttribute('data-count', String(before + 1), { timeout: 15_000 })
+}
+
+/** Solves the clips errand on her head: the clips to add, alternating sides. Returns false when the request cannot be read. */
+async function solveClips(page: Page, method: 'keyboard' | 'tap'): Promise<boolean> {
   const request = (await page.getByTestId('errand-request').innerText()).replace(/\s+/g, ' ')
   const pair = /: (\d+) \+ (\d+)\./.exec(request)
   const more = /Ja porto (\d+) \S+ i en vull (\d+)/.exec(request)
   const n = pair ? Number(pair[1]) + Number(pair[2]) : more ? Number(more[2]) - Number(more[1]) : undefined
   if (n === undefined) return false
-  for (let i = 0; i < n; i++) await moveProp(page, method, page.locator('[data-prop-kind="pinca-caixa"]'), page.locator('[data-zone-id="safata-pinces"]'))
+  for (let i = 0; i < n; i++) await clipOn(page, method, i % 2 === 0 ? 'pinces-esq' : 'pinces-dre')
   await page.getByRole('button', { name: 'Ja està!' }).click()
   return true
 }
 
-async function serveOne(page: Page, method: 'drag' | 'tap', hooks: { asking?: () => Promise<void>; thanked?: () => Promise<void> } = {}): Promise<void> {
+async function serveOne(page: Page, method: 'keyboard' | 'tap', hooks: { asking?: () => Promise<void>; thanked?: () => Promise<void> } = {}): Promise<void> {
   for (let tries = 0; tries < 25; tries++) {
     if (!(await wish(page).isVisible())) {
       await page.clock.fastForward(30_000)
@@ -137,13 +151,27 @@ async function serveOne(page: Page, method: 'drag' | 'tap', hooks: { asking?: ()
   throw new Error(`Cap encàrrec resolt amb ${method}`)
 }
 
+/**
+ * The customer who asked sat in chair 1 and goes home when she has waited long enough (customers come and go). Like the
+ * child would, wait until somebody sits in chair 1: the next customer with a wish takes it and is never sent away
+ * while she waits.
+ */
+async function waitForChair1(page: Page, room: Locator): Promise<void> {
+  const inChair1 = room.locator('[data-actor][data-mode="sitting"][data-x="0.360"]')
+  for (let i = 0; i < 8 && (await inChair1.count()) === 0; i++) {
+    await page.clock.fastForward(30_000)
+    await page.waitForTimeout(1_500)
+  }
+  await expect(inChair1).toHaveCount(1, { timeout: 15_000 })
+}
+
 const isLandscape = (page: Page): boolean => {
   const size = page.viewportSize()
   return !!size && size.width > size.height
 }
 
 test.describe('Perruqueria (sandbox)', () => {
-  test('a customer asks for clips with a bubble: by drag and by tap; then the chain of tools restyles her, the mirror follows', async ({ page, consoleErrors }, testInfo) => {
+  test('a customer asks for clips with a bubble: done on her head by keyboard and by tap; then the chain of tools restyles her, the mirror follows', async ({ page, consoleErrors }, testInfo) => {
     test.setTimeout(150_000)
     const project = testInfo.project.name
     await page.clock.install({ time: new Date(2026, 9, 9, 12, 0, 0) })
@@ -155,12 +183,13 @@ test.describe('Perruqueria (sandbox)', () => {
     await shot(page, 'perruqueria-sandbox-inici', project)
     const start = await coins(page)
 
-    await serveOne(page, 'drag', {
+    await serveOne(page, 'keyboard', {
       asking: async () => {
         await expect(page.getByTestId('errand-request')).toBeInViewport()
         await expect(page.getByRole('button', { name: 'Ara no' })).toBeInViewport()
         await expect(page.getByRole('button', { name: 'Ja està!' })).toBeInViewport()
         await page.waitForTimeout(600)
+        await expectPileTouchable(page, '[data-def="pinca"]:not([data-in])')
         await shot(page, 'perruqueria-sandbox-encarrec', project)
       },
       thanked: async () => {
@@ -181,8 +210,7 @@ test.describe('Perruqueria (sandbox)', () => {
     // Free play: whoever sits in chair 1 gets the tools in order; the mirror shows her.
     const mirror = page.getByTestId('mirall')
     await expect(mirror).toBeVisible()
-    const customerInChair = room.locator('[data-actor][data-mode="sitting"]').first()
-    await expect(customerInChair).toBeVisible()
+    await waitForChair1(page, room)
     const before = await mirror.innerHTML()
     for (const tool of ['la dutxa', 'la pinta', 'les tisores', 'l’esprai de color']) {
       // The character may stand over the tool: the tap goes straight to the object.

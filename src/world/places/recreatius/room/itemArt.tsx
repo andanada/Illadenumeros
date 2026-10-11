@@ -40,3 +40,19 @@ export function TrayArt({ open }: { open: boolean }) {
     </g>
   )
 }
+
+/** A prize ticket: a striped strip with a notch, for the clerk's counts. */
+export function TicketArt() {
+  return (
+    <g>
+      <Contact rx={26} />
+      <rect x="14" y="40" width="72" height="44" rx="8" fill={P.mango.base} transform="rotate(-6 50 62)" />
+      <rect x="20" y="46" width="60" height="32" rx="5" fill={P.mango.light} transform="rotate(-6 50 62)" />
+      <circle cx="14" cy="64" r="6" fill="#2f2a5a" />
+      <circle cx="86" cy="58" r="6" fill="#2f2a5a" />
+      <text x="50" y="68" textAnchor="middle" fontSize="16" fontWeight="700" fill={P.carbo.base} fontFamily="var(--font-display)">
+        ★
+      </text>
+    </g>
+  )
+}

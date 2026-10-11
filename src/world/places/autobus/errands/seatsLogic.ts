@@ -1,5 +1,6 @@
 import type { Item } from '../../../../core/ambit/types'
 import { isInteger } from '../../../errands/adapters'
+import { parseMissing } from '../../../errands/missingNumber'
 import { countWord } from '../../../errands/requestText'
 
 /** The bus has two ten-frames of seats (2 rows × 5 each, one on each side of the middle door). */
@@ -26,28 +27,15 @@ export interface SeatsTask {
   waiting: number
 }
 
-/** "8 + ? = 10", "10 = 3 + ?", "? + 2 = 9" read from an item's text (A3, A10 have no operands). */
-export function parseMissing(text: string): { a: number; b: number; t: number; unknown: 'first' | 'second' } | undefined {
-  const clean = text.replace(/\s+/g, ' ').trim()
-  const after = /^(\d+) \+ \? = (\d+)$/.exec(clean)
-  const before = /^(\d+) = (\d+) \+ \?$/.exec(clean)
-  const second = after ? { a: Number(after[1]), t: Number(after[2]) } : before ? { a: Number(before[2]), t: Number(before[1]) } : undefined
-  if (second) return second.t >= second.a ? { a: second.a, b: second.t - second.a, t: second.t, unknown: 'second' } : undefined
-  const left = /^\? \+ (\d+) = (\d+)$/.exec(clean)
-  if (left) {
-    const b = Number(left[1])
-    const t = Number(left[2])
-    return t >= b ? { a: t - b, b, t, unknown: 'first' } : undefined
-  }
-  return undefined
-}
+export { parseMissing }
 
 const task = (mode: SeatsMode, a: number, b: number): SeatsTask => ({
   mode,
   a,
   b,
   start: a,
-  waiting: mode === 'off' ? 0 : b + EXTRA_WAITING,
+  // Everybody who can wait fits among the twenty riders: when the bus is nearly full there are no spare people.
+  waiting: mode === 'off' ? 0 : Math.min(b + EXTRA_WAITING, SEATS - a),
 })
 
 export function seatsFromItem(item: Item): SeatsTask | undefined {

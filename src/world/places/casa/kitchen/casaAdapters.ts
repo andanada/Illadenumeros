@@ -1,8 +1,10 @@
 import { erase } from '../../../errands/adapters'
 import type { AnyErrandAdapter, ErrandAdapter } from '../../../errands/types'
-import { BowlTask } from './BowlTask'
 import { THEME_INGREDIENTS, type ThemeId } from './ingredients'
 import { bowlFromItem, bowlRequest, type BowlTask as BowlModel } from './kitchenLogic'
+
+/** The hands do the task in the house (a pile, a frame), so the adapter's own component is never drawn. */
+const Nothing = (): null => null
 
 export const bowlAdapter: ErrandAdapter<BowlModel> = {
   id: 'bol',
@@ -13,7 +15,7 @@ export const bowlAdapter: ErrandAdapter<BowlModel> = {
     return task
   },
   request: (task) => bowlRequest(task),
-  Component: BowlTask,
+  Component: Nothing,
 }
 
 /** The kitchen's errands; anything else is played with the fallback tokens (recipe cards). */
