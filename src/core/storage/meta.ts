@@ -7,7 +7,15 @@ export const META_KEYS = {
   lastBackupAt: 'lastBackupAt',
   /** Registry id of the player owning this database: lets a damaged registry be rebuilt with the same ids. */
   playerId: 'playerId',
+  /** Minutes of maths a day the town asks for (an adult setting, per player, local). */
+  townDailyMinutes: 'townDailyMinutes',
 } as const
+
+/** Choices on the family page, in minutes. */
+export const DAILY_MINUTES_OPTIONS = [8, 12, 16, 20] as const
+export type DailyMinutes = (typeof DAILY_MINUTES_OPTIONS)[number]
+export const DEFAULT_DAILY_MINUTES: DailyMinutes = 12
+const dailyMinutesSchema = z.union([z.literal(8), z.literal(12), z.literal(16), z.literal(20)])
 
 export const metaRowSchema = z.object({ key: z.string(), value: z.unknown() })
 export type MetaRow = z.infer<typeof metaRowSchema>
@@ -17,6 +25,7 @@ export interface Meta {
   createdAt?: number
   lastBackupAt?: number
   playerId?: string
+  townDailyMinutes?: DailyMinutes
 }
 
 const timestamp = z.number().int().nonnegative()
@@ -25,6 +34,7 @@ const META_VALUE_SCHEMAS = {
   createdAt: timestamp,
   lastBackupAt: timestamp,
   playerId: z.uuid(),
+  townDailyMinutes: dailyMinutesSchema,
 } as const satisfies { [K in keyof Meta]-?: z.ZodType<NonNullable<Meta[K]>> }
 
 export const initialMeta = (schemaVersion: number, createdAt: number): MetaRow[] => [
@@ -52,6 +62,17 @@ export async function setPlayerId(database: MatesDb, playerId: string): Promise<
 /** Remembers when the adult last saved a copy (drives the gentle reminder on the family page). */
 export async function setLastBackupAt(database: MatesDb, at: number): Promise<void> {
   await database.meta.put({ key: META_KEYS.lastBackupAt, value: timestamp.parse(at) })
+}
+
+/** Daily maths target of this player's town; a missing or damaged value means the default (12). */
+export async function readDailyMinutes(database: MatesDb): Promise<DailyMinutes> {
+  const row = await database.meta.get(META_KEYS.townDailyMinutes)
+  const parsed = dailyMinutesSchema.safeParse(row?.value)
+  return parsed.success ? parsed.data : DEFAULT_DAILY_MINUTES
+}
+
+export async function setDailyMinutes(database: MatesDb, minutes: number): Promise<void> {
+  await database.meta.put({ key: META_KEYS.townDailyMinutes, value: dailyMinutesSchema.parse(minutes) })
 }
 
 export const BACKUP_REMINDER_DAYS = 14

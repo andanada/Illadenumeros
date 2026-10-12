@@ -1,6 +1,6 @@
 import { expect, hasHorizontalScroll, passAdultCheck, seededTest as test } from './helpers'
 
-const SECTIONS = ['Resum', 'Recomanacions', 'Mapa d’habilitats', 'Mapa de fets', 'Temps i constància', 'Evolució', 'Errors més freqüents']
+const SECTIONS = ['Resum', 'Recomanacions', 'El poble', 'Mapa d’habilitats', 'Mapa de fets', 'Temps i constància', 'Evolució', 'Errors més freqüents']
 
 test.describe('Progrés (adults)', () => {
   test('demana la comprovació d’adult i mostra totes les seccions sense desbordar', async ({ page, consoleErrors }) => {

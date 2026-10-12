@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { MATES_SKILLS } from '../../ambits/mates/skills'
 import { newSkillState, type SkillState, type SkillStatus } from '../../core/engine/mastery'
 import { MASTERY_THRESHOLDS } from '../../core/engine/thresholds'
-import { BOARD_ERRANDS, buildBoard, daySeed, type BoardPlace } from './boardPlan'
+import { BOARD_ERRANDS, buildBoard, errandsFor, daySeed, type BoardPlace } from './boardPlan'
 
 const state = (skillId: string, status: SkillStatus, mastery = 0.5): SkillState => ({ ...newSkillState(skillId), status, mastery })
 const states = (...list: SkillState[]): Record<string, SkillState> => Object.fromEntries(list.map((s) => [s.skillId, s]))
@@ -35,6 +35,16 @@ describe('buildBoard', () => {
   it('lasts about the minutes of the daily mission', () => {
     expect(BOARD_ERRANDS).toBeGreaterThanOrEqual(8)
     expect(BOARD_ERRANDS).toBeLessThanOrEqual(12)
+  })
+
+  it('scales with the parents’ daily minutes and keeps 12 minutes as the default', () => {
+    const at = (minutes?: number) => total(buildBoard({ day: '2026-10-09', places: ALL, skills: MATES_SKILLS, states: BEGINNER, ...(minutes === undefined ? {} : { minutes }) }))
+    expect(at(12)).toBe(at())
+    expect(errandsFor(12)).toBe(BOARD_ERRANDS)
+    expect(at(8)).toBe(errandsFor(8))
+    expect(at(20)).toBe(errandsFor(20))
+    expect(at(8)).toBeLessThan(at(12))
+    expect(at(12)).toBeLessThan(at(20))
   })
 
   it('starts with a warm-up at the Recreatius', () => {

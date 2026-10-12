@@ -10,10 +10,17 @@ export function setOpenPlaces(places: readonly BoardPlace[]): void {
   openPlaces = places
 }
 
+/** Seconds of maths the parents ask for per day; set when the day opens. */
+let targetSeconds: number | undefined
+
+export function setDailyMinutes(minutes: number): void {
+  targetSeconds = minutes * 60
+}
+
 /** Governor context for `day` at `now`, from the child's current skill states (same weighting as the daily mission). */
 export function governorContext(day: string, now: number, places: readonly BoardPlace[] = openPlaces): GovernorContext {
   const { skillStates, factStates } = useProgress.getState()
   const seed = daySeed(day)
   const { core, review } = skillGroups({ day, places, skills: MATES_SKILLS, states: skillStates, factStates }, seed)
-  return { now, seed, places, core, review }
+  return { now, seed, places, core, review, ...(targetSeconds === undefined ? {} : { targetSeconds }) }
 }

@@ -2,7 +2,7 @@ import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
 import type { BoardTask } from '../board/boardPlan'
 import type { SceneId } from '../model/types'
-import { isQuiet, isQuotaDone, jarLevel, minutesLeft, newDayState, recordResolved, REQUEST_SECONDS, waitingAt } from './dayState'
+import { isQuiet, isQuotaDone, jarLevel, minutesDone, minutesLeft, newDayState, recordResolved, REQUEST_SECONDS, requestsDone, requestsTarget, waitingAt } from './dayState'
 import type { Request } from './types'
 
 const TASKS: readonly BoardTask[] = [
@@ -39,6 +39,14 @@ describe('day state', () => {
     expect(jarLevel(recordResolved(start, 'botiga', true, 1))).toBeCloseTo(1 / 3)
     expect(minutesLeft(start)).toBe(Math.ceil((3 * REQUEST_SECONDS) / 60))
     expect(jarLevel({ ...start, board: { ...start.board, tasks: [] } })).toBe(0)
+  })
+
+  it('reports requests done over the allotment and the approximate minutes for the adults', () => {
+    const start = newDayState('2026-10-09', TASKS)
+    expect([requestsDone(start), requestsTarget(start), minutesDone(start)]).toEqual([0, 3, 0])
+    let s = start
+    for (const p of ['recreatius', 'botiga'] as const) s = recordResolved(s, p, true, 1)
+    expect([requestsDone(s), requestsTarget(s), minutesDone(s)]).toEqual([2, 3, Math.round((2 * REQUEST_SECONDS) / 60)])
   })
 
   it('quiet mode needs 5 answers and under 70 % clean in the last 10', () => {

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import type { BoardTask } from '../board/boardPlan'
 import type { SceneId } from '../model/types'
 import { newDayState, recordResolved, TARGET_SECONDS, waitingTotal, type DayState } from './dayState'
-import { BEHIND_AFTER_MS, CALM_AFTER_MS, COOLDOWN_MS, desiredWaiting, MAX_PER_PLACE, PLAY_WINDOW_MS, reconcile, wake, type GovernorContext } from './governor'
+import { BEHIND_AFTER_MS, CALM_AFTER_MS, COOLDOWN_MS, desiredWaiting, MAX_PER_PLACE, paceOf, PLAY_WINDOW_MS, reconcile, wake, type GovernorContext } from './governor'
 import { statusAt } from './types'
 
 const TASKS: readonly BoardTask[] = [
@@ -45,6 +45,15 @@ describe('desiredWaiting', () => {
   it('goes down to one bubble when she is ahead of the pace', () => {
     const ahead = { ...fresh(), playedMs: PLAY_WINDOW_MS / 2, seconds: TARGET_SECONDS * 0.9 }
     expect(sum(desiredWaiting(ahead, ctx()))).toBe(1)
+  })
+
+  it('judges the pace against the parents’ daily target (default 12 minutes)', () => {
+    const played = { ...fresh(), playedMs: PLAY_WINDOW_MS / 2, seconds: TARGET_SECONDS * 0.4 }
+    expect(paceOf(played)).toBe('normal')
+    expect(paceOf(played, TARGET_SECONDS * 2)).toBe('behind')
+    expect(paceOf(played, TARGET_SECONDS * 0.4)).toBe('ahead')
+    expect(desiredWaiting(played, ctx())).toEqual(desiredWaiting(played, { ...ctx(), targetSeconds: TARGET_SECONDS }))
+    expect(sum(desiredWaiting(played, { ...ctx(), targetSeconds: TARGET_SECONDS * 2 }))).toBeGreaterThan(sum(desiredWaiting(played, ctx())))
   })
 
   it('cools down a place right after a solved request', () => {

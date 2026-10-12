@@ -123,4 +123,34 @@ describe('FamilyPage', () => {
     expect(await db.skillStates.count()).toBe(0)
     expect(await db.profile.get('me')).toMatchObject({ name: 'Laia', diagnosticDone: false })
   })
+
+  it('the Poble card sets the daily maths minutes per player (default 12) and keeps them', async () => {
+    renderPage()
+    const group = screen.getByRole('radiogroup', { name: 'Minuts de matemàtiques al dia' })
+    expect(within(group).getAllByRole('radio').map((r) => r.textContent)).toEqual(['8 min', '12 min', '16 min', '20 min'])
+    await waitFor(() => expect(within(group).getByRole('radio', { name: '12 min' })).toBeChecked())
+    await userEvent.click(within(group).getByRole('radio', { name: '16 min' }))
+    expect(await screen.findByRole('status')).toHaveTextContent('16 minuts')
+    expect(within(group).getByRole('radio', { name: '16 min' })).toBeChecked()
+    expect((await readMeta(db)).townDailyMinutes).toBe(16)
+    expect(within(group).getByRole('radio', { name: '12 min' })).not.toBeChecked()
+  })
+
+  it('the Poble card shows a saved value and falls back to 12 when it is damaged', async () => {
+    await db.meta.put({ key: 'townDailyMinutes', value: 20 })
+    const first = render(
+      <MemoryRouter>
+        <FamilyPage saveFile={vi.fn()} now={() => NOW} />
+      </MemoryRouter>,
+    )
+    await waitFor(() => expect(screen.getByRole('radio', { name: '20 min' })).toBeChecked())
+    first.unmount()
+    await db.meta.put({ key: 'townDailyMinutes', value: 'molt' })
+    render(
+      <MemoryRouter>
+        <FamilyPage saveFile={vi.fn()} now={() => NOW} />
+      </MemoryRouter>,
+    )
+    await waitFor(() => expect(screen.getByRole('radio', { name: '12 min' })).toBeChecked())
+  })
 })

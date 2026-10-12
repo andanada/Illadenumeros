@@ -4,7 +4,9 @@ import { buildBoard } from '../board/boardPlan'
 import type { SceneId } from '../model/types'
 import type { PlaceModule } from '../places/types'
 import { MATES_SKILLS } from '../../ambits/mates/skills'
-import { governorContext, setOpenPlaces } from './context'
+import { getDb } from '../../core/storage/playerDbs'
+import { DEFAULT_DAILY_MINUTES, readDailyMinutes } from '../../core/storage/meta'
+import { governorContext, setDailyMinutes, setOpenPlaces } from './context'
 import { isQuotaDone, jarLevel, minutesLeft, waitingAt, waitingTotal, type DayState } from './dayState'
 import { dismissReveal, openDay, resolveAt, syncRequests, tickPlayed, useRequestStore, wakeRequests, type DayReveal } from './requestStore'
 
@@ -60,7 +62,13 @@ export function useRequestEngine(now: () => number, openPlaces: readonly PlaceMo
     if (opening.current === key) return
     opening.current = key
     const { skillStates, factStates } = useProgress.getState()
-    void openDay(day, () => buildBoard({ day, places, skills: MATES_SKILLS, states: skillStates, factStates }).tasks, governorContext(day, now(), places))
+    // The parents' daily target (a local setting) is read before the day's allotment is frozen.
+    void readDailyMinutes(getDb())
+      .catch(() => DEFAULT_DAILY_MINUTES)
+      .then((minutes) => {
+        setDailyMinutes(minutes)
+        return openDay(day, () => buildBoard({ day, places, skills: MATES_SKILLS, states: skillStates, factStates, minutes }).tasks, governorContext(day, now(), places))
+      })
   }, [activeId, status, state?.day, day, places, now])
 
   // The governor's beat: time played, new requests when due, bubbles calming down.

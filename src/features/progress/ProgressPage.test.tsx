@@ -1,12 +1,14 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { newSkillState } from '../../core/engine/mastery'
-import { useProgress } from '../../core/progress/store'
+import { todayKey, useProgress } from '../../core/progress/store'
 import { emptyRewards, type MatesDb } from '../../core/storage/db'
 import { activateTestPlayer } from '../../test/playerDb'
 import { batch, NOW } from './analytics/testData'
+import { newDayState, recordResolved, REQUESTS_META_KEY } from '../../world/requests/dayState'
+import { defaultAvatar } from '../../world/characters/wearables'
 import ProgressPage from './ProgressPage'
 
 const PROFILE = { id: 'me' as const, name: 'Laia', character: 'nyx' as const, color: 'rosa' as const, diagnosticDone: true, createdAt: 1 }
@@ -14,7 +16,7 @@ let db: MatesDb
 
 beforeEach(async () => {
   db = activateTestPlayer()
-  await Promise.all([db.profile.clear(), db.skillStates.clear(), db.factStates.clear(), db.attempts.clear(), db.rewards.clear()])
+  await Promise.all([db.profile.clear(), db.skillStates.clear(), db.factStates.clear(), db.attempts.clear(), db.rewards.clear(), db.meta.clear(), db.world.clear()])
   useProgress.setState({ loaded: true, profile: PROFILE, skillStates: {}, factStates: {}, rewards: emptyRewards(), storageError: false })
 })
 
@@ -55,8 +57,8 @@ describe('ProgressPage', () => {
     await passGate()
     expect(await screen.findByRole('heading', { name: 'Resum' })).toBeInTheDocument()
     expect(screen.getByText(/Encara no hi ha activitat/)).toBeInTheDocument()
-    for (const name of ['Recomanacions', 'Operacions', 'Mapa d’habilitats', 'Mapa de fets', 'Temps i constància', 'Evolució', 'Errors més freqüents']) {
-      expect(screen.getByRole('region', { name })).toBeInTheDocument()
+    for (const name of ['Recomanacions', 'El poble', 'Operacions', 'Mapa d’habilitats', 'Mapa de fets', 'Temps i constància', 'Evolució', 'Errors més freqüents']) {
+      expect(await screen.findByRole('region', { name })).toBeInTheDocument()
     }
     expect(document.body.textContent).not.toMatch(/NaN|Infinity|undefined/)
   })
@@ -84,5 +86,40 @@ describe('ProgressPage', () => {
     expect(print).toHaveBeenCalledTimes(1)
     await waitFor(() => expect(screen.getByRole('img', { name: /Minuts jugats per dia/ })).toBeInTheDocument())
     print.mockRestore()
+  })
+
+  it('shows the town for the parents: places, today’s jar, week, coins and recent visits, in a positive tone', async () => {
+    await db.attempts.bulkPut([...batch(1, 3, { gameId: 'poble-botiga' }), ...batch(2, 1, { gameId: 'poble-botiga', correct: false })])
+    await db.meta.put({ key: 'townDailyMinutes', value: 16 })
+    await db.world.put({ id: 'world', avatar: defaultAvatar('nyx', 'rosa'), owned: [], placed: {}, placedAt: {}, pets: [], avatarUpdatedAt: 0, petalsSpent: 12 })
+    useProgress.setState({ rewards: { ...emptyRewards(), petals: 40 } })
+    renderPage()
+    await passGate()
+    const town = await screen.findByRole('region', { name: 'El poble' })
+    await waitFor(() => expect(within(town).getByText('Encàrrecs resolts (7 dies)').nextSibling).toHaveTextContent('3'))
+    expect(within(town).getByText('Monedes guanyades').nextSibling).toHaveTextContent('40')
+    expect(within(town).getByText('Monedes gastades').nextSibling).toHaveTextContent('12')
+    expect(within(town).getByText('Monedes que té ara').nextSibling).toHaveTextContent('28')
+    expect(within(town).getByText(/Avui el poble encara no s’ha obert.*uns 16 minuts/)).toBeInTheDocument()
+    const places = within(town).getByRole('list', { name: 'Llocs del poble' })
+    expect(within(places).getByText('Els Recreatius')).toBeInTheDocument()
+    expect(within(places).getAllByText('Obert').length).toBeGreaterThan(0)
+    expect(within(places).getAllByText('Tancat per ara').length).toBeGreaterThan(0)
+    expect(within(places).getAllByText(/S’obre quan|S’obre amb/).length).toBeGreaterThan(0)
+    const visits = within(town).getByRole('list', { name: /Visites dels últims 14 dies/ })
+    expect(visits).toHaveTextContent('La Botiga')
+    expect(visits).toHaveTextContent('4 respostes')
+    expect(town.textContent).not.toMatch(/NaN|Infinity|undefined|nota|suspès|error|fracàs|\d+\s*%/i)
+  })
+
+  it('shows today’s jar from the saved day of requests', async () => {
+    let day = newDayState(todayKey(NOW), [{ place: 'botiga', count: 5, kind: 'repte', neighbour: 'senyora-pilar' }])
+    for (let i = 0; i < 2; i++) day = recordResolved(day, 'botiga', true, i)
+    await db.meta.put({ key: REQUESTS_META_KEY, value: day })
+    renderPage()
+    await passGate()
+    const town = await screen.findByRole('region', { name: 'El poble' })
+    expect(await within(town).findByText(/Avui porta 2 de 5 encàrrecs, uns 2 de 6 minuts/)).toBeInTheDocument()
+    expect(within(town).getByRole('progressbar', { name: 'Tarro d’estrelles d’avui' })).toHaveAttribute('aria-valuenow', '2')
   })
 })

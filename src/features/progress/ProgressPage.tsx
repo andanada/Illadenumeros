@@ -12,6 +12,7 @@ import { OperationsSection } from './OperationsSection'
 import { RecommendationsSection } from './RecommendationsSection'
 import { SkillHeatmap } from './SkillHeatmap'
 import { SummarySection } from './SummarySection'
+import { TownSection } from './TownSection'
 import { useProgressReport } from './useProgressReport'
 import './print.css'
 
@@ -35,6 +36,7 @@ function Report({ now }: { now?: () => number }) {
       </Button>
       <SummarySection report={report} name={profile.name} character={profile.character} />
       <RecommendationsSection report={report} />
+      <TownSection now={now} />
       <OperationsSection report={report} />
       <SkillHeatmap report={report} />
       <FactHeatmap report={report} />

@@ -71,6 +71,13 @@ export function jarLevel(state: DayState): number {
   return total === 0 ? 0 : Math.min(1, (total - remainingAll(state)) / total)
 }
 
+/** Requests the day asks for (the frozen allotment) and how many are done: for the adults' view of the town. */
+export const requestsTarget = (state: DayState): number => allotted(state)
+export const requestsDone = (state: DayState): number => allotted(state) - remainingAll(state)
+
+/** Approximate minutes of maths credited today (the jar's seconds), rounded to the nearest minute. */
+export const minutesDone = (state: DayState): number => Math.round(state.seconds / 60)
+
 /** Minutes of maths still to do today, rounded up (plain text for the jar's popup). */
 export const minutesLeft = (state: DayState): number => Math.ceil((remainingAll(state) * REQUEST_SECONDS) / 60)
 

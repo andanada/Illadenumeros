@@ -16,7 +16,9 @@ import type { SceneId } from '../model/types'
 
 /** Seconds an errand takes on average (a neighbour served, or one machine round at the Recreatius). */
 const ERRAND_SECONDS = 72
-export const BOARD_ERRANDS = Math.round((MASTERY_THRESHOLDS.mission.minutes * 60) / ERRAND_SECONDS)
+/** Errands for a day of `minutes` of maths (the parents' setting; 12 by default). */
+export const errandsFor = (minutes: number): number => Math.max(1, Math.round((minutes * 60) / ERRAND_SECONDS))
+export const BOARD_ERRANDS = errandsFor(MASTERY_THRESHOLDS.mission.minutes)
 export const WARMUP_PLACE: SceneId = 'recreatius'
 
 export type BoardKind = 'calentament' | 'repte' | 'repas'
@@ -47,6 +49,8 @@ export interface BoardInput {
   readonly skills: readonly SkillNode[]
   readonly states: Readonly<Record<string, SkillState>>
   readonly factStates?: Readonly<Record<string, FactState>>
+  /** Daily maths target in minutes (default: the mission's 12). */
+  readonly minutes?: number
 }
 
 /** Who usually asks at each place (the card's face). */
@@ -113,9 +117,10 @@ export function buildBoard(input: BoardInput): BoardPlan {
   const reviewPlaces = rotate(workOrAll.filter((p) => serves(p, review)), seed >>> 3)
   const anyPlaces = rotate(workOrAll.filter((p) => serves(p, available)).length > 0 ? workOrAll.filter((p) => serves(p, available)) : workOrAll, seed)
 
+  const errands = input.minutes === undefined ? BOARD_ERRANDS : errandsFor(input.minutes)
   const warm = warmup && work.length > 0 ? 1 : 0
-  const coreCount = corePlaces.length > 0 ? Math.ceil(BOARD_ERRANDS * MASTERY_THRESHOLDS.mission.coreShare) : 0
-  const reviewCount = BOARD_ERRANDS - warm - coreCount
+  const coreCount = corePlaces.length > 0 ? Math.ceil(errands * MASTERY_THRESHOLDS.mission.coreShare) : 0
+  const reviewCount = errands - warm - coreCount
   const reviewTarget = reviewPlaces.length > 0 ? reviewPlaces : corePlaces.length > 0 ? corePlaces : anyPlaces
   const dealt = [
     ...(warm > 0 ? [{ place: WARMUP_PLACE, kind: 'calentament' as const }] : []),

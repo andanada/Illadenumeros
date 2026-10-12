@@ -13,6 +13,7 @@ import { Card, MessageBar, type Message } from './Card'
 import { PlayersSection } from './PlayersSection'
 import { ResetSection } from './ResetSection'
 import { RestoreSection } from './RestoreSection'
+import { TownCard } from './TownCard'
 import { createSaveFile, type SaveFile } from './saveFile'
 
 export interface FamilyPageProps {
@@ -111,6 +112,8 @@ export default function FamilyPage({ saveFile, now = Date.now }: FamilyPageProps
             else setMessage({ kind: 'ok', text: cloud ? 'Jugador esborrat d’aquest dispositiu i del compte.' : 'Jugador esborrat d’aquest dispositiu.' })
           }}
         />
+
+        {profile && <TownCard childName={profile.name} onMessage={setMessage} />}
 
         <BackupSection childName={profile?.name} now={now} saveFile={save} lastBackupAt={lastBackupAt} onSaved={setLastBackupAt} onMessage={setMessage} />
         <RestoreSection childName={profile?.name} hasLocalProgress={hasLocalProgress} onMessage={setMessage} />

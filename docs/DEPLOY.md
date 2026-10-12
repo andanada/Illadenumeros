@@ -51,8 +51,30 @@ sudo nginx -t && sudo systemctl reload nginx
 | `sw.js`, `workbox-*.js`, `registerSW.js` | `no-cache` | Si el navegador cachea el SW, no ve las versiones nuevas. |
 | `manifest.webmanifest` | `no-cache` | Cambios de iconos o nombre. |
 | `icons/*`, `icon.svg` | `public, max-age=604800` | Sin hash; el SW los precachea igualmente. |
+| `/voice/<hash>.mp3` | `public, max-age=31536000, immutable` | El nombre es un hash del contenido (12 hex): nunca cambia. |
+| `/voice/manifest.json` | `no-cache` | Cambia al regenerar la voz. |
 
 `no-cache` no significa "no guardar": el navegador revalida con ETag y recibe un 304 barato.
+
+#### Voz pregenerada: caché larga en `/voice/*.mp3`
+
+Los ~2.000 clips (25 MB) se llaman `<12 hex>.mp3` y su nombre es un hash del contenido, así que se pueden cachear un año. La plantilla ya lo hace con `location /voice/`; si prefieres limitarlo solo a los clips con hash (y no a cualquier otro fichero que algún día cuelgue de `/voice/`), usa esta variante, **antes** del bloque de `manifest.json`:
+
+```nginx
+location ~ ^/voice/[0-9a-f]{12}\.mp3$ {
+    add_header Cache-Control "public, max-age=31536000, immutable" always;
+    include snippets/mates-security.conf;   # add_header en un location anula los heredados
+    access_log off;                         # un clip por frase: ruido en el log
+    try_files $uri =404;                    # 404 real, nunca index.html
+}
+location = /voice/manifest.json {
+    add_header Cache-Control "no-cache" always;
+    include snippets/mates-security.conf;
+    try_files $uri =404;
+}
+```
+
+No añadir `gzip` para `audio/mpeg`: el mp3 ya va comprimido. Comprobar con `curl -sI https://dominio/voice/<hash>.mp3 | grep -i cache-control`. El service worker los guarda a medida que se oyen (`mm-voice-clips`), así que esta caché solo ahorra la primera descarga por dispositivo.
 
 ### Compresión
 
@@ -124,3 +146,28 @@ La web incluye `/#/privacitat` (catalán, para las familias; enlazada desde la p
 ## 8. Integración continua
 
 `.github/workflows/ci.yml` (no despliega nada): el trabajo `verify` instala raíz y `server/`, y ejecuta tipos, lint, cobertura, lint, tipos y cobertura del servidor y el build; el trabajo `e2e` ejecuta `npm run e2e`, `npm run e2e:pwa` y `npm run e2e:sync` con Chromium. La caché de npm usa los dos `package-lock.json`.
+
+## 9. Sitio de previsualización y puesta en producción del poble
+
+El poble (rama `poble`, `src/world/**`) se prueba primero en un **sitio de previsualización** aparte, y solo después sustituye a la web de producción.
+
+### Sitio de previsualización
+
+- Un subdominio propio (p. ej. `poble.ejemplo.cat`) con su propio `server` de nginx, su certificado y su propio directorio (p. ej. `/var/www/mates-poble/`), copiado de `docs/nginx-mates.conf` con las mismas cabeceras y cachés.
+- **Sin `/api`**: no se define `location /api/`. Sin API la web funciona como siempre sin cuenta (los datos de cada jugador se quedan en su dispositivo) y ninguna prueba del poble puede tocar la base de datos de las familias. El IndexedDB del subdominio es distinto del de producción: los jugadores de ahí no se mezclan con los reales.
+- Publicar: `npm ci && npm run build` en la rama `poble` y `rsync -a --delete dist/ /var/www/mates-poble/`. Conviene añadir `X-Robots-Tag: noindex` en ese `server` para que no se indexe.
+- La CI (`.github/workflows/ci.yml`) también corre en cada push a `poble`, así que el build que se publica ya ha pasado tipos, lint, cobertura y e2e.
+
+### Llevar el poble a producción
+
+El orden importa porque el cliente nuevo habla con la API nueva (documento `world` en la sincronización):
+
+1. **Copia de seguridad** de la base de datos del servidor (`DATABASE_PATH`, fichero SQLite) y del `dist/` actual: `sudo rsync -a --delete /var/www/mates/ /var/www/mates.prev/` (o `cp -a`). Esa carpeta es el punto de vuelta atrás.
+2. **Servidor primero**: desplegar `server/` con la migración `005_world_doc_kind.sql` (`npm ci --prefix server && npm run build --prefix server`, reiniciar el servicio; las migraciones se aplican al arrancar, ver `server/README.md`). Comprobar `curl -s https://dominio/api/health`. Un cliente antiguo sigue funcionando con la API nueva.
+3. **Cliente después**: `npm run build` desde la rama del poble ya fusionada y `sudo rsync -a --delete dist/ /var/www/mates/`. Los navegadores reciben el service worker nuevo en segundo plano y los niños ven "Hi ha coses noves!" cuando les toca (sección 3); ninguna partida se interrumpe.
+4. Comprobar las cabeceras (sección 4) y entrar con un jugador de prueba: el poble debe cargar, y la sincronización con la cuenta, funcionar.
+
+### Vuelta atrás (rollback)
+
+- **Cliente**: `sudo rsync -a --delete /var/www/mates.prev/ /var/www/mates/` y listo. El service worker antiguo vuelve a ofrecerse como actualización; los datos locales no se tocan.
+- **Servidor**: la migración 005 no se deshace sola. Para volver atrás, restaurar la copia de la base de datos del paso 1 (se pierde lo sincronizado desde entonces) y desplegar la versión anterior de `server/`. Por eso el paso 2 va siempre primero y con copia: mientras no se publique el cliente nuevo, se puede volver atrás sin perder nada de las familias.

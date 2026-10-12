@@ -37,6 +37,8 @@ export interface GovernorContext {
   /** Skill groups of the day (same weighting as the daily mission): current operation / spaced review. */
   readonly core: ReadonlySet<string>
   readonly review: ReadonlySet<string>
+  /** Seconds of maths the day is meant to hold (the parents' setting); defaults to the mission's 12 minutes. */
+  readonly targetSeconds?: number
 }
 
 const KIND_OF_PLACE: Readonly<Partial<Record<SceneId, RequestKind>>> = {
@@ -52,9 +54,9 @@ export const WARMUP_PLACE: SceneId = 'recreatius'
 export type Pace = 'quiet' | 'behind' | 'ahead' | 'normal'
 
 /** How the day is going, from the minutes played, the jar and the recent accuracy. Pure. */
-export function paceOf(state: DayState): Pace {
+export function paceOf(state: DayState, targetSeconds: number = TARGET_SECONDS): Pace {
   if (isQuiet(state)) return 'quiet'
-  const expected = TARGET_SECONDS * Math.min(1, state.playedMs / PLAY_WINDOW_MS)
+  const expected = targetSeconds * Math.min(1, state.playedMs / PLAY_WINDOW_MS)
   if (state.playedMs >= BEHIND_AFTER_MS && state.seconds < expected * BEHIND_RATIO) return 'behind'
   if (expected > 0 && state.seconds > expected * AHEAD_RATIO) return 'ahead'
   return 'normal'
@@ -75,7 +77,7 @@ function priority(state: DayState, ctx: GovernorContext): GovernorPlace[] {
 /** Requests that should be waiting per place right now. Pure and deterministic. */
 export function desiredWaiting(state: DayState, ctx: GovernorContext): Partial<Record<SceneId, number>> {
   if (isQuotaDone(state)) return {}
-  const pace = paceOf(state)
+  const pace = paceOf(state, ctx.targetSeconds)
   const perPlace = pace === 'behind' ? MAX_PER_PLACE : 1
   let room = TOTAL_CAP[pace]
   const want: Partial<Record<SceneId, number>> = {}

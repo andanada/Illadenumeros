@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { MatesDb } from './db'
 import { activateTestPlayer } from '../../test/playerDb'
-import { BACKUP_REMINDER_DAYS, backupIsDue, readMeta, setLastBackupAt } from './meta'
+import { BACKUP_REMINDER_DAYS, backupIsDue, DEFAULT_DAILY_MINUTES, readDailyMinutes, readMeta, setDailyMinutes, setLastBackupAt } from './meta'
 
 const DAY = 24 * 60 * 60 * 1000
 
@@ -37,5 +37,26 @@ describe('setLastBackupAt', () => {
   it('ignores unknown meta keys', async () => {
     await db.meta.put({ key: 'altres', value: 3 })
     expect(await readMeta(db)).toEqual({})
+  })
+})
+
+describe('daily maths minutes (town setting)', () => {
+  it('defaults to 12 when nothing is stored or the value is damaged', async () => {
+    expect(DEFAULT_DAILY_MINUTES).toBe(12)
+    expect(await readDailyMinutes(db)).toBe(12)
+    await db.meta.put({ key: 'townDailyMinutes', value: 99 })
+    expect(await readDailyMinutes(db)).toBe(12)
+    expect((await readMeta(db)).townDailyMinutes).toBeUndefined()
+  })
+
+  it('stores one of 8 / 12 / 16 / 20 and reads it back', async () => {
+    await setDailyMinutes(db, 16)
+    expect(await readDailyMinutes(db)).toBe(16)
+    expect((await readMeta(db)).townDailyMinutes).toBe(16)
+  })
+
+  it('refuses any other value', async () => {
+    await expect(setDailyMinutes(db, 10)).rejects.toThrow()
+    expect(await readDailyMinutes(db)).toBe(12)
   })
 })
