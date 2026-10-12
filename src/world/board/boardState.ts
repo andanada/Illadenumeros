@@ -44,7 +44,7 @@ export function recordSolved(state: BoardState, place: SceneId): BoardState {
   return { ...state, done: { ...state.done, [place]: (state.done[place] ?? 0) + 1 } }
 }
 
-const GIFT_KINDS: ReadonlySet<CatalogEntry['kind']> = new Set(['top', 'bottom', 'shoes', 'accessory', 'furniture'])
+export const GIFT_KINDS: ReadonlySet<CatalogEntry['kind']> = new Set(['top', 'bottom', 'shoes', 'accessory', 'furniture'])
 
 /**
  * The day's surprise: a clothing item or a piece of furniture she does not own yet, from those that cost

@@ -1,8 +1,9 @@
 /**
  * Fixed child-facing phrases that are always pre-generated (highest priority, ~1 KB of text in total).
- * The app speaks only question prompts today; these are the messages already shown on screen
- * (feedback, celebration, encouragement, onboarding, diagnostic, game instructions), so a future
- * `speak('Molt bé!')` plays the studio voice from day one. Add a phrase here, then regenerate.
+ * These are the messages already shown on screen (feedback, celebration, encouragement, onboarding, diagnostic, game
+ * instructions), so a future `speak('Molt bé!')` plays the studio voice from day one. Add a phrase here, then regenerate.
+ * The town's own fixed lines (thank-yous, «Obrim aviat!», the gift, the star jar) live in `src/world/townVoice.ts`,
+ * which the app imports too, and its requests and hints are enumerated by `town.ts`.
  */
 export const FIXED_PHRASES: readonly string[] = [
   // Feedback and celebration

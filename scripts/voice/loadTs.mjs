@@ -17,8 +17,11 @@ export async function loadVoiceModules() {
   const load = (path) => server.ssrLoadModule(path)
   return {
     collect: await load('/scripts/voice/collect.ts'),
+    plan: await load('/scripts/voice/plan.ts'),
     budget: await load('/scripts/voice/budget.ts'),
     ssml: await load('/scripts/voice/ssml.ts'),
+    mp3: await load('/scripts/voice/mp3.ts'),
+    server,
     close: () => server.close(),
   }
 }

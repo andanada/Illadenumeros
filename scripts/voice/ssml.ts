@@ -5,6 +5,8 @@ export const LANG = 'ca-ES'
 export const RATE = '-5%'
 export const PITCH = '+3%'
 export const OUTPUT_FORMAT = 'audio-24khz-48kbitrate-mono-mp3'
+/** The town's clips: lighter, so the payload buys more sentences. Both decode with the same Web Audio path. */
+export const TOWN_OUTPUT_FORMAT = 'audio-16khz-32kbitrate-mono-mp3'
 
 const XML_ESCAPES: Readonly<Record<string, string>> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }
 

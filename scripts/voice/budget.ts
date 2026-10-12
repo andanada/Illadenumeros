@@ -7,9 +7,17 @@
 export interface Limits {
   readonly maxChars: number
   readonly maxBytes: number
+  /** Bytes kept out of `maxBytes` for the manifest and overhead (default: RESERVED_BYTES). */
+  readonly reserved?: number
 }
 
 export const LIMITS: Limits = { maxChars: 300_000, maxBytes: 25 * 1024 * 1024 }
+
+/**
+ * Extra allowance for the town's own clips (~15 MB of new payload in total, counting the few question clips still
+ * pending). `maxChars` is the town's share of the 300,000 total, which the generator also checks against usage.json.
+ */
+export const TOWN_LIMITS: Limits = { maxChars: 150_000, maxBytes: 13 * 1024 * 1024, reserved: 0 }
 
 /** Bytes of the manifest and small overhead reserved out of `maxBytes`. */
 export const RESERVED_BYTES = 256 * 1024
@@ -21,10 +29,31 @@ export const RESERVED_BYTES = 256 * 1024
 export const BYTES_BASE = 2_700
 export const BYTES_PER_CHAR = 617
 
-export const estimateBytes = (text: string): number => Math.round(BYTES_BASE + BYTES_PER_CHAR * text.length)
+/** Town clips: `audio-16khz-32kbitrate-mono-mp3`, calibrated on real clips (see README, "Calibration"). */
+export const TOWN_BYTES_BASE = 3_100
+export const TOWN_BYTES_PER_CHAR = 368
+
+/**
+ * The town's clips (neighbours' requests, hints, thanks...) have their own allowance on top of the question clips and
+ * are encoded lighter, so the same payload buys more sentences. Same decoder in the browser (decodeAudioData).
+ */
+export type ClipGroup = 'base' | 'town'
+
+export interface SizeModel {
+  readonly base: number
+  readonly perChar: number
+}
+
+export const SIZE_MODELS: Readonly<Record<ClipGroup, SizeModel>> = {
+  base: { base: BYTES_BASE, perChar: BYTES_PER_CHAR },
+  town: { base: TOWN_BYTES_BASE, perChar: TOWN_BYTES_PER_CHAR },
+}
+
+export const estimateBytes = (text: string, group: ClipGroup = 'base'): number => Math.round(SIZE_MODELS[group].base + SIZE_MODELS[group].perChar * text.length)
 
 export interface Sized {
   readonly text: string
+  readonly group?: ClipGroup
 }
 
 export interface Totals {
@@ -37,7 +66,7 @@ export function totalsOf(items: readonly Sized[]): Totals {
   return {
     clips: items.length,
     chars: items.reduce((sum, item) => sum + item.text.length, 0),
-    bytes: items.reduce((sum, item) => sum + estimateBytes(item.text), 0),
+    bytes: items.reduce((sum, item) => sum + estimateBytes(item.text, item.group), 0),
   }
 }
 
@@ -54,8 +83,21 @@ export function assertWithinBudget(items: readonly Sized[], limits: Limits = LIM
   if (totals.chars > limits.maxChars) {
     throw new BudgetError(`Pressupost de caràcters superat: ${totals.chars} > ${limits.maxChars}`)
   }
-  if (totals.bytes > limits.maxBytes - RESERVED_BYTES) {
-    throw new BudgetError(`Pressupost de pes superat: ${totals.bytes} > ${limits.maxBytes - RESERVED_BYTES} bytes`)
+  if (totals.bytes > limits.maxBytes - (limits.reserved ?? RESERVED_BYTES)) {
+    throw new BudgetError(`Pressupost de pes superat: ${totals.bytes} > ${limits.maxBytes - (limits.reserved ?? RESERVED_BYTES)} bytes`)
   }
   return totals
+}
+
+/**
+ * The whole plan (question clips + town clips): each group within its own allowance, and the characters of both
+ * within the one shared total. Called by the generator before any request.
+ */
+export function assertPlanWithinBudget(items: readonly Sized[], limits: { base: Limits; town: Limits; maxChars: number } = { base: LIMITS, town: TOWN_LIMITS, maxChars: LIMITS.maxChars }): Totals {
+  const isTown = (item: Sized): boolean => item.group === 'town'
+  assertWithinBudget(items.filter((i) => !isTown(i)), limits.base)
+  assertWithinBudget(items.filter(isTown), limits.town)
+  const total = totalsOf(items)
+  if (total.chars > limits.maxChars) throw new BudgetError(`Pressupost de caràcters superat: ${total.chars} > ${limits.maxChars}`)
+  return total
 }

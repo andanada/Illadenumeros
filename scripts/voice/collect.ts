@@ -4,7 +4,7 @@ import type { Grade, SkillNode } from '../../src/core/ambit/types'
 import { clipKey, normalizeSpeech } from '../../src/core/audio/normalize'
 import { createRng } from '../../src/core/rng'
 import { BudgetError, estimateBytes, LIMITS, RESERVED_BYTES, totalsOf } from './budget'
-import type { Limits, Totals } from './budget'
+import type { ClipGroup, Limits, Totals } from './budget'
 import { FIXED_PHRASES } from './phrases'
 
 export { assertWithinBudget, BudgetError, LIMITS } from './budget'
@@ -24,7 +24,7 @@ export const DEFAULT_SEEDS = 1500
 export const VALIDATION_SEEDS = 400
 
 /** The child is in 4th grade and the app grows towards 5th: those years get more of the budget than 1st grade. */
-const GRADE_WEIGHT: Readonly<Record<Grade, number>> = { 1: 0.6, 2: 0.8, 3: 1, 4: 1.3, 5: 1.3 }
+export const GRADE_WEIGHT: Readonly<Record<Grade, number>> = { 1: 0.6, 2: 0.8, 3: 1, 4: 1.3, 5: 1.3 }
 
 export interface Candidate {
   /** Normalised text: what is sent to the voice and what the key is computed from. */
@@ -33,6 +33,8 @@ export interface Candidate {
   /** Expected share of spoken prompts that equal this text (fixed phrases: Infinity). */
   readonly weight: number
   readonly sources: readonly string[]
+  /** Which allowance and encoding it belongs to (default: the question clips). */
+  readonly group?: ClipGroup
 }
 
 export interface Selection extends Totals {
@@ -44,7 +46,7 @@ export interface Selection extends Totals {
 
 const FIXED_SOURCE = 'fixed'
 
-function sampleSkill(skill: SkillNode, seeds: number, namespace: string): { counts: Map<string, number>; samples: number } {
+export function sampleSkill(skill: SkillNode, seeds: number, namespace: string): { counts: Map<string, number>; samples: number } {
   const generator = matesAmbit.generators[skill.id]
   if (!generator) throw new Error(`Falta el generador de ${skill.id}`)
   const facts = matesAmbit.factsForSkill(skill.id)
@@ -92,14 +94,14 @@ export function assertUniqueKeys(candidates: readonly Candidate[]): void {
 
 /** Greedy by hit probability per byte, skipping what no longer fits. Fixed phrases come first and must fit. */
 export function selectWithinBudget(candidates: readonly Candidate[], limits: Limits = LIMITS): Candidate[] {
-  const maxBytes = limits.maxBytes - RESERVED_BYTES
+  const maxBytes = limits.maxBytes - (limits.reserved ?? RESERVED_BYTES)
   const ranked = byValue(candidates)
   const chosen: Candidate[] = []
   let chars = 0
   let bytes = 0
   for (const candidate of ranked) {
     const nextChars = chars + candidate.text.length
-    const nextBytes = bytes + estimateBytes(candidate.text)
+    const nextBytes = bytes + estimateBytes(candidate.text, candidate.group)
     if (nextChars > limits.maxChars || nextBytes > maxBytes) {
       if (candidate.weight === Infinity) throw new BudgetError(`Les frases fixes no caben al pressupost («${candidate.text}»)`)
       continue
@@ -113,7 +115,7 @@ export function selectWithinBudget(candidates: readonly Candidate[], limits: Lim
 
 /** Most valuable first (hit probability per byte), so an interrupted run keeps the clips that matter most. */
 export function byValue(candidates: readonly Candidate[]): Candidate[] {
-  const ratio = (c: Candidate): number => (c.weight === Infinity ? Infinity : c.weight / estimateBytes(c.text))
+  const ratio = (c: Candidate): number => (c.weight === Infinity ? Infinity : c.weight / estimateBytes(c.text, c.group))
   return [...candidates].sort((a, b) => {
     const diff = ratio(b) - ratio(a)
     if (diff !== 0 && !Number.isNaN(diff)) return diff
@@ -138,8 +140,8 @@ export interface SkillCoverage {
 }
 
 /** Honest hit rate: prompts drawn with seeds the selection never saw. */
-export function measureCoverage(selection: Selection, seeds: number = VALIDATION_SEEDS): { overall: number; perSkill: SkillCoverage[] } {
-  const keys = new Set(selection.selected.map((c) => c.text))
+export function measureCoverage(selection: Selection, seeds: number = VALIDATION_SEEDS, texts?: ReadonlySet<string>): { overall: number; perSkill: SkillCoverage[] } {
+  const keys = texts ?? new Set(selection.selected.map((c) => c.text))
   const perSkill = matesAmbit.skills.map((skill) => {
     const { counts, samples } = sampleSkill(skill, seeds, 'validation')
     let hits = 0

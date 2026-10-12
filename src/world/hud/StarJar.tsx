@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { unlockAudio } from '../../core/audio/sfx'
+import { speak } from '../../core/audio/speech'
 import { worldSfx } from '../scene/worldSfx'
 import { jarMessage, type JarProgress } from './jarMessage'
 
@@ -78,6 +79,7 @@ export function StarJar({ jar }: { jar: JarProgress }) {
         onClick={() => {
           unlockAudio()
           worldSfx.squish()
+          if (!open) speak(jarMessage(jar))
           setOpen((v) => !v)
         }}
         className={round}

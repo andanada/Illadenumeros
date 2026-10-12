@@ -7,6 +7,7 @@ import { Avatar, PropArt } from '../scene/art'
 import { useWorldReducedMotion } from '../scene/useReducedMotion'
 import { worldSfx } from '../scene/worldSfx'
 import type { DayReveal as BoardReveal } from '../requests/requestStore'
+import { CHEER_LINE, giftMessage } from '../townVoice'
 import { GiftBox } from './GiftBox'
 import { isWearable, wearGift } from './wearGift'
 
@@ -34,7 +35,7 @@ export function GiftReveal({ reveal, avatar, onWear, onClose }: GiftRevealProps)
   const [open, setOpen] = useState(reveal.kind === 'cheer')
   const first = useRef<HTMLButtonElement | null>(null)
   const gift = reveal.kind === 'gift' ? reveal.entry : undefined
-  const message = gift ? `${gift.name}! És per a tu. ${isWearable(gift) ? 'Ja és al teu armari.' : 'Ja és a casa teva.'}` : 'Has fet tots els encàrrecs d’avui!'
+  const message = gift ? giftMessage(gift) : CHEER_LINE
 
   useEffect(() => {
     first.current?.focus()

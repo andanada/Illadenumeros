@@ -17,6 +17,7 @@
     "e2e:pwa": "node scripts/e2e-pwa.mjs",
     "voice:dry": "node scripts/voice/generate.mjs --dry-run",
     "voice": "node scripts/voice/generate.mjs",
+    "voice:verify": "node scripts/voice/generate.mjs --verify",
     "e2e:sync": "node scripts/e2e-sync.mjs"
   },
   "dependencies": {

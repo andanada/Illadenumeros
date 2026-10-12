@@ -3,8 +3,8 @@ import type { Choice, GameId, Item } from '../../core/ambit/types'
 import { speak } from '../../core/audio/speech'
 import { useQuestionFlow, type HintLevel, type QuestionFlow } from '../../features/play/useQuestionFlow'
 import { worldSfx } from '../scene/worldSfx'
-import { pickAdapter } from './adapters'
-import { fallbackRequest } from './requestText'
+import { THANKS } from '../townVoice'
+import { requestFor } from './adapters'
 import type { AnyErrandAdapter, BuiltTask, ErrandPhase } from './types'
 
 export interface ErrandOptions {
@@ -38,8 +38,6 @@ export interface Errand {
   next: () => void
 }
 
-const THANKS = ['Moltes gràcies!', 'Perfecte, gràcies!', 'Genial! Fins aviat!', 'Que bé! Gràcies!'] as const
-
 /** One neighbour at a time, each with the engine's next item, solved in the world. */
 export function useErrand(options: ErrandOptions): Errand {
   const { gameId, skillIds, adapters, forced, onSolved } = options
@@ -51,8 +49,7 @@ export function useErrand(options: ErrandOptions): Errand {
   const [earned, setEarned] = useState(0)
   const busy = useRef(false)
 
-  const task = useMemo(() => pickAdapter(adapters, item)?.build(item), [adapters, item])
-  const request = task?.request ?? fallbackRequest(item)
+  const { task, request } = useMemo(() => requestFor(adapters, item), [adapters, item])
 
   useEffect(() => {
     speak(request.speech)

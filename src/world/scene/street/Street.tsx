@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, 
 import { unlockAudio } from '../../../core/audio/sfx'
 import { speak } from '../../../core/audio/speech'
 import type { AvatarSpec, SceneId } from '../../model/types'
+import { CLOSED_PLACE_LINE } from '../../townVoice'
 import { Grain, PropArt } from '../art'
 import { useWorldReducedMotion } from '../useReducedMotion'
 import { worldSfx } from '../worldSfx'
@@ -156,7 +157,7 @@ export function Street({ avatar, spots, onEnter, initialOffset, onOffsetChange, 
     unlockAudio()
     if (spot.open) return visit(spot)
     worldSfx.boing()
-    speak('Obrim aviat!')
+    speak(CLOSED_PLACE_LINE)
   }
 
   const { viewportRef, handlers } = pan

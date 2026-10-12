@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { clipKey, normalizeSpeech } from '../../src/core/audio/normalize'
-import { assertWithinBudget, BudgetError, BYTES_BASE, estimateBytes, LIMITS, RESERVED_BYTES, totalsOf } from './budget'
+import { assertWithinBudget, BudgetError, BYTES_BASE, estimateBytes, LIMITS, RESERVED_BYTES, TOWN_LIMITS, totalsOf } from './budget'
 import {
   assertUniqueKeys,
   byValue,
@@ -141,6 +141,7 @@ describe('generated clips on disk', () => {
     const files = new Set(readdirSync(dir).filter((f) => f.endsWith('.mp3')))
     for (const key of manifest.clips) expect(files.has(`${key}.mp3`)).toBe(true)
     const bytes = [...files].reduce((sum, f) => sum + statSync(join(dir, f)).size, 0)
-    expect(bytes).toBeLessThanOrEqual(LIMITS.maxBytes)
+    // Question clips (25 MB) plus the town's allowance, with the slack the size model needs.
+    expect(bytes).toBeLessThanOrEqual(LIMITS.maxBytes + TOWN_LIMITS.maxBytes + 2 * 1024 * 1024)
   })
 })
